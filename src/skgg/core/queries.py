@@ -14,7 +14,7 @@ from typing import cast
 
 import requests
 from requests.auth import HTTPDigestAuth
-from SPARQLWrapper import GET, JSON, URLENCODED, SPARQLWrapper
+from SPARQLWrapper import JSON, POST, URLENCODED, SPARQLWrapper
 from yarl import URL
 
 from skgg.core.rules import HornRule, RuleSignature
@@ -81,9 +81,16 @@ def _execute_update_query(client: SPARQLWrapper, query: str) -> None:
 # Query execution.
 # ---------------------------------------------------------------------------
 def execute_select_query(client: SPARQLWrapper, query: str) -> list[SparqlBinding]:
-    """Executes a SELECT query and returns the bindings."""
+    """Executes a SELECT query and returns the bindings.
+
+    Uses POST (URL-encoded) rather than GET so the query text travels in the
+    request body instead of the URL. Queries built with large VALUES clauses
+    (see `get_existing_triples`) can easily exceed a GET request's max URL/header
+    size and get rejected by the store's HTTP server (e.g. GraphDB's "Request
+    header is too large").
+    """
     # TODO (optim): Maybe we want this as an iterator
-    client.setMethod(GET)
+    client.setMethod(POST)
     client.setReturnFormat(JSON)
     client.setQuery(query)
 
@@ -262,9 +269,10 @@ def insert_graph(
     client: SPARQLWrapper,
     graph_uri: str,
     chunk_size: int,
-    nt_file: Path | str,
+    triple_file: Path | str,
+    term_mapping: dict[str, str] | None = None,
 ) -> None:
-    """Overwrites a graph with contents from an .nt file.
+    """Overwrites a graph with contents from an .nt or .tsv file.
 
     Uses `insert_triples_bulk`'s bulk-load REST endpoint (rather than SPARQL
     `INSERT DATA`) since a base graph loaded from disk can easily reach the
@@ -274,36 +282,56 @@ def insert_graph(
         client: The SPARQL wrapper client used to execute queries.
         graph_uri: The URI of the named graph to overwrite.
         chunk_size: The number of triples to insert per batch.
-        nt_file: The local file path to the .nt file.
+        triple_file: The local file path to the .nt or .tsv file.
+        term_mapping: Mapping of bare terms to their namespace URIs (see
+            `utils.format_term`). Required when `triple_file` is a .tsv file,
+            whose subject/predicate/object columns are unqualified terms;
+            ignored for .nt files, which are already fully qualified.
 
     Raises:
-        ValueError: If `nt_file` does not point to an existing file.
+        ValueError: If `triple_file` does not point to an existing file, or is
+            a .tsv file and no `term_mapping` is given.
     """
 
-    nt_file = Path(nt_file)
-    if not nt_file.is_file():
-        raise ValueError("Invalid input file: %s", nt_file)
+    triple_file = Path(triple_file)
+    if not triple_file.is_file():
+        raise ValueError("Invalid input file: %s", triple_file)
+
+    is_tsv = triple_file.suffix.lower() == ".tsv"
+    if is_tsv and term_mapping is None:
+        raise ValueError("A term_mapping is required to load a .tsv file.")
 
     clear_graph(client, graph_uri)
 
-    def _parse_line(text: str) -> str:
-        """Parses a line from a .nt file to a valid triple."""
-        stripped = text.strip()
-        if not stripped or stripped.startswith("#"):
-            return ""
-        return stripped
-
-    def _triple_stream(file_path: Path) -> Iterator[str]:
-        """Streams the triples locally from an .nt file."""
+    def _nt_stream(file_path: Path) -> Iterator[str]:
+        """Streams triples locally from an .nt file, already fully qualified."""
         with file_path.open(encoding="utf-8") as f:
             for line in f:
-                if triple := _parse_line(line):
-                    yield triple
+                stripped = line.strip()
+                if stripped and not stripped.startswith("#"):
+                    yield stripped
 
-    iterator = _triple_stream(nt_file)
+    def _tsv_stream(file_path: Path, mapping: dict[str, str]) -> Iterator[str]:
+        """Streams triples from a tab-separated (subject, predicate, object)
+        file, resolving each bare term to a full URI via `mapping`."""
+        with file_path.open(encoding="utf-8") as f:
+            for line in f:
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+                subject, predicate, obj = stripped.split("\t")
+                yield format_triple(subject, predicate, obj, mapping)
+
+    iterator = (
+        _tsv_stream(triple_file, cast(dict[str, str], term_mapping))
+        if is_tsv
+        else _nt_stream(triple_file)
+    )
 
     n = insert_triples_bulk(client, graph_uri, iterator, chunk_size)
-    logger.debug("Inserted %d triples to <%s> from '%s'.", n, graph_uri, nt_file.name)
+    logger.debug(
+        "Inserted %d triples to <%s> from '%s'.", n, graph_uri, triple_file.name
+    )
 
 
 def clear_graph(client: SPARQLWrapper, graph_uri: str) -> None:
@@ -340,18 +368,27 @@ def copy_graph(
 
 
 def initialize_graph(
-    client: SPARQLWrapper, source: str | None, new_graph_uri: str, chunk_size: int
+    client: SPARQLWrapper,
+    source: str | None,
+    new_graph_uri: str,
+    chunk_size: int,
+    term_mapping: dict[str, str] | None = None,
 ) -> None:
     """Overwrites the new graph URI's content with the source's content.
 
     Args:
         client: Wrapper for SPARQL queries.
-        source: A .nt file path or a Graph URI. If None, the graph is only cleared.
+        source: A .nt/.tsv file path or a Graph URI. If None, the graph is only
+            cleared.
         new_graph_uri: URI where the source content will be written.
         chunk_size: Maximum number of triples to insert per SPARQL query.
+        term_mapping: Mapping of bare terms to their namespace URIs (see
+            `utils.format_term`). Required when `source` is a .tsv file;
+            ignored for .nt files and Graph URIs.
 
     Raises:
-        ValueError: If the source format is not valid (neither a .nt file nor a URI).
+        ValueError: If the source format is not valid (neither a .nt/.tsv file
+            nor a URI).
     """
 
     if source is None:
@@ -361,23 +398,26 @@ def initialize_graph(
 
     clean_source = str(source).strip("<>")
     clean_target = new_graph_uri.strip("<>")
-    is_nt_file = clean_source.endswith(".nt")
+    is_triple_file = clean_source.endswith((".nt", ".tsv"))
     is_uri = clean_source.startswith(("http:", "https:"))
 
-    if not (is_nt_file or is_uri):
-        raise ValueError(f"Invalid source '{source}'. Expected a .nt file or a URI.")
+    if not (is_triple_file or is_uri):
+        raise ValueError(
+            f"Invalid source '{source}'. Expected a .nt/.tsv file or a URI."
+        )
 
     if is_uri and clean_source == clean_target:
         return
 
     clear_graph(client, new_graph_uri)
 
-    if is_nt_file:
+    if is_triple_file:
         insert_graph(
             client=client,
             graph_uri=new_graph_uri,
-            nt_file=source,
+            triple_file=source,
             chunk_size=chunk_size,
+            term_mapping=term_mapping,
         )
 
     else:

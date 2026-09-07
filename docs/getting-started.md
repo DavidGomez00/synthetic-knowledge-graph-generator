@@ -42,10 +42,15 @@ you want a different dataset, then run it directly:
 python -m skgg.cli.upload
 ```
 
-This uploads `.data/Mario/mario.nt` into `base_uri`, then forward-chains the
-rule set over it (`engine/completion.py`) to produce `complete_uri` — the
-graph that metrics get extracted from. See
+This uploads `.data/Mario/mario.nt` (`graph.triple_file` in the config) into
+`base_uri`, then forward-chains the rule set over it (`engine/completion.py`)
+to produce `complete_uri` — the graph that metrics get extracted from. See
 [`architecture.md`](architecture.md) for why this "completion" step exists.
+
+`graph.triple_file` also accepts a `.tsv` file of bare `subject<TAB>predicate<TAB>object`
+terms — `french_royalty.json` uses this format
+(`.data/FrenchRoyalty/french_royalty.tsv`); terms are resolved to full URIs via
+the ontology term mapping before insertion, the same way rule bodies are.
 
 ## 4. Run the experiment
 
@@ -65,20 +70,12 @@ is written under `logs/` (gitignored).
 
 | What | Where |
 |---|---|
-| Source data per dataset (`.nt`/`.ttl`/rules `.csv`) | `.data/<Dataset>/`, referenced by `data.input_dir` in the matching config |
+| Source data per dataset (`.nt`/`.tsv`/`.ttl`/rules `.csv`) | `.data/<Dataset>/`, referenced by `data.input_dir` in the matching config |
 | Experiment configs | `configurations/*.json` |
 | Named graphs (base/complete/EDB/synthetic) | in the running Virtuoso/GraphDB instance, keyed by the URIs in each config's `graph` section — nothing is written to disk by `cli/main.py` |
 | Run logs | `logs/` (gitignored) |
 
 ## Troubleshooting
 
-- **`ValueError: Configuration Error: Invalid 'graph' section: ...missing 1
-  required positional argument: 'namespace'`** — the config's `graph`
-  section is missing `namespace`. Check it against `GraphConfig`'s fields
-  in `config.py`; both `mario.json` and `french_royalty.json` have a
-  complete `graph` section to compare against.
-- **`FileNotFoundError` from `DataConfig`** — `data.input_dir` in the config
-  must point at an existing directory, resolved relative to your current
-  working directory (usually the repo root).
 - Full architecture and known rough edges: [`architecture.md`](architecture.md),
   [`concepts.md`](concepts.md), [`../BACKLOG.md`](../BACKLOG.md).

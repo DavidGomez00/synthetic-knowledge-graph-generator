@@ -1,18 +1,18 @@
 {
   "data": {
     "input_dir": ".data/FrenchRoyalty/",
-    "database_url": "http://localhost:8890/",
-    "sparql_endpoint": "sparql-auth"
+    "database_url": "http://localhost:7200/",
+    "sparql_endpoint": "repositories/FrenchRoyalty"
   },
   "db_config": {
-    "user": "dba",
-    "password": "dba",
-    "auth_type": "DIGEST",
-    "chunk_size": 1000
+    "user": "admin",
+    "password": "rootpassword",
+    "auth_type": "BASIC",
+    "chunk_size": 5000
   },
   "graph": {
     "name": "FrechRoyalty",
-    "nt_file": "french_royalty.nt",
+    "triple_file": "french_royalty.tsv",
     "ontology_file": "french_royalty.ttl",
     "namespace": "http://FrenchRoyalty.org/",
     "base_uri": "http://FrenchRoyalty.org/graph/base",
@@ -21,7 +21,7 @@
     "synthetic_uri": "http://FrenchRoyalty.org/graph/synthetic"
   },
   "rules":{
-    "rules_file": "rules_Std_1.csv",
+    "rules_file": "french_royalty_stdc=1.csv",
     "pca_threshold": 1
   },
   "logging":{

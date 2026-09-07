@@ -69,9 +69,7 @@ class RuleSignature:
     def get_head_variables(self) -> set[str]:
         """Return unique variables starting with '?' in the rule's head."""
         return {
-            term
-            for term in (self.head.subject, self.head.obj)
-            if term.startswith("?")
+            term for term in (self.head.subject, self.head.obj) if term.startswith("?")
         }
 
     def get_body_variables(self) -> set[str]:
@@ -177,13 +175,13 @@ ATOM_PATTERN = re.compile(r"(\?\w+)\s+(\S+)\s+(\S+)")
 class _RuleRow(Protocol):
     """Definines the expected structure of a rule DataFrame row."""
 
-    Head: str
-    Body: str
-    Std_Confidence: float
-    Positive_Examples: float
-    Head_Coverage: float
-    PCA_Confidence: float
-    Classification: str
+    body: str
+    head: str
+    std_confidence: float
+    positive_examples: float
+    head_coverage: float
+    pca_confidence: float
+    classification: str
 
 
 def _parse_body(body_str: str, term_mapping: dict[str, str]) -> frozenset[Atom]:
@@ -240,14 +238,14 @@ def _parse_horn_rule(
     rule = HornRule(
         signature=RuleSignature(
             rule_id=rule_id,
-            head=_parse_head(str(row.Head), term_mapping),
-            body=_parse_body(str(row.Body), term_mapping),
+            body=_parse_body(str(row.body), term_mapping),
+            head=_parse_head(str(row.head), term_mapping),
         ),
-        support=_parse_metric(row.Positive_Examples),
-        head_coverage=_parse_metric(row.Head_Coverage),
-        std_confidence=_parse_metric(row.Std_Confidence),
-        pca_confidence=_parse_metric(row.PCA_Confidence),
-        classification=row.Classification,
+        support=_parse_metric(row.positive_examples),
+        head_coverage=_parse_metric(row.head_coverage),
+        std_confidence=_parse_metric(row.std_confidence),
+        pca_confidence=_parse_metric(row.pca_confidence),
+        classification=row.classification,
     )
 
     return rule
@@ -275,11 +273,11 @@ def parse_rule_set(
     """
     rule_dataframe = pd.read_csv(rules_file)
 
-    rule_dataframe["Classification"] = "NEGATIVE"
+    rule_dataframe["classification"] = "NEGATIVE"
     rule_dataframe.loc[
-        rule_dataframe["PCA_Confidence"] >= pca_threshold, "Classification"
+        rule_dataframe["pca_confidence"] >= pca_threshold, "classification"
     ] = "POSITIVE"
-    rule_dataframe.loc[rule_dataframe["PCA_Confidence"].isna(), "Classification"] = (
+    rule_dataframe.loc[rule_dataframe["pca_confidence"].isna(), "classification"] = (
         "UNKNOWN"
     )
 

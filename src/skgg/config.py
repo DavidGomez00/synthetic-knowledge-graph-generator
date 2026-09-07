@@ -70,7 +70,7 @@ class GraphConfig:
         name: Human-readable name for the graph/experiment.
         ontology_file: Filename (relative to `data.input_dir`) of the ontology
             (.ttl) used to build the term-to-namespace mapping.
-        nt_file: Filename (relative to `data.input_dir`) of the base graph in
+        triple_file: Filename (relative to `data.input_dir`) of the base graph in
             N-Triples format, consumed by `cli/upload.py`.
         namespace: Default namespace URI used to resolve unprefixed terms.
         base_uri: Named-graph URI for the raw, uploaded base graph.
@@ -83,7 +83,7 @@ class GraphConfig:
 
     name: str
     ontology_file: str
-    nt_file: str
+    triple_file: str
     namespace: str
     base_uri: str
     complete_uri: str
@@ -135,9 +135,7 @@ class RunConfig:
     def from_json(cls, json_path: Path | str) -> Self:
         """Loads a RunConfig from a JSON file."""
 
-        def load_section(
-            section_cls: type[T], key: str, required: bool = False
-        ) -> T:
+        def load_section(section_cls: type[T], key: str, required: bool = False) -> T:
             """Builds a config dataclass from a JSON section.
 
             Args:

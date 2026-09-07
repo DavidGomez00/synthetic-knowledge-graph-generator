@@ -56,7 +56,7 @@ building the source graph first), see
 ```
 src/skgg/          # package source (see docs/architecture.md for the full module map)
 configurations/    # per-experiment JSON configs
-.data/<Dataset>/   # source graph data (.nt/.ttl/.csv) referenced by configs
+.data/<Dataset>/   # source graph data (.nt/.tsv/.ttl/.csv) referenced by configs
 docs/              # architecture, concepts glossary, getting-started guide
 notebooks/         # exploratory/prototype work
 logs/              # per-run logs (gitignored)

@@ -11,7 +11,7 @@ from skgg.engine.completion import complete_graph
 from skgg.utils import create_sparql_client, get_term_mapping, setup_logging
 
 ### EDIT THIS PATH   vvv
-graph_config = Path("configurations/mario.json")
+graph_config = Path("configurations/french_royalty.json")
 config = RunConfig.from_json(graph_config)
 
 setup_logging(level=config.logging.level)
@@ -31,9 +31,8 @@ rules = parse_rule_set(
     term_mapping=term_mapping,
     pca_threshold=config.rules.pca_threshold,
 )
-# TODO: Fix rule parsing
-rules = list(rules.values())
 
+rules = list(rules.values())
 
 # SPARQL client
 client = create_sparql_client(config)
@@ -41,9 +40,10 @@ client = create_sparql_client(config)
 # Initialize base graph
 initialize_graph(
     client=client,
-    source=str(input_dir / config.graph.nt_file),
+    source=str(input_dir / config.graph.triple_file),
     new_graph_uri=base_uri,
     chunk_size=1000,
+    term_mapping=term_mapping,
 )
 
 base_count = get_triple_count(client, base_uri)

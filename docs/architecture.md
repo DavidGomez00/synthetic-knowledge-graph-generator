@@ -14,7 +14,7 @@ graph again once the profiles are extracted.
 
 ```mermaid
 flowchart LR
-    NT["base graph<br/>(.nt file)"] -->|cli/upload.py| BASE[("base_uri")]
+    NT["base graph<br/>(.nt/.tsv file)"] -->|cli/upload.py| BASE[("base_uri")]
     ONTO["ontology<br/>(.ttl file)"] --> TERM["term mapping"]
     RULES["rules<br/>(.csv file)"] --> HORN["Horn rules"]
 
@@ -41,7 +41,9 @@ flowchart LR
 Blue nodes are named graphs in the database (keyed by the URIs in each config's
 `graph` section); the green node is the final deliverable.
 
-1. **Upload** (`cli/upload.py`) loads a base `.nt` file into `base_uri`.
+1. **Upload** (`cli/upload.py`) loads a base `.nt` or `.tsv` file (`graph.triple_file`)
+   into `base_uri`. `.tsv` rows are bare `subject\tpredicate\tobject` terms,
+   resolved to full URIs via the ontology term mapping before insertion.
 2. **Completion** (`engine/completion.py`) forward-chains the rule set over
    `base_uri` — assuming rule bodies are fully grounded — until no rule adds any
    more triples, producing `complete_uri`. This is a *real* graph, used only to
@@ -115,9 +117,11 @@ flowchart TD
 ```
 
 - **`config.py`** — `RunConfig` and sub-configs (dataclasses), loaded from
-  `configurations/*.json`. Also defines `FineTuningConfig`/`CoTGenerationConfig`
-  for a LoRA fine-tuning / Chain-of-Thought pipeline that isn't implemented
-  under `src/` yet — see `notebooks/` for prototype work in that direction.
+  `configurations/*.json`. LoRA fine-tuning / Chain-of-Thought dataset
+  generation from KGs isn't implemented under `src/` yet — see `notebooks/`
+  for prototype work in that direction; placeholder `FineTuningConfig`/
+  `CoTGenerationConfig` dataclasses for it were removed as dead code and
+  should be reintroduced once that pipeline is actually built.
 - **`utils.py`** — logging setup, `SPARQLWrapper` client construction, and term
   ↔ namespace mapping (parses `@prefix` declarations from a `.ttl` file without
   loading it into an RDF library).
@@ -130,6 +134,9 @@ flowchart TD
   flow" step 5).
 - **`core/queries.py`** — every SPARQL query construction/execution function.
   Nothing outside this module talks to `SPARQLWrapper` directly for reads/writes.
+  SELECTs are sent as POST (URL-encoded) rather than GET: `get_existing_triples`
+  builds queries with large `VALUES` clauses that can exceed a GET request's
+  max URL/header size and get rejected by the store's HTTP server.
 - **`engine/metrics.py`** — `GraphMetrics`/`PredicateProfile`: the topological
   descriptors extracted from the source graph.
 - **`engine/generator.py`** — shared triple-generation primitives.
