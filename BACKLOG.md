@@ -11,6 +11,10 @@ the current architecture map. Resolved items are archived in
 - [ ] **`metrics.py`**: There has to be a way to pass the metrics without reading an actual graph. Pass the metrics through a JSON or smth.
   - [ ] **`main.py`**: We should read the original metrics from the JSON or data input, not through SPARQL queries.
 
+## 'cli/'
+- [ ] **`upload.py`**: Add an option to complete / not complete the graph once uploaded.
+- [ ] **`upload.py`**: Change to work with .ttl files.
+
 ## 'docs/'
 - [ ] **concepts.md** *(low priority)*: Check remaining definitions are as
       intended (head coverage, std/PCA confidence). Support's definition was
