@@ -1,26 +1,70 @@
-@prefix ex: <http://example.org/mario/> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix sm: <http://SuperMario.org/> .
 
-# --- Ontology Header ---
-ex:MarioOntology a owl:Ontology ;
-    rdfs:label "Super Mario Logic Ontology" ;
-    rdfs:comment "Defines the relationships and inferred rules of the Mario universe." .
+sm:Bowser sm:allyOf sm:BowserJr, sm:Kamek, sm:KingBoo;
+  sm:enemyOf sm:Luigi, sm:Mario, sm:Toad, sm:Toadette;
+  sm:loves sm:Peach .
 
-# --- Base Properties ---
+sm:BowserJr sm:allyOf sm:Bowser, sm:Kamek;
+  sm:servantOf sm:Bowser;
+  sm:enemyOf sm:Luigi, sm:Mario, sm:Toad, sm:Toadette .
 
-ex:loves a owl:ObjectProperty ;
-    rdfs:label "loves" .
+sm:Kamek sm:allyOf sm:Bowser, sm:BowserJr;
+  sm:enemyOf sm:Luigi, sm:Mario, sm:Toad, sm:Toadette;
+  sm:servantOf sm:Bowser, sm:BowserJr .
 
-ex:allyOf a owl:ObjectProperty ;
-    rdfs:label "ally of" .
+sm:KingBoo sm:allyOf sm:Bowser;
+  sm:enemyOf sm:Luigi, sm:Mario .
 
-# --- Properties mapped to Rules ---
-ex:brotherOf a owl:ObjectProperty, owl:SymmetricProperty ;
-    rdfs:label "brother of" ;
-    rdfs:subPropertyOf ex:allyOf .
+sm:Waluigi sm:allyOf sm:Wario;
+  sm:loves sm:Daisy;
+  sm:enemyOf sm:Luigi .
 
-ex:enemyOf a owl:ObjectProperty, owl:SymmetricProperty ;
-    rdfs:label "enemy of" ;
-    owl:propertyChainAxiom ( ex:enemyOf ex:allyOf ) .
+sm:Wario sm:allyOf sm:Waluigi;
+  sm:loves sm:Peach;
+  sm:enemyOf sm:Mario .
+
+sm:Rosalina sm:allyOf sm:Peach, sm:Mario, sm:Luigi .
+
+sm:Daisy sm:allyOf sm:Peach, sm:Mario, sm:Luigi;
+  sm:loves sm:Luigi .
+
+sm:Peach sm:allyOf sm:Daisy, sm:Rosalina, sm:Luigi, sm:Mario, sm:Toad, sm:Toadette, sm:Yoshi;
+  sm:enemyOf sm:Bowser, sm:BowserJr, sm:Kamek .
+
+sm:Toad sm:allyOf sm:Luigi, sm:Mario, sm:Peach, sm:Toadette, sm:Yoshi;
+  sm:enemyOf sm:Bowser, sm:BowserJr, sm:Kamek;
+  sm:servantOf sm:Peach .
+
+sm:Toadette sm:allyOf sm:Luigi, sm:Mario, sm:Peach, sm:Toad, sm:Yoshi;
+  sm:enemyOf sm:Bowser, sm:BowserJr, sm:Kamek;
+  sm:servantOf sm:Peach .
+
+sm:Yoshi sm:allyOf sm:Luigi, sm:Mario, sm:Peach, sm:Toad, sm:Toadette;
+  sm:enemyOf sm:Bowser, sm:BowserJr, sm:Kamek .
+
+sm:Luigi sm:allyOf sm:Mario, sm:Daisy, sm:Peach, sm:Rosalina, sm:Toad, sm:Toadette, sm:Yoshi;
+  sm:brotherOf sm:Mario;
+  sm:enemyOf sm:Bowser, sm:BowserJr, sm:Kamek, sm:KingBoo, sm:Waluigi;
+  sm:loves sm:Daisy;
+  sm:servantOf sm:Peach .
+
+sm:Mario sm:allyOf sm:Luigi, sm:Peach, sm:Daisy, sm:Rosalina, sm:Toad, sm:Toadette, sm:Yoshi;
+  sm:brotherOf sm:Luigi;
+  sm:enemyOf sm:Bowser, sm:BowserJr, sm:Kamek, sm:KingBoo, sm:Wario;
+  sm:loves sm:Peach;
+  sm:servantOf sm:Peach .
+
+sm:Bowser sm:type sm:Character .
+sm:BowserJr sm:type sm:Character .
+sm:Daisy sm:type sm:Character .
+sm:Kamek sm:type sm:Character .
+sm:KingBoo sm:type sm:Character .
+sm:Luigi sm:type sm:Character .
+sm:Mario sm:type sm:Character .
+sm:Peach sm:type sm:Character .
+sm:Rosalina sm:type sm:Character .
+sm:Toad sm:type sm:Character .
+sm:Toadette sm:type sm:Character .
+sm:Waluigi sm:type sm:Character .
+sm:Wario sm:type sm:Character .
+sm:Yoshi sm:type sm:Character .
