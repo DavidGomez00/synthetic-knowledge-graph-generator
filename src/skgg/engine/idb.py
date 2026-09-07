@@ -132,13 +132,6 @@ def generate_idb(
         chunk_size: Maximum number of triples to insert per SPARQL query.
         profiles: The metrics for each predicate in the original graph.
     """
-    # Instatiate the synthetic graph starting from the EDB
-    initialize_graph(
-        client=client,
-        source=edb_uri,
-        new_graph_uri=synthetic_uri,
-        chunk_size=chunk_size,
-    )
 
     # Check that the rules allow to deduce the complete synthetic graph
     intensional_preds = {r.head.predicate for r in rules.values()}
@@ -155,6 +148,14 @@ def generate_idb(
         )
         logger.error(error_msg)
         raise RuntimeError(error_msg)
+
+    # Instatiate the synthetic graph starting from the EDB
+    initialize_graph(
+        client=client,
+        source=edb_uri,
+        new_graph_uri=synthetic_uri,
+        chunk_size=chunk_size,
+    )
 
     # Get intensional dependencies
     intensional_dependencies = get_intensional_dependencies(rules=rules)
@@ -185,7 +186,7 @@ def generate_idb(
         return
 
     logger.info(
-        "Completing Synthetic graph from EDB... Rules [%d/%d] | Predicates [%d/%d].",
+        "Completing Synthetic graph... Rules [%d/%d] | Predicates [%d/%d].",
         len(closed_rule_ids),
         len(rules),
         len(closed_preds),
