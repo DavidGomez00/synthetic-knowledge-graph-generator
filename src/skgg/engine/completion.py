@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 def complete_graph(
     client: SPARQLWrapper,
-    rules: list[HornRule],
+    rules: dict[str, HornRule],
     term_mapping: dict[str, str],
     base_uri: str,
     complete_uri: str,
@@ -49,19 +49,14 @@ def complete_graph(
         return True if body_preds.issubset(grounded_preds) else False
 
     state = dict()
-    for rule in rules:
-        state[rule.rule_id] = 0
+    for r_id in rules.keys():
+        state[r_id] = 0
 
     step = 0
     while True:
         step += 1
-        available_rules = [rule for rule in rules if is_ready(rule)]
-        if not available_rules:
-            logger.info("[Step %d]: No rules to apply. Completion ended.", step)
-            break
-
         added = 0
-        for rule in available_rules:
+        for r_id, rule in rules.items():
             count = apply_rule(
                 client=client,
                 graph_uri=complete_uri,
@@ -69,24 +64,19 @@ def complete_graph(
                 term_mapping=term_mapping,
                 chunk_size=chunk_size,
             )
-
-            logger.debug("%s added %d triples.", rule.rule_id, count)
-            state[rule.rule_id] += count
-            added += count
+            logger.debug("%s added %d triples.", r_id, count)
             if count:
+                state[r_id] += count
+                added += added
                 grounded_preds.add(rule.head.predicate)
+
+        state_msg = "\n".join(
+            [f"\t{r_id}: {state[r_id]}" for r_id in rules.keys() if state[r_id] > 0]
+        )
+        logger.info("[Step %d]: Added %d triples\n%s", step, added, state_msg)
 
         if not added:
             logger.info(
                 "[Step %d]: No more triples to add. Graph completion ended.", step
             )
             break
-
-        state_msg = "\n".join(
-            [
-                f"\t{rule.rule_id}: {state[rule.rule_id]}"
-                for rule in rules
-                if state[rule.rule_id] > 0
-            ]
-        )
-        logger.info("[Step %d]: Added triples\n%s", step, state_msg)

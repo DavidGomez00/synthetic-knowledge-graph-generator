@@ -13,8 +13,8 @@ from SPARQLWrapper import SPARQLWrapper
 from skgg.config import RunConfig
 from skgg.core.queries import get_support, get_triple_count
 from skgg.core.rules import HornRule, parse_rule_set
+from skgg.engine.completion import complete_graph
 from skgg.engine.edb import generate_edb
-from skgg.engine.idb import generate_idb
 from skgg.engine.metrics import GraphMetrics, PredicateProfile
 from skgg.utils import create_sparql_client, get_term_mapping, setup_logging
 
@@ -211,15 +211,24 @@ def run_synthetic_graph_experiment(
             get_triple_count(client, edb_uri),
         )
 
-    ## ------ Graph Completion  ------
-    generate_idb(
+    # ## ------ Graph Completion  ------
+    # generate_idb(
+    #     client=client,
+    #     rules=rules,
+    #     term_mapping=term_mapping,
+    #     edb_uri=edb_uri,
+    #     synthetic_uri=synthetic_uri,
+    #     chunk_size=chunk_size,
+    #     profiles=profiles,
+    # )
+
+    complete_graph(
         client=client,
         rules=rules,
         term_mapping=term_mapping,
-        edb_uri=edb_uri,
-        synthetic_uri=synthetic_uri,
+        base_uri=edb_uri,
+        complete_uri=synthetic_uri,
         chunk_size=chunk_size,
-        profiles=profiles,
     )
 
     summary(client, config.graph.complete_uri, synthetic_uri, rules)
@@ -230,4 +239,4 @@ def run_synthetic_graph_experiment(
 if __name__ == "__main__":
     mario_config = Path("configurations/mario.json")
     fr_config = Path("configurations/french_royalty.json")
-    run_synthetic_graph_experiment(fr_config, skip_edb_generation=True)
+    run_synthetic_graph_experiment(mario_config, skip_edb_generation=False)
