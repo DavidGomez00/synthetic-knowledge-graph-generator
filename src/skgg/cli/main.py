@@ -138,8 +138,14 @@ def summary(
 def run_synthetic_graph_experiment(
     config_file: Path,
     source: str | None = None,
+    skip_edb_generation: bool = False,
 ) -> None:
-    """Runs a Synthetic Graph generation experiment."""
+    """Runs a Synthetic Graph generation experiment.
+
+    If `skip_edb_generation` is True, EDB generation is skipped entirely and
+    the IDB step reuses whatever triples already sit at `config.graph.edb_uri`
+    in the database (e.g. from a previous run) instead of regenerating them.
+    """
 
     ## ------ Setup ------
     config = RunConfig.from_json(config_file)
@@ -176,26 +182,34 @@ def run_synthetic_graph_experiment(
     if source is None:
         source = config.graph.complete_uri
 
-    logger.info("Generating EDB...")
     start_time = time.time()
 
-    generate_edb(
-        client=client,
-        term_mapping=term_mapping,
-        rules=rules,
-        edb_uri=edb_uri,
-        chunk_size=chunk_size,
-        profiles=graph_metrics.profiles,
-    )
+    if skip_edb_generation:
+        logger.info(
+            "Skipping EDB generation, reusing existing EDB at <%s> with %d triples",
+            edb_uri,
+            get_triple_count(client, edb_uri),
+        )
+    else:
+        logger.info("Generating EDB...")
 
-    edb_time = time.time() - start_time
+        generate_edb(
+            client=client,
+            term_mapping=term_mapping,
+            rules=rules,
+            edb_uri=edb_uri,
+            chunk_size=chunk_size,
+            profiles=graph_metrics.profiles,
+        )
 
-    logger.info(
-        "Finished EDB generation after %f s at <%s> with %d triples",
-        edb_time,
-        edb_uri,
-        get_triple_count(client, edb_uri),
-    )
+        edb_time = time.time() - start_time
+
+        logger.info(
+            "Finished EDB generation after %f s at <%s> with %d triples",
+            edb_time,
+            edb_uri,
+            get_triple_count(client, edb_uri),
+        )
 
     ## ------ Graph Completion  ------
     generate_idb(
@@ -216,4 +230,4 @@ def run_synthetic_graph_experiment(
 if __name__ == "__main__":
     mario_config = Path("configurations/mario.json")
     fr_config = Path("configurations/french_royalty.json")
-    run_synthetic_graph_experiment(mario_config)
+    run_synthetic_graph_experiment(fr_config, skip_edb_generation=True)
