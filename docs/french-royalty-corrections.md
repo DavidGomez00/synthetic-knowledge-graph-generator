@@ -20,20 +20,18 @@ character-encoding check) run against the original 12,554-row file. See
 | 1 | 10 ontology-declaration rows leaked into the instance data: a predicate's own name used as subject, e.g. `predecessor type http://www.w3.org/1999/02/22_rdf_syntax_ns#Property` — object URI also malformed (`rdf_syntax_ns` instead of the real `rdf-syntax-ns`). Subjects: `predecessor`, `parent`, `child`, `successor`, `type`, `name`, `gender`, `spouse`, `mother`, `father`. | 10 | Deleted. |
 | 2 | `Pope`: a single node typed `Person` with three conflicting `name` values (`Pope`, `Pontifex_maximus`, `Rome`), plus `gender=male` and `hasSpouse=No` — looks like an extraction artifact conflating an ambiguous title with a specific individual. `Pope` never appears as an object, only as subject. | 6 | Deleted (all triples with `Pope` as subject). |
 
-Result: 12,554 → 12,538 rows. No other rows touched (verified via diff
-against the backup: exactly 16 lines removed, 0 added).
+Result: 12,554 → 12,538 rows. No other rows touched.
 
 ### Why point 1 is safe to remove: comparison against `french_royalty.ttl`
 
 The ontology declares 11 properties: `father`, `hasSpouse`, `mother`,
 `parent`, `successor`, `predecessor`, `gender`, `child`, `spouse`,
-`marriedTo`, `foaf:name`. The leaked rows only covered 9 of those — no
-self-declaration existed for `hasSpouse` or `marriedTo` — plus one extra for
+`marriedTo`, `foaf:name`. The leaked rows only covered 9 of those. No
+self-declaration existed for `hasSpouse` or `marriedTo`, plus one extra for
 `type` itself, which isn't a named property in the ttl at all (`rdf:type` is
 used implicitly via `a`, never declared as its own `fr:` term). So the leak
 was a partial, inconsistent dump, not a mirror of the real ontology; nothing
-of schema value was lost by deleting it — `french_royalty.ttl` remains the
-single source of truth for the schema.
+of schema value was lost by deleting it.
 
 ## Reviewed, no action taken
 

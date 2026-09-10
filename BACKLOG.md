@@ -16,7 +16,7 @@ the current architecture map. Resolved items are archived in
 - [ ] **`upload.py`**: Change to work with .ttl files.
 
 ## `data/`
-- [ ] **`french_royalty.tsv`** *(important)*: `spouse` is declared `rdfs:subPropertyOf` `marriedTo` in `french_royalty.ttl`, but the base graph doesn't materialize that: only 9 couples (18 triples) + 2 patch triples use `marriedTo` at all, out of 1152 `spouse` triples. For a complete KG, every `A spouse B` should imply `A marriedTo B` (and its symmetric counterpart) being present too. Not implemented yet — see `docs/french-royalty-corrections.md` for the full review this came out of.
+- [ ] **`french_royalty.tsv`** *(important)*: `spouse` is declared `rdfs:subPropertyOf` `marriedTo` in `french_royalty.ttl`, but the base graph doesn't materialize that: only 9 couples (18 triples) + 2 patch triples use `marriedTo` at all, out of 1152 `spouse` triples. For a complete KG, every `A spouse B` should imply `A marriedTo B`. Note that the ontology file does not specify marriedTo or spouse as symmetric, so `A spouse B` does not imply `B spouse A`. Not implemented yet — see `docs/french-royalty-corrections.md` for the full review this came out of.
 
 ## 'docs/'
 - [ ] **concepts.md** *(low priority)*: Check remaining definitions are as
