@@ -9,7 +9,7 @@ from skgg.core.queries import get_triple_count, initialize_graph
 from skgg.utils import create_sparql_client, get_term_mapping, setup_logging
 
 ### EDIT THIS PATH   vvv
-graph_config = Path("configurations/office_pygraft.json")
+graph_config = Path("configurations/french_royalty.json")
 config = RunConfig.from_json(graph_config)
 
 setup_logging(level=config.logging.level)

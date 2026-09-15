@@ -24,6 +24,14 @@ character-encoding check) run against the original 12,554-row file. See
 
 Result: 12,519 → 9,260 rows (measured directly from the file at the time of this edit; earlier rows in this table may not sum exactly to this starting count, since the data file has also had untracked manual edits — see the note in the intro about `.data` being an unversioned symlink).
 
+## Applied — 2026-09-11
+
+| # | Issue | Rows affected | Action |
+|---|-------|---------------|--------|
+| 5 | `name` triples have a literal string as their object (e.g. `Rudolph_of_France name Rudolph`), not an entity URI — the same convention that ruled out `hasSpouse` (#3) and `gender` (#4) above, and the value duplicates information already encoded in the subject's own URI. | 627 | Deleted all triples with predicate `name`. `name` was never declared as a property in `french_royalty.ttl`, so there was nothing to remove from the ontology. |
+
+Result: 9,260 → 8,633 rows.
+
 ## Reviewed, no action taken
 
 | # | Issue | Decision |
