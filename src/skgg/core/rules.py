@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+import networkx as nx
 import pandas as pd
 
 from skgg.utils import format_term
@@ -284,7 +285,7 @@ def parse_rule_set(
     rules: dict[str, HornRule] = {}
 
     for row_id, row in enumerate(rule_dataframe.itertuples(index=False), start=1):
-        rule_id = f"rule_{row_id}"
+        rule_id = str(row_id)
         rule = _parse_horn_rule(
             row=row,
             rule_id=rule_id,
@@ -500,3 +501,37 @@ def get_predicate_mapping(rules: dict[str, HornRule]) -> dict[str, set[str]]:
             mapping[pred].add(r_id)
 
     return dict(mapping)
+
+
+def get_relation_graph(rules: dict[str, HornRule]) -> nx.DiGraph:
+    """Builds a directed graph over predicates ("relation types") in a rule
+    set, to reveal cyclic dependencies between rules.
+
+    Every predicate appearing anywhere in `rules` becomes a node. For each
+    rule, an edge is added from each of its body predicates to its head
+    predicate; a rule whose head predicate also appears in its own body
+    produces a self-loop (e.g. a recursive rule like `p(x,y) :- p(x,z),
+    q(z,y)` adds a p -> p self-loop and a q -> p edge). Each edge carries a
+    `rule_ids` attribute (the set of rule ids that produced it), so a
+    detected cycle can be traced back to the rules responsible.
+
+    Args:
+        rules: Dict of rule_id -> HornRule, e.g. from `parse_rule_set`.
+
+    Returns:
+        A `networkx.DiGraph` suitable for cycle detection, e.g.
+        `list(nx.simple_cycles(relation_graph(rules)))`.
+    """
+    graph = nx.DiGraph()
+
+    for rule in rules.values():
+        head_pred = rule.head.predicate
+        graph.add_node(head_pred)
+        for body_pred in rule.get_body_predicates():
+            graph.add_node(body_pred)
+            if graph.has_edge(body_pred, head_pred):
+                graph[body_pred][head_pred]["rule_ids"].add(rule.rule_id)
+            else:
+                graph.add_edge(body_pred, head_pred, rule_ids={rule.rule_id})
+
+    return graph
