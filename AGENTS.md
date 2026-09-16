@@ -29,7 +29,7 @@ Graphs are never loaded into memory-intensive libraries like RDFlib for bulk wor
 
 Experiments are driven by JSON config files in `configurations/` (e.g. `mario.json`, `french_royalty.json`), loaded via `RunConfig.from_json(...)`.
 
-The main entry point is `run_synthetic_graph_experiment` in `src/skgg/cli/main.py`:
+The main entry point is `run_synthetic_graph_experiment` in `src/skgg/cli/main.py`, runnable either as a library call or from the CLI:
 
 ```python
 from pathlib import Path
@@ -38,6 +38,13 @@ from skgg.cli.main import run_synthetic_graph_experiment
 run_synthetic_graph_experiment(Path("configurations/mario.json"))
 ```
 
+```bash
+python -m skgg.cli.main -f mario.json
+python -m skgg.cli.main -f mario.json --skip_edb --log_level DEBUG
+```
+
+`-f`/`--config_file` (required) accepts a bare filename resolved under `configurations/` (or a path, used as-is, if it contains a `/`); `--skip_edb` skips EDB generation and reuses whatever triples already sit at `graph.edb_uri`; `--log_level` overrides the config's `logging.level` for that run only, without editing the JSON file.
+
 Typical experiment flow (see `cli/main.py`):
 1. Load `RunConfig` from JSON and set up logging.
 2. Compute `GraphMetrics` (predicate profiles) from the source graph (`graph.complete_uri`) over SPARQL.
@@ -45,9 +52,16 @@ Typical experiment flow (see `cli/main.py`):
 4. Generate the EDB (extensional database) — `engine/edb.py` — inserting triples that satisfy rule bodies/profiles into `graph.edb_uri`.
 5. Generate the IDB (intensional database) — `engine/idb.py` — applying rules over the EDB to produce the synthetic graph at `graph.synthetic_uri`, iterating until rules/predicates reach target support/frequency (closure). Within a same-head-predicate group, rules are applied in intensional-dependency order (`core/rules.py`'s `get_intensional_dependencies`): more restrictive rules close before more general ones, and recursive rules wait for all non-recursive rules producing the same head — see `docs/concepts.md`.
 
-`cli/upload.py` is a separate, standalone script (run top-level, not via a function) that uploads a base graph from a `.nt` or `.tsv` file (`graph.triple_file` in config; `.tsv` rows are bare `subject\tpredicate\tobject` terms, resolved to full URIs via the ontology term mapping) and then runs rule-based completion (`engine/completion.py`) to build the "complete" graph used as the source for metric extraction. Edit the `graph_config` path at the top of the file before running.
+`cli/upload.py` is a separate, standalone script (its body runs under an `if __name__ == "__main__":` guard, not via a reusable function) that uploads a base graph from a `.nt` or `.tsv` file (`graph.triple_file` in config; `.tsv` rows are bare `subject\tpredicate\tobject` terms, resolved to full URIs via the ontology term mapping):
 
-`cli/main.py`'s `__main__` block runs `run_synthetic_graph_experiment` end-to-end and is confirmed working (verified via `python -m skgg.cli.main` against `mario.json`; see `BACKLOG.md`). Check `BACKLOG.md` for the current TODO list before assuming any other code path is exercised/working.
+```bash
+python -m skgg.cli.upload -f french_royalty.json
+python -m skgg.cli.upload -f french_royalty.json --complete --log_level DEBUG
+```
+
+It takes the same `-f`/`--config_file` and `--log_level` as `cli/main.py`, plus `--complete` (off by default): pass it to also run rule-based completion (`engine/completion.py`) right after the upload, building the "complete" graph used as the source for metric extraction; without it, the script only uploads the base graph.
+
+`cli/main.py`'s `__main__` block parses `-f`/`--config_file`, `--skip_edb`, and `--log_level` from the CLI (see the `bash` example above) and calls `run_synthetic_graph_experiment` end-to-end; confirmed working (verified via `python -m skgg.cli.main -f mario.json`; see `BACKLOG.md`). Check `BACKLOG.md` for the current TODO list before assuming any other code path is exercised/working.
 
 ## Architecture
 

@@ -34,18 +34,20 @@ config's `data.database_url`/`sparql_endpoint` at it and set
 
 ## 3. Build the source graph (upload + completion)
 
-`cli/upload.py` is a standalone script, not a function — edit the
-`graph_config` path at its top (defaults to `configurations/mario.json`) if
-you want a different dataset, then run it directly:
+`cli/upload.py` is a standalone script, not a function:
 
 ```bash
-python -m skgg.cli.upload
+python -m skgg.cli.upload -f mario.json --complete
 ```
 
 This uploads `.data/Mario/mario.nt` (`graph.triple_file` in the config) into
-`base_uri`, then forward-chains the rule set over it (`engine/completion.py`)
-to produce `complete_uri` — the graph that metrics get extracted from. See
-[`architecture.md`](architecture.md) for why this "completion" step exists.
+`base_uri`, then — because `--complete` was passed — forward-chains the rule
+set over it (`engine/completion.py`) to produce `complete_uri`, the graph
+that metrics get extracted from. See [`architecture.md`](architecture.md) for
+why this "completion" step exists. Omit `--complete` to only upload the base
+graph. `-f`/`--config_file` resolves a bare filename under `configurations/`
+(same as step 4 below), and `--log_level` overrides the config's
+`logging.level` for the run.
 
 `graph.triple_file` also accepts a `.tsv` file of bare `subject<TAB>predicate<TAB>object`
 terms — `french_royalty.json` uses this format
@@ -53,6 +55,12 @@ terms — `french_royalty.json` uses this format
 the ontology term mapping before insertion, the same way rule bodies are.
 
 ## 4. Run the experiment
+
+```bash
+python -m skgg.cli.main -f mario.json
+```
+
+or, as a library call:
 
 ```python
 from pathlib import Path
@@ -65,6 +73,16 @@ This computes `GraphMetrics` from `complete_uri`, generates the EDB, then
 grows the IDB into `synthetic_uri` — the finished synthetic graph. Progress is
 logged to the console (level set by each config's `logging.level`) and a copy
 is written under `logs/` (gitignored).
+
+The CLI also accepts:
+- `--skip_edb` — skip EDB generation and reuse whatever triples already sit
+  at `graph.edb_uri` (e.g. from a previous run).
+- `--log_level DEBUG` (or `INFO`/`WARNING`/...) — override the config's
+  `logging.level` for this run only, without editing the JSON file.
+
+```bash
+python -m skgg.cli.main -f french_royalty.json --skip_edb --log_level DEBUG
+```
 
 ## Where things live
 

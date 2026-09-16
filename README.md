@@ -37,6 +37,11 @@ docker compose --profile all up        # both
 Experiments are driven by JSON config files in `configurations/` (e.g.
 `mario.json`, `french_royalty.json`):
 
+```bash
+python -m skgg.cli.main -f mario.json
+python -m skgg.cli.main -f mario.json --skip_edb --log_level DEBUG
+```
+
 ```python
 from pathlib import Path
 from skgg.cli.main import run_synthetic_graph_experiment
@@ -47,7 +52,10 @@ run_synthetic_graph_experiment(Path("configurations/mario.json"))
 This loads the config, computes graph metrics over SPARQL, parses the
 ontology and Horn rule set, generates the EDB (facts satisfying rule bodies),
 then grows the IDB (rule-derived facts) until closure — producing the
-synthetic graph. For a full walkthrough (including uploading a base graph and
+synthetic graph. `-f`/`--config_file` resolves a bare filename under
+`configurations/`; `--skip_edb` reuses the existing EDB graph instead of
+regenerating it; `--log_level` overrides the config's `logging.level` for
+that run. For a full walkthrough (including uploading a base graph and
 building the source graph first), see
 [`docs/getting-started.md`](docs/getting-started.md).
 

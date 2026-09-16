@@ -14,6 +14,18 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# CLI helpers
+# ---------------------------------------------------------------------------
+def resolve_config_path(name: str) -> Path:
+    """Resolves a bare config filename against `configurations/`; a value that
+    already contains a path separator (e.g. "configurations/mario.json" or an
+    absolute path) is used as given. Shared by `cli/main.py` and
+    `cli/upload.py`'s `-f`/`--config_file` argument."""
+    path = Path(name)
+    return path if "/" in name else Path("configurations") / path
+
+
+# ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
 def setup_logging(level: int | str = logging.INFO) -> None:
