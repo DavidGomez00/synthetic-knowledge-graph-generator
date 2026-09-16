@@ -4,6 +4,7 @@ See `run_synthetic_graph_experiment` and AGENTS.md's "Running an experiment"
 section for the full pipeline description.
 """
 
+import argparse
 import logging
 import time
 from pathlib import Path
@@ -16,7 +17,12 @@ from skgg.core.rules import HornRule, parse_rule_set
 from skgg.engine.completion import complete_graph
 from skgg.engine.edb import generate_edb
 from skgg.engine.metrics import GraphMetrics, PredicateProfile
-from skgg.utils import create_sparql_client, get_term_mapping, setup_logging
+from skgg.utils import (
+    create_sparql_client,
+    get_term_mapping,
+    resolve_config_path,
+    setup_logging,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -137,19 +143,21 @@ def summary(
 
 def run_synthetic_graph_experiment(
     config_file: Path,
-    source: str | None = None,
     skip_edb_generation: bool = False,
+    log_level: int | str | None = None,
 ) -> None:
     """Runs a Synthetic Graph generation experiment.
 
     If `skip_edb_generation` is True, EDB generation is skipped entirely and
     the IDB step reuses whatever triples already sit at `config.graph.edb_uri`
     in the database (e.g. from a previous run) instead of regenerating them.
+
+    `log_level`, if given, overrides `config.logging.level` for this run.
     """
 
     ## ------ Setup ------
     config = RunConfig.from_json(config_file)
-    setup_logging(level=config.logging.level)
+    setup_logging(level=log_level if log_level is not None else config.logging.level)
     logger.info("Confifuration correctly initialized.")
 
     input_dir = config.data.input_dir
@@ -178,9 +186,6 @@ def run_synthetic_graph_experiment(
     chunk_size = config.db_config.chunk_size
     edb_uri = config.graph.edb_uri
     synthetic_uri = config.graph.synthetic_uri
-    if source is None:
-        source = config.graph.base_uri
-
     start_time = time.time()
 
     if skip_edb_generation:
@@ -235,7 +240,34 @@ def run_synthetic_graph_experiment(
     logger.info("Execution finished after %d s.", time.time() - start_time)
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run a Synthetic Knowledge Graph generation experiment."
+    )
+    parser.add_argument(
+        "-f",
+        "--config_file",
+        required=True,
+        help="Config file under configurations/ (e.g. french_royalty.json), "
+        "or a path to one.",
+    )
+    parser.add_argument(
+        "--skip_edb",
+        action="store_true",
+        help="Skip EDB generation and reuse the existing EDB graph.",
+    )
+    parser.add_argument(
+        "--log_level",
+        default=None,
+        help="Override the config file's logging level (e.g. DEBUG, INFO, WARNING).",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    mario_config = Path("configurations/mario.json")
-    french_royalty = Path("configurations/french_royalty.json")
-    run_synthetic_graph_experiment(french_royalty, skip_edb_generation=True)
+    args = _parse_args()
+    run_synthetic_graph_experiment(
+        resolve_config_path(args.config_file),
+        skip_edb_generation=args.skip_edb,
+        log_level=args.log_level,
+    )
