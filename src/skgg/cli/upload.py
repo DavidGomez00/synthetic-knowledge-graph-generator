@@ -26,13 +26,13 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "-f",
-        "--config_file",
+        "--config-file",
         required=True,
         help="Config file under configurations/ (e.g. french_royalty.json), "
         "or a path to one.",
     )
     parser.add_argument(
-        "--log_level",
+        "--log-level",
         default=None,
         help="Override the config file's logging level (e.g. DEBUG, INFO, WARNING).",
     )

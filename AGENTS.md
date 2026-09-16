@@ -40,10 +40,10 @@ run_synthetic_graph_experiment(Path("configurations/mario.json"))
 
 ```bash
 python -m skgg.cli.main -f mario.json
-python -m skgg.cli.main -f mario.json --skip_edb --log_level DEBUG
+python -m skgg.cli.main -f mario.json --skip-edb --log-level DEBUG
 ```
 
-`-f`/`--config_file` (required) accepts a bare filename resolved under `configurations/` (or a path, used as-is, if it contains a `/`); `--skip_edb` skips EDB generation and reuses whatever triples already sit at `graph.edb_uri`; `--log_level` overrides the config's `logging.level` for that run only, without editing the JSON file.
+`-f`/`--config-file` (required) accepts a bare filename resolved under `configurations/` (or a path, used as-is, if it contains a `/`); `--skip-edb` skips EDB generation and reuses whatever triples already sit at `graph.edb_uri`; `--log-level` overrides the config's `logging.level` for that run only, without editing the JSON file.
 
 Typical experiment flow (see `cli/main.py`):
 1. Load `RunConfig` from JSON and set up logging.
@@ -56,12 +56,12 @@ Typical experiment flow (see `cli/main.py`):
 
 ```bash
 python -m skgg.cli.upload -f french_royalty.json
-python -m skgg.cli.upload -f french_royalty.json --complete --log_level DEBUG
+python -m skgg.cli.upload -f french_royalty.json --complete --log-level DEBUG
 ```
 
-It takes the same `-f`/`--config_file` and `--log_level` as `cli/main.py`, plus `--complete` (off by default): pass it to also run rule-based completion (`engine/completion.py`) right after the upload, building the "complete" graph used as the source for metric extraction; without it, the script only uploads the base graph.
+It takes the same `-f`/`--config-file` and `--log-level` as `cli/main.py`, plus `--complete` (off by default): pass it to also run rule-based completion (`engine/completion.py`) right after the upload, building the "complete" graph used as the source for metric extraction; without it, the script only uploads the base graph.
 
-`cli/main.py`'s `__main__` block parses `-f`/`--config_file`, `--skip_edb`, and `--log_level` from the CLI (see the `bash` example above) and calls `run_synthetic_graph_experiment` end-to-end; confirmed working (verified via `python -m skgg.cli.main -f mario.json`; see `BACKLOG.md`). Check `BACKLOG.md` for the current TODO list before assuming any other code path is exercised/working.
+`cli/main.py`'s `__main__` block parses `-f`/`--config-file`, `--skip-edb`, and `--log-level` from the CLI (see the `bash` example above) and calls `run_synthetic_graph_experiment` end-to-end; confirmed working (verified via `python -m skgg.cli.main -f mario.json`; see `BACKLOG.md`). Check `BACKLOG.md` for the current TODO list before assuming any other code path is exercised/working.
 
 ## Architecture
 

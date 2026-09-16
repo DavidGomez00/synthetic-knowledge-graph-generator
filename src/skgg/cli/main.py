@@ -27,36 +27,17 @@ from skgg.utils import (
 logger = logging.getLogger(__name__)
 
 
-def _format_distribution(dist: dict[str, int], indent: str) -> str:
-    """Formats a value->count distribution (a predicate's domain or range) as
-    one 'value: count' entry per line, sorted by value, so it stays readable
-    instead of dumping the raw dict repr onto one line."""
-    if not dist:
-        return f"{indent}(empty)"
-    return "\n".join(
-        f"{indent}{value}: {count}" for value, count in sorted(dist.items())
-    )
-
-
 def _format_graph_block(
     uri: str,
     triple_count: int,
-    metrics: GraphMetrics,
     rules: dict[str, HornRule],
     supports: dict[str, int],
 ) -> str:
-    """Formats one graph's stats: total triples, per-predicate domain/range/
-    frequency, and per-rule support."""
-    lines = [f"=== <{uri}> ===", f"\tTotal triples: {triple_count}", "\tPredicates:"]
-    for pred in sorted(metrics.profiles):
-        profile = metrics.profiles[pred]
-        lines.append(f"\t\t{pred}:")
-        lines.append("\t\t\tDomain:")
-        lines.append(_format_distribution(profile.domain, "\t\t\t\t"))
-        lines.append("\t\t\tRange:")
-        lines.append(_format_distribution(profile.range, "\t\t\t\t"))
-        lines.append(f"\t\t\tFrequency: {profile.frequency}")
-    lines.append("\tRules:")
+    """Formats one graph's stats: total triples and per-rule support. Omits
+    per-predicate domain/range/frequency detail, which doesn't scale to large
+    KGs — see `_format_delta_block` for the compact predicate-level deltas
+    instead."""
+    lines = [f"=== <{uri}> ===", f"\tTotal triples: {triple_count}", "\tRules:"]
     for rule_id in sorted(rules):
         lines.append(f"\t\t{rule_id}:")
         lines.append(f"\t\t\tSupport: {supports[rule_id]}")
@@ -73,25 +54,63 @@ def _format_delta_block(
     syn_supports: dict[str, int],
 ) -> str:
     """Formats synthetic-minus-original deltas for triples, per-predicate
-    frequency/domain/range size, and per-rule support."""
+    frequency/domain/range size, and per-rule support as an aligned,
+    human-readable table."""
     empty_profile = PredicateProfile()
     triple_delta = syn_triple_count - og_triple_count
-    lines = [f"Triple count delta: {triple_delta}", "Predicates:"]
+    pct = f", {triple_delta / og_triple_count:+.1%}" if og_triple_count else ""
+    lines = [
+        f"Triples: {og_triple_count} -> {syn_triple_count} ({triple_delta:+d}{pct})",
+        "",
+        "Predicates (Δfrequency / Δdomain size / Δrange size):",
+    ]
     all_preds = sorted(set(og_metrics.profiles) | set(syn_metrics.profiles))
+    name_width = max((len(p) for p in all_preds), default=0)
+
+    pred_deltas = []
     for pred in all_preds:
         og_profile = og_metrics.profiles.get(pred, empty_profile)
         syn_profile = syn_metrics.profiles.get(pred, empty_profile)
-        freq_delta = syn_profile.frequency - og_profile.frequency
-        domain_delta = len(syn_profile.domain) - len(og_profile.domain)
-        range_delta = len(syn_profile.range) - len(og_profile.range)
-        lines.append(f"    {pred}:")
-        lines.append(f"        Frequency delta: {freq_delta}")
-        lines.append(f"        Domain size delta: {domain_delta}")
-        lines.append(f"        Range size delta: {range_delta}")
-    lines.append("Rules:")
-    for rule_id in sorted(rules):
-        support_delta = syn_supports[rule_id] - og_supports[rule_id]
-        lines.append(f"    {rule_id}: Support delta: {support_delta}")
+        pred_deltas.append(
+            (
+                pred,
+                syn_profile.frequency - og_profile.frequency,
+                len(syn_profile.domain) - len(og_profile.domain),
+                len(syn_profile.range) - len(og_profile.range),
+            )
+        )
+    # Size each numeric column to its widest value (sign included) instead of
+    # a fixed width, so columns stay aligned however many digits deltas have.
+    freq_width = max((len(f"{d[1]:+d}") for d in pred_deltas), default=1)
+    domain_width = max((len(f"{d[2]:+d}") for d in pred_deltas), default=1)
+    range_width = max((len(f"{d[3]:+d}") for d in pred_deltas), default=1)
+
+    for pred, freq_delta, domain_delta, range_delta in pred_deltas:
+        lines.append(
+            f"  {pred.ljust(name_width)}  "
+            f"Δfreq: {freq_delta:+{freq_width}d}  "
+            f"Δdomain: {domain_delta:+{domain_width}d}  "
+            f"Δrange: {range_delta:+{range_width}d}"
+        )
+    lines.append("")
+    lines.append("Rules (support deltas):")
+    rule_ids = sorted(rules)
+    rule_id_width = max((len(rid) for rid in rule_ids), default=0)
+    og_width = max((len(str(og_supports[rid])) for rid in rule_ids), default=1)
+    syn_width = max((len(str(syn_supports[rid])) for rid in rule_ids), default=1)
+    delta_width = max(
+        (len(f"{syn_supports[rid] - og_supports[rid]:+d}") for rid in rule_ids),
+        default=1,
+    )
+    for rule_id in rule_ids:
+        og_support = og_supports[rule_id]
+        syn_support = syn_supports[rule_id]
+        support_delta = syn_support - og_support
+        lines.append(
+            f"  {rule_id.ljust(rule_id_width)}  "
+            f"{og_support:>{og_width}} -> {syn_support:>{syn_width}}"
+            f"  ({support_delta:+{delta_width}d})"
+        )
     return "\n".join(lines)
 
 
@@ -119,11 +138,9 @@ def summary(
         rid: get_support(client, rule, synthetic_uri) for rid, rule in rules.items()
     }
 
-    og_block = _format_graph_block(
-        original_uri, og_triple_count, og_metrics, rules, og_supports
-    )
+    og_block = _format_graph_block(original_uri, og_triple_count, rules, og_supports)
     syn_block = _format_graph_block(
-        synthetic_uri, syn_triple_count, syn_metrics, rules, syn_supports
+        synthetic_uri, syn_triple_count, rules, syn_supports
     )
     logger.info("Original graph summary:\n%s", og_block)
     logger.info("Synthetic graph summary:\n%s", syn_block)
@@ -246,18 +263,18 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "-f",
-        "--config_file",
+        "--config-file",
         required=True,
         help="Config file under configurations/ (e.g. french_royalty.json), "
         "or a path to one.",
     )
     parser.add_argument(
-        "--skip_edb",
+        "--skip-edb",
         action="store_true",
         help="Skip EDB generation and reuse the existing EDB graph.",
     )
     parser.add_argument(
-        "--log_level",
+        "--log-level",
         default=None,
         help="Override the config file's logging level (e.g. DEBUG, INFO, WARNING).",
     )
