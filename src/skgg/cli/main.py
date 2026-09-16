@@ -160,8 +160,7 @@ def run_synthetic_graph_experiment(
 
     ## ------ Extraction of predicate profiles from original graph -------
     # Graph metrics
-    graph_metrics = GraphMetrics.from_uri(client, config.graph.complete_uri)
-    profiles = graph_metrics.profiles
+    graph_metrics = GraphMetrics.from_uri(client, config.graph.base_uri)
 
     ## ------ Previous evaluation of rules ------
     term_mapping = get_term_mapping(
@@ -180,7 +179,7 @@ def run_synthetic_graph_experiment(
     edb_uri = config.graph.edb_uri
     synthetic_uri = config.graph.synthetic_uri
     if source is None:
-        source = config.graph.complete_uri
+        source = config.graph.base_uri
 
     start_time = time.time()
 
@@ -238,5 +237,5 @@ def run_synthetic_graph_experiment(
 
 if __name__ == "__main__":
     mario_config = Path("configurations/mario.json")
-    fr_config = Path("configurations/french_royalty.json")
-    run_synthetic_graph_experiment(mario_config, skip_edb_generation=False)
+    french_royalty = Path("configurations/french_royalty.json")
+    run_synthetic_graph_experiment(french_royalty, skip_edb_generation=True)

@@ -67,11 +67,15 @@ def complete_graph(
             logger.debug("%s added %d triples.", r_id, count)
             if count:
                 state[r_id] += count
-                added += added
+                added += count
                 grounded_preds.add(rule.head.predicate)
 
-        state_msg = "\n".join(
-            [f"\t{r_id}: {state[r_id]}" for r_id in rules.keys() if state[r_id] > 0]
+        state_msg = "Final completion \n".join(
+            [
+                f"\t{r_id} added {state[r_id]} triples."
+                for r_id in rules.keys()
+                if state[r_id] > 0
+            ]
         )
         logger.info("[Step %d]: Added %d triples\n%s", step, added, state_msg)
 

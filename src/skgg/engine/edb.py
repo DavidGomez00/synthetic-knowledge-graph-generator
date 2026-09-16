@@ -56,7 +56,7 @@ logger = logging.getLogger(__name__)
 def check_direct_matches(
     client: SPARQLWrapper,
     edb_uri: str,
-    edb_profiles: dict[str, PredicateProfile],
+    profiles: dict[str, PredicateProfile],
     term_mapping: dict[str, str],
     chunk_size: int,
     closed_preds: set[str],
@@ -71,9 +71,10 @@ def check_direct_matches(
         while True:
             progress_made = False
 
-            for predicate, profile in edb_profiles.items():
+            for predicate, profile in profiles.items():
                 if predicate in closed_preds:
                     continue
+
                 # Check for direct matches on domain
                 for subject, frequency in list(profile.domain.items()):
                     obj_choices = list(profile.range.keys() - {subject})
@@ -301,7 +302,7 @@ def check_triples_from_rule(
     rule: HornRule,
     intensional_preds: set[str],
     closed_preds: set[str],
-    edb_profiles: dict[str, PredicateProfile],
+    profiles: dict[str, PredicateProfile],
     client: SPARQLWrapper,
     term_mapping: dict[str, str],
     edb_uri: str,
@@ -346,7 +347,7 @@ def check_triples_from_rule(
     # Create the searchspace
     target_preds = new_rule.get_body_predicates()
     searchspace_profiles = {
-        pred: edb_profiles[pred] for pred in target_preds if pred in edb_profiles
+        pred: profiles[pred] for pred in target_preds if pred in profiles
     }
 
     # Concurrency-safe unique URI
@@ -509,6 +510,27 @@ def generate_edb(
         chunk_size=chunk_size,
     )
 
+    closed_preds: set[str] = set()
+
+    # Warm-up: Direct matches for any predicate untill no new triples.
+    logger.info("Start warm-up.")
+
+    while True:
+        if count := check_direct_matches(
+            client=client,
+            edb_uri=edb_uri,
+            profiles=profiles,
+            term_mapping=term_mapping,
+            chunk_size=chunk_size,
+            closed_preds=closed_preds,
+        ):
+            logger.info("[Warm-up] Added %d direct matches to EDB.", count)
+        else:
+            break
+
+    update_closed_preds(profiles=profiles, closed_preds=closed_preds)
+
+    # Start loop
     intensional_preds = {r.head.predicate for r in rules.values()}
     extensional_preds = profiles.keys() - intensional_preds
 
@@ -523,42 +545,41 @@ def generate_edb(
         "\n\t".join(sorted(profiles)),
     )
 
-    logger.info("Creating EDB from %d extensional predicates.", len(extensional_preds))
+    logger.info(
+        "Creating EDB - Closed predicates [%d/%d].", len(closed_preds), len(profiles)
+    )
 
-    # Filter rules to use only those containing extensional predicates
+    # Second: iterate through steps 1-3 untill EDB is complete
     relevant_rules = {
+        # Filter rules to those containing at least 1 extensional predicate
         r_id: r
         for r_id, r in rules.items()
         if any(pred not in intensional_preds for pred in r.get_predicates())
     }
 
-    edb_profiles = {pred: profiles[pred] for pred in extensional_preds}
+    extensional_profiles = {pred: profiles[pred] for pred in extensional_preds}
     rule_dependency = get_extensional_dependencies(rules)
-
     checked_rules: set[str] = set()
-    closed_preds: set[str] = set()
-
-    total_profiles = len(edb_profiles)
-    check_rules = True
     step = 0
 
-    def _evaluate_closure() -> bool:
-        """Updates closed predicates and logs progress. Returns True if complete."""
-        if update_closed_preds(edb_profiles, closed_preds):
-            closed = len(closed_preds)
+    def _end_edb() -> bool:
+        """Updates closed predicates and logs progress. Returns True if all extensional
+        profiles are closed."""
+
+        if update_closed_preds(extensional_profiles, closed_preds):
             logger.info(
                 "[Step %d]: Closed ext. predicates [%d/%d].",
                 step,
-                closed,
-                total_profiles,
+                len(closed_preds),
+                len(profiles),
             )
 
-            if closed == total_profiles:
-                logger.info("All ext. predicates closed.")
-                return True
-        return False
+        for pred in extensional_profiles.keys():
+            if pred not in closed_preds:
+                return False
+        return True
 
-    while len(closed_preds) < total_profiles:
+    while not _end_edb():
         step += 1
         progress = False
 
@@ -566,7 +587,8 @@ def generate_edb(
         if d_count := check_direct_matches(
             client=client,
             edb_uri=edb_uri,
-            edb_profiles=edb_profiles,
+            # No need to check intensional profiles bc of warm-up.
+            profiles=extensional_profiles,
             term_mapping=term_mapping,
             chunk_size=chunk_size,
             closed_preds=closed_preds,
@@ -574,59 +596,50 @@ def generate_edb(
             progress = True
             logger.debug("[Step %d]: Added %d triples directly.", step, d_count)
 
-            if _evaluate_closure():
+            if _end_edb():
                 break
 
         # Step 2: Check rule bodies
-        if check_rules:
+        if not progress and (len(checked_rules) < len(relevant_rules)):
+            excluded_preds = intensional_preds | closed_preds
             for r_id, r in relevant_rules.items():
-                if r_id in checked_rules or (rule_dependency[r_id] - checked_rules):
+                # Check that the rule to be used to generate EDB triples has 2 or more
+                # extensional predicates that are not closed, and does not depend on
+                # other non-checked rules.
+                if (
+                    r_id in checked_rules
+                    or rule_dependency[r_id] - checked_rules
+                    or len(r.get_predicates() - excluded_preds) <= 1
+                ):
                     continue
 
-                excluded_preds = intensional_preds | closed_preds
-                if len(r.get_predicates() - excluded_preds) > 1:
-                    r_count = check_triples_from_rule(
-                        rule=r,
-                        intensional_preds=intensional_preds,
-                        closed_preds=closed_preds,
-                        edb_profiles=edb_profiles,
-                        client=client,
-                        term_mapping=term_mapping,
-                        edb_uri=edb_uri,
-                        chunk_size=chunk_size,
-                    )
-                    checked_rules.add(r_id)
+                r_count = check_triples_from_rule(
+                    rule=r,
+                    intensional_preds=intensional_preds,
+                    closed_preds=closed_preds,
+                    profiles=profiles,
+                    client=client,
+                    term_mapping=term_mapping,
+                    edb_uri=edb_uri,
+                    chunk_size=chunk_size,
+                )
+                checked_rules.add(r_id)
 
-                    if len(checked_rules) == len(relevant_rules):
-                        check_rules = False
-
-                    logger.debug(
-                        "[Step %d]: Checked rules [%d/%d]",
-                        step,
-                        len(checked_rules),
-                        len(relevant_rules),
-                    )
+                if r_count:
                     progress = True
-
-                    if r_count:
-                        logger.debug(
-                            "[Step %d]: Added %d triples from %s",
-                            step,
-                            r_count,
-                            r.rule_id,
-                        )
-                        if _evaluate_closure():
-                            break
+                    logger.debug(
+                        "[Step %d] Added %d triples from %s", step, r_count, r_id
+                    )
                     break
 
-        if len(closed_preds) == total_profiles:
+        if _end_edb():
             break
 
         # Step 3: Assign randomly
         if not progress:
-            open_preds = list(edb_profiles.keys() - closed_preds)
+            open_preds = list(extensional_profiles.keys() - closed_preds)
             predicate = random.choice(open_preds)
-            profile = edb_profiles[predicate]
+            profile = profiles[predicate]
 
             ran_count = insert_random_triples(
                 client=client,
@@ -636,9 +649,10 @@ def generate_edb(
                 term_mapping=term_mapping,
                 chunk_size=chunk_size,
             )
-            logger.debug(
-                "[Step %d]: Added %d triples by random assignment.", step, ran_count
-            )
+            if ran_count:
+                logger.debug(
+                    "[Step %d]: Added %d triples by random assignment.", step, ran_count
+                )
 
-            if ran_count and _evaluate_closure():
+            if _end_edb():
                 break
