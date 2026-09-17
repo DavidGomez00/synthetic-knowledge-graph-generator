@@ -197,6 +197,53 @@ def insert_triples_sparql(
     return total_inserted
 
 
+class TripleBuffer:
+    """Accumulates triples that were decided without needing a DB read (see
+    `engine/edb.py`'s direct-match/random-assignment steps), so they can be
+    inserted in fewer, larger batches instead of one `INSERT DATA` round
+    trip per call. Call `flush()` before any query that must see their
+    effect, and once more before relying on the target graph being complete.
+    """
+
+    def __init__(self) -> None:
+        self._triples: list[str] = []
+
+    def __len__(self) -> int:
+        return len(self._triples)
+
+    def add(self, triples: Iterable[str]) -> int:
+        """Buffers triples in memory. Returns how many were added."""
+        added = 0
+        for triple in triples:
+            self._triples.append(triple)
+            added += 1
+        return added
+
+    def flush(self, client: SPARQLWrapper, graph_uri: str, chunk_size: int) -> int:
+        """Inserts every buffered triple into `graph_uri` and clears the buffer."""
+        if not self._triples:
+            return 0
+        count = insert_triples_sparql(
+            client=client,
+            graph_uri=graph_uri,
+            triple_stream=iter(self._triples),
+            chunk_size=chunk_size,
+        )
+        self._triples.clear()
+        return count
+
+    def flush_if_full(
+        self, client: SPARQLWrapper, graph_uri: str, chunk_size: int
+    ) -> int:
+        """Flushes if the buffer holds at least `chunk_size` triples, else no-ops.
+
+        Returns the number of triples inserted (0 if it didn't flush).
+        """
+        if len(self._triples) < chunk_size:
+            return 0
+        return self.flush(client=client, graph_uri=graph_uri, chunk_size=chunk_size)
+
+
 def insert_triples_bulk(
     client: SPARQLWrapper,
     graph_uri: str,

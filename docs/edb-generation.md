@@ -118,8 +118,20 @@ throughout — every accepted triple decrements the relevant subject's domain
 count, the object's range count, and the predicate's frequency
 (`generator.decrement_counts`).
 
-Two bookkeeping details that shape the loop's behavior and are easy to miss
+Three bookkeeping details that shape the loop's behavior and are easy to miss
 reading the summary alone:
+
+- **Steps 1 and 3 buffer their triples instead of inserting them
+  immediately.** Both decide every triple purely from the in-memory
+  `PredicateProfile` domain/range dicts — no DB read is ever needed to
+  produce them — so `generate_edb` hands them a shared `TripleBuffer`
+  (`core/queries.py`) instead of calling `insert_triples_sparql` directly.
+  The buffer auto-flushes once it reaches `chunk_size` triples
+  (`flush_if_full`), is flushed unconditionally right before Step 2 runs
+  (see below — Step 2 reads `edb_uri` and needs every prior triple actually
+  visible), and is flushed once more, unconditionally, right before
+  `generate_edb` returns. Step 2 itself is unaffected: its triples require
+  a query to decide, so it keeps inserting immediately as before.
 
 - **Step 2 processes at most one rule per round**, and once a rule has been
   passed to `check_triples_from_rule` (successfully or not) it is added to
@@ -305,4 +317,5 @@ before trusting the algorithm against a new, untested rule set.
 | 2. Searchspace / join query | `create_searchspace`, `build_rule_query` | `engine/generator.py`, `core/queries.py` |
 | 2/3. Realizability check | `is_assignment_solvable` | `engine/generator.py` |
 | 3. Random assignment | `insert_random_triples` | `engine/edb.py` |
+| 1/3. Insertion buffering | `TripleBuffer` | `core/queries.py` |
 | Orchestration | `generate_edb` | `engine/edb.py` |

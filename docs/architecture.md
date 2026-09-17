@@ -136,7 +136,11 @@ flowchart TD
   Nothing outside this module talks to `SPARQLWrapper` directly for reads/writes.
   SELECTs are sent as POST (URL-encoded) rather than GET: `get_existing_triples`
   builds queries with large `VALUES` clauses that can exceed a GET request's
-  max URL/header size and get rejected by the store's HTTP server.
+  max URL/header size and get rejected by the store's HTTP server. `TripleBuffer`
+  wraps `insert_triples_sparql` to accumulate triples that were decided without
+  a DB read (`engine/edb.py`'s direct-match/random-assignment steps) so they
+  land in fewer, larger batches instead of one round trip per call — see
+  [`edb-generation.md`](edb-generation.md).
 - **`engine/metrics.py`** — `GraphMetrics`/`PredicateProfile`: the topological
   descriptors extracted from the source graph.
 - **`engine/generator.py`** — shared triple-generation primitives.
@@ -150,6 +154,12 @@ flowchart TD
 - **`engine/edb.py`** / **`engine/idb.py`** — see "Data flow" above.
 - **`engine/completion.py`** — see "Data flow" above.
 - **`cli/main.py`** — the experiment entry point (`run_synthetic_graph_experiment`).
+  After generation, `summarize_progress` logs a diagnostic snapshot (which
+  predicates are present/missing vs. the original graph, and each rule's
+  current support against its target, closed or not) to help spot a broken
+  intensional-dependency cycle when generation reaches a stale state (see
+  "Data flow" step 5); `summary` then logs the full synthetic-vs-original
+  comparison.
 - **`cli/upload.py`** — standalone script (edit the `graph_config` path at the
   top and run it directly) that uploads a base graph and runs completion.
 

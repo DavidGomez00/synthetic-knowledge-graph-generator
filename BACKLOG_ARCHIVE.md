@@ -315,6 +315,40 @@ architecture map.
   of triples by applying rules. It was specified that the frequency of the 
   predicates is an upper bound, not strict. This leaves many rules with the
   support not met either, but this may be the correct way.
+- [x] **`queries.py`**: Inserting small amounts of triples in different
+      queries is slow — added a buffer that accumulates them and inserts in
+      fewer, larger batches.
+  - Traced `engine/edb.py`'s `generate_edb` loop: Step 1
+    (`check_direct_matches`) and Step 3 (`insert_random_triples`) both
+    decide their triples purely from the in-memory `PredicateProfile`
+    domain/range dicts — no DB read is needed to produce them — yet each
+    call immediately issued its own `INSERT DATA` via
+    `insert_triples_sparql`. Step 3 in particular is invoked once per
+    outer-loop iteration and typically commits just one subject's row
+    (often a single triple), so most of `generate_edb`'s round trips came
+    from there. Step 2 (`check_triples_from_rule`) is different — it needs
+    `get_support`/`get_existing_triples` against `edb_uri` *before* it can
+    decide what to generate — so it was left inserting immediately.
+  - Added `TripleBuffer` (`core/queries.py`, next to `insert_triples_sparql`,
+    which it wraps unchanged): `add()` accumulates triples in memory,
+    `flush()` inserts everything buffered in one batched call and clears
+    it, and `flush_if_full()` flushes only once the buffer reaches
+    `chunk_size` (bounds memory without reintroducing per-call round
+    trips).
+  - `check_direct_matches`/`insert_random_triples` now take a
+    `buffer: TripleBuffer` and buffer instead of inserting immediately.
+    `generate_edb` owns one shared buffer for the whole call, flushes it
+    immediately before Step 2 runs (so its `get_support`/`get_existing_triples`
+    reads always see every previously-decided triple, buffered or not), and
+    flushes it unconditionally right after the main loop exits, so callers
+    (`get_triple_count`, `generate_idb`/`complete_graph`) always see a
+    fully-committed EDB. `check_triples_from_rule` itself is unchanged.
+  - No other code calls `check_direct_matches`/`insert_random_triples`, so
+    no signatures rippled beyond `edb.py`. Verified via `python -m
+    py_compile` on both files; no test suite exists in this repo to run
+    (see `BACKLOG.md`'s "docs/" section), so behavioral verification still
+    requires an end-to-end run against a live DB comparing final EDB
+    triple counts before/after.
 
 ## `engine/`
 

@@ -23,6 +23,7 @@ from SPARQLWrapper import SPARQLWrapper
 
 from skgg.core.queries import (
     SparqlBinding,
+    TripleBuffer,
     build_rule_query,
     clear_graph,
     execute_select_query,
@@ -61,11 +62,14 @@ def check_direct_matches(
     term_mapping: dict[str, str],
     chunk_size: int,
     closed_preds: set[str],
+    buffer: TripleBuffer,
 ) -> int:
     """Retrieves the triples that must be added to the EDB from a set of rules and
-    profiles and inserts them into the EDB.
+    profiles and buffers them for insertion into the EDB (see `TripleBuffer`) —
+    deciding them never requires a DB read, so they don't need to land
+    immediately.
 
-    Returns the number of triples inserted to the EDB."""
+    Returns the number of triples buffered for the EDB."""
 
     def direct_triples() -> Iterator[str]:
         """Yields triples that must be added to the EDB."""
@@ -101,13 +105,9 @@ def check_direct_matches(
             if not progress_made:
                 break
 
-    triples = direct_triples()
-    return insert_triples_sparql(
-        client=client,
-        graph_uri=edb_uri,
-        triple_stream=triples,
-        chunk_size=chunk_size,
-    )
+    count = buffer.add(direct_triples())
+    buffer.flush_if_full(client=client, graph_uri=edb_uri, chunk_size=chunk_size)
+    return count
 
 
 # ---------------------------------------------------------------------------
@@ -430,8 +430,11 @@ def insert_random_triples(
     predicate: str,
     term_mapping: dict[str, str],
     chunk_size: int,
+    buffer: TripleBuffer,
 ):
-    """Generates random triples from a single predicate's profile and inserts them.
+    """Generates random triples from a single predicate's profile and buffers them
+    for insertion (see `TripleBuffer`) — the random assignment never requires a DB
+    read, so the triples don't need to land immediately.
 
     Args:
         client: Wrapper for SPARQL queries.
@@ -440,9 +443,10 @@ def insert_random_triples(
         predicate: The predicate string for the triples.
         term_mapping: Mapping of terms to their string representations.
         chunk_size: Maximum number of triples to insert per SPARQL query.
+        buffer: Shared buffer that accumulates triples across calls.
 
     Returns:
-        The number of inserted triples.
+        The number of buffered triples.
 
     Raises:
         ValueError: If there are not enough available objects to satisfy the domain.
@@ -504,12 +508,9 @@ def insert_random_triples(
             decrement_counts(profile.range, obj)
             yield format_triple(subject, predicate, obj, term_mapping)
 
-    return insert_triples_sparql(
-        client=client,
-        graph_uri=edb_uri,
-        triple_stream=random_matches(),
-        chunk_size=chunk_size,
-    )
+    count = buffer.add(random_matches())
+    buffer.flush_if_full(client=client, graph_uri=edb_uri, chunk_size=chunk_size)
+    return count
 
 
 # ---------------------------------------------------------------------------
@@ -543,6 +544,12 @@ def generate_edb(
 
     closed_preds: set[str] = set()
 
+    # Buffers triples decided by direct-match/random assignment (no DB read
+    # needed to produce them), so they're inserted in fewer, larger batches
+    # instead of one round trip per call. Flushed before any step that needs
+    # to read `edb_uri`, and unconditionally before this function returns.
+    buffer = TripleBuffer()
+
     # Warm-up: Direct matches for any predicate untill no new triples.
     logger.info("Start warm-up.")
 
@@ -554,6 +561,7 @@ def generate_edb(
             term_mapping=term_mapping,
             chunk_size=chunk_size,
             closed_preds=closed_preds,
+            buffer=buffer,
         ):
             logger.info("[Warm-up] Added %d direct matches to EDB.", count)
         else:
@@ -615,6 +623,7 @@ def generate_edb(
             term_mapping=term_mapping,
             chunk_size=chunk_size,
             closed_preds=closed_preds,
+            buffer=buffer,
         ):
             progress = True
             logger.debug("[Step %d]: Added %d triples directly.", step, d_count)
@@ -624,6 +633,11 @@ def generate_edb(
 
         # Step 2: Check rule bodies
         if not progress and (len(checked_rules) < len(relevant_rules)):
+            # check_triples_from_rule queries edb_uri (get_support,
+            # get_existing_triples), so it needs every previously-decided
+            # triple to already be visible in the DB, not just buffered.
+            buffer.flush(client=client, graph_uri=edb_uri, chunk_size=chunk_size)
+
             excluded_preds = intensional_preds | closed_preds
             for r_id, r in relevant_rules.items():
                 if (
@@ -671,6 +685,7 @@ def generate_edb(
                 predicate=predicate,
                 term_mapping=term_mapping,
                 chunk_size=chunk_size,
+                buffer=buffer,
             )
             if ran_count:
                 logger.debug(
@@ -679,3 +694,7 @@ def generate_edb(
 
             if _end_edb():
                 break
+
+    # Guarantee every buffered triple lands before this graph is considered
+    # complete by callers (e.g. get_triple_count, generate_idb, complete_graph).
+    buffer.flush(client=client, graph_uri=edb_uri, chunk_size=chunk_size)
