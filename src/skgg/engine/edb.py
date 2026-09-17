@@ -570,12 +570,6 @@ def generate_edb(
     update_closed_preds(profiles=profiles, closed_preds=closed_preds)
 
     rule_dependency = get_extensional_dependencies(rules)
-
-    # Start loop
-    logger.info(
-        "Creating EDB - Closed predicates [%d/%d].", len(closed_preds), len(profiles)
-    )
-
     intensional_preds = {r.head.predicate for r in rules.values()}
     extensional_profiles = {
         pred: profiles[pred] for pred in (profiles.keys() - intensional_preds)
@@ -610,15 +604,17 @@ def generate_edb(
                 return False
         return True
 
+    logger.info("Creating EDB")
+    logger.info("Closed predicates [%d/%d].", len(closed_preds), len(profiles))
+
     while not _end_edb():
         step += 1
         progress = False
 
         # Step 1: Check direct matches
-        if d_count := check_direct_matches(
+        if direct_count := check_direct_matches(
             client=client,
             edb_uri=edb_uri,
-            # No need to check intensional profiles bc of warm-up.
             profiles=profiles,
             term_mapping=term_mapping,
             chunk_size=chunk_size,
@@ -626,7 +622,7 @@ def generate_edb(
             buffer=buffer,
         ):
             progress = True
-            logger.debug("[Step %d]: Added %d triples directly.", step, d_count)
+            logger.debug("[Step %d]: Added %d triples directly.", step, direct_count)
 
             if _end_edb():
                 break
