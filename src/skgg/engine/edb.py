@@ -28,6 +28,7 @@ from skgg.core.queries import (
     execute_select_query,
     from_binding_row,
     get_existing_triples,
+    get_support,
     initialize_graph,
     insert_triples_sparql,
 )
@@ -122,15 +123,36 @@ def _filter_bindings(
     term_mapping: dict[str, str],
     closed_preds: set[str],
 ) -> Iterator[str]:
-    """Yields triples for EDB generation while checking if the triple is allowed by
-    predicate metrics."""
+    """This function processes the bindings retrieved from a query that includes a
+    searchspace. It yields valid triples, checking if the triple is allowed by
+    predicate metrics.
+
+    Args:
+        ...
+
+        rule: The original Horn Rule against which we want to validate the triples (for
+            example, to check if we are violating rule's support upper bound).
+    """
+
+    # First thing is to check if the rule's body contains any open and intensional
+    # predicate. If this is not the case, the support of the rule should be entirely
+    # closed by the generated triples. Each binding is at most one different head, so
+    # the number of bindings must be at least the difference between the current and
+    # target support.
+
+    # If rule like A and B -> p has support = 100, there are 100 triples p(X, Y) that
+    # result from the projection of A and B, i.e., at least 100 unique convinations of
+    # A and B.
 
     excluded_preds = intensional_preds | closed_preds
-    only_extensional = rule.get_body_predicates().isdisjoint(excluded_preds)
 
-    if only_extensional and len(raw_bindings) < rule.support:
+    current_support = get_support(client=client, rule=rule, graph_uri=edb_uri)
+    missing_heads = rule.support - current_support
+
+    only_extensional = rule.get_body_predicates().isdisjoint(excluded_preds)
+    if only_extensional and len(raw_bindings) < missing_heads:
         raise ValueError(
-            f"{rule.rule_id}'s support is {rule.support} but only "
+            f"Missing {missing_heads} heads to close the rule, but only "
             f"{len(raw_bindings)} bindings found."
         )
 
@@ -144,6 +166,7 @@ def _filter_bindings(
         edb_uri=edb_uri,
         bindings=candidate_bindings,
         rule=rule,
+        missing_heads=missing_heads,
         searchspace_profiles=searchspace_profiles,
         term_mapping=term_mapping,
     )
@@ -183,27 +206,25 @@ def _select_valid_bindings(
     edb_uri: str,
     bindings: list[SparqlBinding],
     rule: HornRule,
+    missing_heads: int,
     searchspace_profiles: dict[str, PredicateProfile],
     term_mapping: dict[str, str],
     max_backtracks: int = 10000,
     chunk_size: int = 1000,
 ) -> list[int]:
-    """Selects a set of valid bindings that satisfy rule support and profile metrics.
-
-    Args:
-        client: Wrapper for SPARQL queries.
-        edb_uri: URI of the Extensional Database.
-        bindings: A list of SPARQL binding rows to evaluate.
-        rule: The HornRule containing the body atoms to check.
-        searchspace_profiles: Profiles tracking remaining allowed frequencies.
-        term_mapping: Mapping of terms to their string representations.
+    """Selects a subset of `bindings` that define a set of conjunctions thet does not
+    violate the upper bound for the rule support and the upper bound for relation
+    (predicate) frequency.
 
     Returns:
         A list of indices corresponding to the accepted bindings.
     """
     logger.debug(
-        "Searching through %d bindings (%d needed).", len(bindings), rule.support
+        "Searching through %d bindings (%d needed).",
+        len(bindings),
+        missing_heads,
     )
+
     body_atoms = [a for a in rule.body if a.predicate in searchspace_profiles]
 
     all_potential_triples = triples_from_bindings(bindings, body_atoms, term_mapping)
@@ -222,9 +243,10 @@ def _select_valid_bindings(
         current_idx: int,
         current_profiles: dict[str, PredicateProfile],
         current_triples: set[str],
+        current_missing_heads: int,
     ) -> bool:
         """Recursive DFS CSP solver."""
-        if len(added_bindings) >= rule.support:
+        if len(added_bindings) >= current_missing_heads:
             return True  # Success state
 
         if current_idx >= len(bindings):
@@ -324,13 +346,22 @@ def check_triples_from_rule(
         The number of successfully inserted triples.
     """
 
+    # Build a new rule body that excludes atoms containing excluded predicates.
+    # This check should be redundant since a similar check is perfomed at generate_edb()
     excluded_preds = intensional_preds | closed_preds
     new_body = {atom for atom in rule.body if atom.predicate not in excluded_preds}
     if not new_body:
         return 0
 
+    # TODO: This line does not seem to be logged ever. Check why.
     logger.debug("Generating predicates from %s: %s", rule.rule_id, list(new_body))
 
+    # TODO: This new rule is built to query the graph, but I am not sure this is correct
+    # Maybe the best approach is to define a specific way of querying the graphs for
+    # these cases.
+
+    # NOTE: It also is used to identify which relation types / predicates we want in the
+    # searchspace.
     new_rule = HornRule(
         signature=RuleSignature(
             rule_id=rule.rule_id,
@@ -530,35 +561,27 @@ def generate_edb(
 
     update_closed_preds(profiles=profiles, closed_preds=closed_preds)
 
+    rule_dependency = get_extensional_dependencies(rules)
+
     # Start loop
-    intensional_preds = {r.head.predicate for r in rules.values()}
-    extensional_preds = profiles.keys() - intensional_preds
-
-    if not extensional_preds:
-        logger.warning("Retrieved 0 extensional predicates, EDB will be empty.")
-        return
-
-    logger.debug(
-        "\nIntensional preds.:\n\t%s\nExtensional preds.:\n\t%s\nProfiles:\n\t%s",
-        "\n\t".join(sorted(intensional_preds)),
-        "\n\t".join(sorted(extensional_preds)),
-        "\n\t".join(sorted(profiles)),
-    )
-
     logger.info(
         "Creating EDB - Closed predicates [%d/%d].", len(closed_preds), len(profiles)
     )
 
-    # Second: iterate through steps 1-3 untill EDB is complete
+    intensional_preds = {r.head.predicate for r in rules.values()}
+    extensional_profiles = {
+        pred: profiles[pred] for pred in (profiles.keys() - intensional_preds)
+    }
+    if not extensional_profiles:
+        logger.warning("Retrieved 0 extensional predicates, EDB will be empty.")
+
     relevant_rules = {
-        # Filter rules to those containing at least 1 extensional predicate
+        # Rules containing at least 1 extensional predicate
         r_id: r
         for r_id, r in rules.items()
         if any(pred not in intensional_preds for pred in r.get_predicates())
     }
 
-    extensional_profiles = {pred: profiles[pred] for pred in extensional_preds}
-    rule_dependency = get_extensional_dependencies(rules)
     checked_rules: set[str] = set()
     step = 0
 
@@ -566,7 +589,7 @@ def generate_edb(
         """Updates closed predicates and logs progress. Returns True if all extensional
         profiles are closed."""
 
-        if update_closed_preds(extensional_profiles, closed_preds):
+        if update_closed_preds(profiles, closed_preds):
             logger.info(
                 "[Step %d]: Closed ext. predicates [%d/%d].",
                 step,
@@ -588,7 +611,7 @@ def generate_edb(
             client=client,
             edb_uri=edb_uri,
             # No need to check intensional profiles bc of warm-up.
-            profiles=extensional_profiles,
+            profiles=profiles,
             term_mapping=term_mapping,
             chunk_size=chunk_size,
             closed_preds=closed_preds,
@@ -603,14 +626,14 @@ def generate_edb(
         if not progress and (len(checked_rules) < len(relevant_rules)):
             excluded_preds = intensional_preds | closed_preds
             for r_id, r in relevant_rules.items():
-                # Check that the rule to be used to generate EDB triples has 2 or more
-                # extensional predicates that are not closed, and does not depend on
-                # other non-checked rules.
                 if (
                     r_id in checked_rules
                     or rule_dependency[r_id] - checked_rules
                     or len(r.get_predicates() - excluded_preds) <= 1
                 ):
+                    # The rule to be used to generate EDB triples needs 2 or more
+                    # extensional predicates that are not closed, and does not depend on
+                    # other non-checked rules.
                     continue
 
                 r_count = check_triples_from_rule(

@@ -49,6 +49,10 @@ def setup_logging(level: int | str = logging.INFO) -> None:
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
+    # same to matplotlib
+    logging.getLogger("matplotlib.font_manager").setLevel(logging.WARNING)
+    logging.getLogger("matplotlib.pyplot").setLevel(logging.WARNING)
+
 
 # ---------------------------------------------------------------------------
 # Database connection

@@ -6,10 +6,12 @@ the current architecture map. Resolved items are archived in
 
 ## `core/`
 - [ ] **`rules.py`** *(low priority)*: The extensional dependency graph is created over all the rules, not just the relevant ones for EDB generation. Restricting the dependencies only to EDB relevant rules could increase the efficiency of the tool.
+- [ ] **`queries.py`** *(low priority)*: Inserting small amounts of triples in different queries is slow. We could create a buffer, or a cache, that allows to store up until X amount of triples, then insert them all. This would have major repercusions in the check of "repeated" triples, checking against the graph and also the cached file. Consider the trade-off between checks and upload speed.
 
 ## 'engine/'
-- [ ] **`metrics.py`**: There has to be a way to pass the metrics without reading an actual graph. Pass the metrics through a JSON or smth.
-  - [ ] **`main.py`**: We should read the original metrics from the JSON or data input, not through SPARQL queries.
+- [ ] **`metrics.py`**: There has to be a way to pass the metrics without reading an actual graph. Pass the metrics through a JSON or smth. We should read the original metrics from the JSON or data input, not through SPARQL queries.
+- [ ] **`edb.py`**: I don't think the "generation of triples from rule bodies" is good. Check it.
+
 
 ## 'cli/'
 - [ ] **`upload.py`**: Add an option to complete / not complete the graph once uploaded.

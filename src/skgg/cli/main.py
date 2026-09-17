@@ -12,10 +12,12 @@ from pathlib import Path
 from SPARQLWrapper import SPARQLWrapper
 
 from skgg.config import RunConfig
-from skgg.core.queries import get_support, get_triple_count
-from skgg.core.rules import HornRule, parse_rule_set
+from skgg.core.queries import get_predicate_frequencies, get_support, get_triple_count
+from skgg.core.rules import HornRule, get_relation_graph, parse_rule_set
+from skgg.core.visualization import plot_relation_graph
 from skgg.engine.completion import complete_graph
 from skgg.engine.edb import generate_edb
+from skgg.engine.idb import get_closed_rules
 from skgg.engine.metrics import GraphMetrics, PredicateProfile
 from skgg.utils import (
     create_sparql_client,
@@ -114,6 +116,109 @@ def _format_delta_block(
     return "\n".join(lines)
 
 
+def _format_progress_block(
+    og_freqs: dict[str, int],
+    syn_freqs: dict[str, int],
+    rules: dict[str, HornRule],
+    syn_supports: dict[str, int],
+    closed_rule_ids: set[str],
+) -> str:
+    """Formats predicate presence/absence (each tagged open/closed by
+    comparing its synthetic-graph frequency against its original-graph
+    frequency) plus a per-rule closure/gap table, both as aligned columns."""
+    og_predicates = set(og_freqs)
+    syn_predicates = set(syn_freqs)
+    present = sorted(syn_predicates)
+    missing = sorted(og_predicates - syn_predicates)
+    extra = sorted(syn_predicates - og_predicates)
+
+    all_preds = sorted(og_predicates | syn_predicates)
+    pred_name_width = max((len(p) for p in all_preds), default=0)
+    pred_freq_width = max(
+        (len(str(syn_freqs.get(p, 0))) for p in all_preds), default=1
+    )
+    pred_target_width = max(
+        (len(str(og_freqs.get(p, 0))) for p in all_preds), default=1
+    )
+    pred_gap_width = max(
+        (len(str(max(og_freqs.get(p, 0) - syn_freqs.get(p, 0), 0))) for p in all_preds),
+        default=1,
+    )
+
+    def _format_pred_row(pred: str) -> str:
+        syn_freq = syn_freqs.get(pred, 0)
+        target = og_freqs.get(pred, 0)
+        gap = max(target - syn_freq, 0)
+        status = "CLOSED" if syn_freq >= target else "OPEN"
+        return (
+            f"  {pred.ljust(pred_name_width)}  "
+            f"{syn_freq:>{pred_freq_width}}/{target:<{pred_target_width}}  "
+            f"(gap {gap:>{pred_gap_width}})  [{status}]"
+        )
+
+    lines = [
+        f"Predicates in synthetic graph ({len(syn_predicates)}):",
+        *(_format_pred_row(p) for p in present),
+        "",
+        f"Predicates in original but missing from synthetic ({len(missing)}):",
+        *(_format_pred_row(p) for p in missing),
+    ]
+    if extra:
+        lines += [
+            "",
+            f"Predicates in synthetic but not in original ({len(extra)}):",
+            *(_format_pred_row(p) for p in extra),
+        ]
+
+    lines += ["", "Rules (support -> target, gap, closed):"]
+    rule_ids = sorted(rules)
+    rule_id_width = max((len(rid) for rid in rule_ids), default=0)
+    heads = {rid: str(rules[rid].head) for rid in rule_ids}
+    head_width = max((len(h) for h in heads.values()), default=0)
+    targets = {rid: int(rules[rid].support) for rid in rule_ids}
+    gaps = {rid: max(targets[rid] - syn_supports[rid], 0) for rid in rule_ids}
+    support_width = max((len(str(syn_supports[rid])) for rid in rule_ids), default=1)
+    target_width = max((len(str(t)) for t in targets.values()), default=1)
+    gap_width = max((len(str(g)) for g in gaps.values()), default=1)
+
+    for rule_id in rule_ids:
+        status = "CLOSED" if rule_id in closed_rule_ids else "OPEN"
+        support = syn_supports[rule_id]
+        target = targets[rule_id]
+        lines.append(
+            f"  {rule_id.ljust(rule_id_width)}  {heads[rule_id].ljust(head_width)}  "
+            f"{support:>{support_width}}/{target:<{target_width}}  "
+            f"(gap {gaps[rule_id]:>{gap_width}})  [{status}]"
+        )
+    return "\n".join(lines)
+
+
+def summarize_progress(
+    client: SPARQLWrapper,
+    original_uri: str,
+    synthetic_uri: str,
+    rules: dict[str, HornRule],
+) -> None:
+    """Logs which predicates/rules are stuck when generation reaches a stale
+    state: predicate presence vs. the original graph, and each rule's
+    support gap to closing, to help spot where a broken cycle or missing
+    triples are blocking further deduction."""
+    og_freqs = get_predicate_frequencies(client, original_uri)
+    syn_freqs = get_predicate_frequencies(client, synthetic_uri)
+
+    syn_supports = {
+        rid: get_support(client, rule, synthetic_uri) for rid, rule in rules.items()
+    }
+    closed_rule_ids = get_closed_rules(client, synthetic_uri, rules)
+
+    logger.info(
+        "Progress summary:\n%s",
+        _format_progress_block(
+            og_freqs, syn_freqs, rules, syn_supports, closed_rule_ids
+        ),
+    )
+
+
 def summary(
     client: SPARQLWrapper,
     original_uri: str,
@@ -138,12 +243,12 @@ def summary(
         rid: get_support(client, rule, synthetic_uri) for rid, rule in rules.items()
     }
 
-    og_block = _format_graph_block(original_uri, og_triple_count, rules, og_supports)
-    syn_block = _format_graph_block(
-        synthetic_uri, syn_triple_count, rules, syn_supports
-    )
-    logger.info("Original graph summary:\n%s", og_block)
-    logger.info("Synthetic graph summary:\n%s", syn_block)
+    # og_block = _format_graph_block(original_uri, og_triple_count, rules, og_supports)
+    # syn_block = _format_graph_block(
+    #     synthetic_uri, syn_triple_count, rules, syn_supports
+    # )
+    # logger.info("Original graph summary:\n%s", og_block)
+    # logger.info("Synthetic graph summary:\n%s", syn_block)
     logger.info(
         "Comparison (synthetic - original):\n%s",
         _format_delta_block(
@@ -199,6 +304,12 @@ def run_synthetic_graph_experiment(
         pca_threshold=config.rules.pca_threshold,
     )
 
+    plot_relation_graph(
+        get_relation_graph(rules),
+        Path("logs") / f"relation_graph_{config.graph.name}.png",
+        title=f"{config.graph.name} — relation graph",
+    )
+
     ## ------ EDB Generation  ------
     chunk_size = config.db_config.chunk_size
     edb_uri = config.graph.edb_uri
@@ -232,17 +343,7 @@ def run_synthetic_graph_experiment(
             get_triple_count(client, edb_uri),
         )
 
-    # ## ------ Graph Completion  ------
-    # generate_idb(
-    #     client=client,
-    #     rules=rules,
-    #     term_mapping=term_mapping,
-    #     edb_uri=edb_uri,
-    #     synthetic_uri=synthetic_uri,
-    #     chunk_size=chunk_size,
-    #     profiles=profiles,
-    # )
-
+    ## ------ Graph completion following the rules  ------
     complete_graph(
         client=client,
         rules=rules,
@@ -252,7 +353,12 @@ def run_synthetic_graph_experiment(
         chunk_size=chunk_size,
     )
 
-    summary(client, config.graph.complete_uri, synthetic_uri, rules)
+    """Here we reach a stale state, but I'd like to check if triples were not generated
+    because of cycles. """
+
+    summarize_progress(client, config.graph.base_uri, synthetic_uri, rules)
+
+    summary(client, config.graph.base_uri, synthetic_uri, rules)
 
     logger.info("Execution finished after %d s.", time.time() - start_time)
 

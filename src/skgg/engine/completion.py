@@ -39,8 +39,9 @@ def complete_graph(
         chunk_size=chunk_size,
     )
 
+    # TODO: This cant be right
     # Get the initial grounded preds
-    graph_metrics = GraphMetrics.from_uri(client, complete_uri)
+    graph_metrics = GraphMetrics.from_uri(client, base_uri)
     grounded_preds = set(graph_metrics.profiles.keys())
 
     def is_ready(rule: HornRule) -> bool:
