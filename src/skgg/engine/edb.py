@@ -577,13 +577,6 @@ def generate_edb(
     if not extensional_profiles:
         logger.warning("Retrieved 0 extensional predicates, EDB will be empty.")
 
-    relevant_rules = {
-        # Rules containing at least 1 extensional predicate
-        r_id: r
-        for r_id, r in rules.items()
-        if any(pred not in intensional_preds for pred in r.get_predicates())
-    }
-
     checked_rules: set[str] = set()
     step = 0
 
@@ -628,17 +621,18 @@ def generate_edb(
                 break
 
         # Step 2: Check rule bodies
-        if not progress and (len(checked_rules) < len(relevant_rules)):
-            # check_triples_from_rule queries edb_uri (get_support,
-            # get_existing_triples), so it needs every previously-decided
-            # triple to already be visible in the DB, not just buffered.
+        if not progress and (len(checked_rules) < len(rules)):
+            # check_triples_from_rule queries edb_uri, so it needs every triple to
+            # already be visible in the DB, not just buffered.
             buffer.flush(client=client, graph_uri=edb_uri, chunk_size=chunk_size)
 
             excluded_preds = intensional_preds | closed_preds
-            for r_id, r in relevant_rules.items():
+            for r_id, r in rules.items():
                 if (
                     r_id in checked_rules
                     or rule_dependency[r_id] - checked_rules
+                    # TODO: try to delete this restriction. Rules like A and p -> p can
+                    # be used here.
                     or len(r.get_predicates() - excluded_preds) <= 1
                 ):
                     # The rule to be used to generate EDB triples needs 2 or more
