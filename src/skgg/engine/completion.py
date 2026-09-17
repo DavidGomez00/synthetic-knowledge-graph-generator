@@ -25,23 +25,23 @@ def complete_graph(
     client: SPARQLWrapper,
     rules: dict[str, HornRule],
     term_mapping: dict[str, str],
-    base_uri: str,
+    initial_uri: str,
     complete_uri: str,
     chunk_size: int,
 ) -> None:
-    """Completes a graph using only the given rules assuming they are all complete."""
+    """Completes a graph applying the rules if a grounding is found."""
 
     # Initialize complete graph from base URI
     initialize_graph(
         client=client,
-        source=base_uri,
+        source=initial_uri,
         new_graph_uri=complete_uri,
         chunk_size=chunk_size,
     )
 
-    # TODO: This cant be right
-    # Get the initial grounded preds
-    graph_metrics = GraphMetrics.from_uri(client, base_uri)
+    # Get the grounded preds
+    # TODO: change this to a query that retrieves all unique relations
+    graph_metrics = GraphMetrics.from_uri(client, complete_uri)
     grounded_preds = set(graph_metrics.profiles.keys())
 
     def is_ready(rule: HornRule) -> bool:
@@ -65,23 +65,22 @@ def complete_graph(
                 term_mapping=term_mapping,
                 chunk_size=chunk_size,
             )
-            logger.debug("%s added %d triples.", r_id, count)
+            logger.debug("Rule ID %s added %d triples.", r_id, count)
             if count:
                 state[r_id] += count
                 added += count
                 grounded_preds.add(rule.head.predicate)
 
-        state_msg = "Final completion \n".join(
+        state_msg = " \n".join(
             [
-                f"\t{r_id} added {state[r_id]} triples."
+                f"\tRule ID {r_id} added {state[r_id]} triples."
                 for r_id in rules.keys()
                 if state[r_id] > 0
             ]
         )
-        logger.info("[Step %d]: Added %d triples\n%s", step, added, state_msg)
+        logger.info("[Step %d] Added %d triples.", step, added)
+        logger.debug("[Step %d] \n%s", step, state_msg)
 
         if not added:
-            logger.info(
-                "[Step %d]: No more triples to add. Graph completion ended.", step
-            )
+            logger.info("[Step %d]: No triples added. Reached stale state.", step)
             break

@@ -2,8 +2,9 @@
 predicates (those never inferred by a rule head) that satisfy both the source
 graph's predicate profiles and the rule bodies that will later drive IDB generation.
 
-`generate_edb` iterates three strategies per predicate, in order, until every
-extensional predicate's target frequency is reached ("closed"):
+`generate_extensional_predicates` iterates three strategies per predicate, in
+order, until every extensional predicate's target frequency is reached
+("closed"):
   1. `check_direct_matches` — deterministic matches forced by profile counts.
   2. `check_triples_from_rule` — bindings satisfying a rule's extensional body,
      selected via CSP backtracking (`_select_valid_bindings`) so a chosen triple
@@ -61,7 +62,6 @@ def check_direct_matches(
     profiles: dict[str, PredicateProfile],
     term_mapping: dict[str, str],
     chunk_size: int,
-    closed_preds: set[str],
     buffer: TripleBuffer,
 ) -> int:
     """Retrieves the triples that must be added to the EDB from a set of rules and
@@ -77,7 +77,7 @@ def check_direct_matches(
             progress_made = False
 
             for predicate, profile in profiles.items():
-                if predicate in closed_preds:
+                if profile.closed:
                     continue
 
                 # Check for direct matches on domain
@@ -323,7 +323,6 @@ def _select_valid_bindings(
 def check_triples_from_rule(
     rule: HornRule,
     intensional_preds: set[str],
-    closed_preds: set[str],
     profiles: dict[str, PredicateProfile],
     client: SPARQLWrapper,
     term_mapping: dict[str, str],
@@ -335,7 +334,6 @@ def check_triples_from_rule(
     Args:
         rule: The HornRule being evaluated.
         intensional_preds: Set of intensional predicate strings.
-        closed_preds: Set of already closed predicate strings.
         edb_profiles: Global predicate profiles tracking domains and ranges.
         client: Wrapper for SPARQL queries.
         term_mapping: Mapping of terms to their string representations.
@@ -347,13 +345,14 @@ def check_triples_from_rule(
     """
 
     # Build a new rule body that excludes atoms containing excluded predicates.
-    # This check should be redundant since a similar check is perfomed at generate_edb()
+    # This check should be redundant since a similar check is perfomed at
+    # generate_extensional_predicates()
+    closed_preds = {p for p, profile in profiles.items() if profile.closed}
     excluded_preds = intensional_preds | closed_preds
     new_body = {atom for atom in rule.body if atom.predicate not in excluded_preds}
     if not new_body:
         return 0
 
-    # TODO: This line does not seem to be logged ever. Check why.
     logger.debug("Generating predicates from %s: %s", rule.rule_id, list(new_body))
 
     # TODO: This new rule is built to query the graph, but I am not sure this is correct
@@ -514,9 +513,9 @@ def insert_random_triples(
 
 
 # ---------------------------------------------------------------------------
-# Generate EDB.
+# Generate extensional predicates.
 # ---------------------------------------------------------------------------
-def generate_edb(
+def generate_extensional_predicates(
     client: SPARQLWrapper,
     rules: dict[str, HornRule],
     term_mapping: dict[str, str],
@@ -542,8 +541,6 @@ def generate_edb(
         chunk_size=chunk_size,
     )
 
-    closed_preds: set[str] = set()
-
     # Buffers triples decided by direct-match/random assignment (no DB read
     # needed to produce them), so they're inserted in fewer, larger batches
     # instead of one round trip per call. Flushed before any step that needs
@@ -560,16 +557,15 @@ def generate_edb(
             profiles=profiles,
             term_mapping=term_mapping,
             chunk_size=chunk_size,
-            closed_preds=closed_preds,
             buffer=buffer,
         ):
             logger.info("[Warm-up] Added %d direct matches to EDB.", count)
         else:
             break
 
-    update_closed_preds(profiles=profiles, closed_preds=closed_preds)
+    update_closed_preds(profiles=profiles)
 
-    rule_dependency = get_extensional_dependencies(rules)
+    extensional_dependency = get_extensional_dependencies(rules)
     intensional_preds = {r.head.predicate for r in rules.values()}
     extensional_profiles = {
         pred: profiles[pred] for pred in (profiles.keys() - intensional_preds)
@@ -584,21 +580,22 @@ def generate_edb(
         """Updates closed predicates and logs progress. Returns True if all extensional
         profiles are closed."""
 
-        if update_closed_preds(profiles, closed_preds):
+        if update_closed_preds(profiles):
             logger.info(
                 "[Step %d]: Closed ext. predicates [%d/%d].",
                 step,
-                len(closed_preds),
+                sum(1 for pr in profiles.values() if pr.closed),
                 len(profiles),
             )
 
-        for pred in extensional_profiles.keys():
-            if pred not in closed_preds:
-                return False
-        return True
+        return all(pr.closed for pr in extensional_profiles.values())
 
     logger.info("Creating EDB")
-    logger.info("Closed predicates [%d/%d].", len(closed_preds), len(profiles))
+    logger.info(
+        "Closed predicates [%d/%d].",
+        sum(1 for pr in profiles.values() if pr.closed),
+        len(profiles),
+    )
 
     while not _end_edb():
         step += 1
@@ -611,7 +608,6 @@ def generate_edb(
             profiles=profiles,
             term_mapping=term_mapping,
             chunk_size=chunk_size,
-            closed_preds=closed_preds,
             buffer=buffer,
         ):
             progress = True
@@ -626,24 +622,29 @@ def generate_edb(
             # already be visible in the DB, not just buffered.
             buffer.flush(client=client, graph_uri=edb_uri, chunk_size=chunk_size)
 
-            excluded_preds = intensional_preds | closed_preds
             for r_id, r in rules.items():
                 if (
                     r_id in checked_rules
-                    or rule_dependency[r_id] - checked_rules
-                    # TODO: try to delete this restriction. Rules like A and p -> p can
-                    # be used here.
-                    or len(r.get_predicates() - excluded_preds) <= 1
+                    or extensional_dependency[r_id] - checked_rules
                 ):
-                    # The rule to be used to generate EDB triples needs 2 or more
-                    # extensional predicates that are not closed, and does not depend on
-                    # other non-checked rules.
                     continue
 
+                current_support = get_support(client=client, rule=r, graph_uri=edb_uri)
+                if current_support >= r.support:
+                    checked_rules.add(r_id)
+                    r.closed = True
+                    continue
+
+                if len(r.get_extensional_body(intensional_preds)) <= 1:
+                    # We can just use random assignments
+                    checked_rules.add(r_id)
+                    continue
+
+                # Open rule with 2 or more ext. predicates and no ext. dependencies. get
+                # triples from searchspace.
                 r_count = check_triples_from_rule(
                     rule=r,
                     intensional_preds=intensional_preds,
-                    closed_preds=closed_preds,
                     profiles=profiles,
                     client=client,
                     term_mapping=term_mapping,
@@ -664,7 +665,7 @@ def generate_edb(
 
         # Step 3: Assign randomly
         if not progress:
-            open_preds = list(extensional_profiles.keys() - closed_preds)
+            open_preds = [p for p, pr in extensional_profiles.items() if not pr.closed]
             predicate = random.choice(open_preds)
             profile = profiles[predicate]
 

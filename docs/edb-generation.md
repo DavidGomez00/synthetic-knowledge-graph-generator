@@ -1,6 +1,6 @@
 # EDB generation
 
-How `engine/edb.py`'s `generate_edb` turns predicate profiles + Horn rules into
+How `engine/edb.py`'s `generate_extensional_predicates` turns predicate profiles + Horn rules into
 the ground triples of the Extensional Database (EDB), the seed the IDB
 (`engine/idb.py`) later grows into the synthetic graph. See
 [`concepts.md`](concepts.md) for EDB/IDB, predicate profile, closure and
@@ -10,7 +10,7 @@ pipeline.
 
 ## Goal and constraints
 
-`generate_edb` never invents predicates from scratch: it materializes ground
+`generate_extensional_predicates` never invents predicates from scratch: it materializes ground
 triples only for **extensional predicates** (`profiles.keys() - {every rule'shead predicate}`),
 i.e., predicates a rule never derives, whether because they only ever occur
 in a rule *body* or because they don't appear in the rule set at all. Every
@@ -79,7 +79,7 @@ Sorted order is `[r2, r1]`. Comparing `r2` against `r1`: they share predicate
 
 ```mermaid
 flowchart TD
-    START(["generate_edb"]) --> INIT["intensional_preds = all rule heads
+    START(["generate_extensional_predicates"]) --> INIT["intensional_preds = all rule heads
     extensional_preds = profiles - intensional_preds
     edb_profiles = profiles restricted to extensional_preds
     relevant_rules = rules touching >=1 extensional predicate
@@ -112,11 +112,17 @@ flowchart TD
 ```
 
 Each pass through the loop is one "step" (`step` counter in the logs). A
-predicate is **closed** once its `PredicateProfile.frequency` reaches 0
-(`generator.update_closed_preds`); `edb_profiles` is mutated in place
-throughout — every accepted triple decrements the relevant subject's domain
-count, the object's range count, and the predicate's frequency
-(`generator.decrement_counts`).
+predicate is **closed** once its `PredicateProfile.frequency` reaches 0,
+which `generator.update_closed_preds` records by setting that profile's
+`closed` field to `True`; `edb_profiles` is mutated in place throughout —
+every accepted triple decrements the relevant subject's domain count, the
+object's range count, and the predicate's frequency
+(`generator.decrement_counts`). Any `closed_preds` set seen in
+`generate_extensional_predicates` (or in `check_triples_from_rule`) is a
+short-lived set comprehension derived from `PredicateProfile.closed`, not
+persisted state; rule closure (`HornRule.closed`) is likewise set directly on
+the rule object rather than collected into a set — see
+[`concepts.md`](concepts.md#closure).
 
 Three bookkeeping details that shape the loop's behavior and are easy to miss
 reading the summary alone:
@@ -124,13 +130,13 @@ reading the summary alone:
 - **Steps 1 and 3 buffer their triples instead of inserting them
   immediately.** Both decide every triple purely from the in-memory
   `PredicateProfile` domain/range dicts — no DB read is ever needed to
-  produce them — so `generate_edb` hands them a shared `TripleBuffer`
+  produce them — so `generate_extensional_predicates` hands them a shared `TripleBuffer`
   (`core/queries.py`) instead of calling `insert_triples_sparql` directly.
   The buffer auto-flushes once it reaches `chunk_size` triples
   (`flush_if_full`), is flushed unconditionally right before Step 2 runs
   (see below — Step 2 reads `edb_uri` and needs every prior triple actually
   visible), and is flushed once more, unconditionally, right before
-  `generate_edb` returns. Step 2 itself is unaffected: its triples require
+  `generate_extensional_predicates` returns. Step 2 itself is unaffected: its triples require
   a query to decide, so it keeps inserting immediately as before.
 
 - **Step 2 processes at most one rule per round**, and once a rule has been
@@ -139,15 +145,16 @@ reading the summary alone:
   a single call is expected to fully exploit that rule's contribution to the
   EDB. `check_rules` flips to `False` once every relevant rule has been
   checked once, after which Step 2 is skipped for the rest of the run.
-- A rule is only *offered* to `check_triples_from_rule` once it has **more
-  than one** still-open, non-intensional predicate left
-  (`len(r.get_predicates() - excluded_preds) > 1`). A rule with zero or one
-  open predicate left gets no benefit from the join query — there's nothing
-  left to correlate — so it's left for Steps 1/3 to finish off, and it keeps
-  being skipped over (never marked "checked") every round until it either
-  drops out of contention (all its predicates close) or, in principle, is
-  revisited — in practice this state is monotonic, since predicates only ever
-  close, never reopen.
+- A rule is only *offered* to `check_triples_from_rule` once its body has
+  **more than one** extensional-predicate atom
+  (`len(r.get_extensional_body(intensional_preds)) > 1` — this counts every
+  extensional atom in the body, regardless of whether that predicate is
+  already closed). With one or zero extensional atoms there's nothing for the
+  join query to correlate, so the rule is immediately marked `checked` and
+  left alone for good: with zero extensional atoms there's nothing left for
+  this rule to contribute to the EDB at all, and with exactly one, that
+  predicate's remaining triples are just picked up through ordinary
+  direct-match/random assignment (Steps 1/3) instead — no join needed.
 - `relevant_rules` (rules touching at least one extensional predicate) is
   scanned in whatever order `rules` was loaded in (CSV row order), *not*
   sorted by restrictiveness — the `rule_dependency` gate
@@ -293,8 +300,8 @@ rest of a predicate's triples without regard to any rule.
 
 ## Termination
 
-The outer loop's only success condition is `closed_preds` covering every
-extensional predicate; there's no separate "give up" branch. In practice,
+The outer loop's only success condition is every extensional predicate's
+`closed` field being set; there's no separate "give up" branch. In practice,
 either progress is made every round until closure, or `check_triples_from_rule`
 / `insert_random_triples` raises (`TimeoutError` / `ValueError`) when the
 profiles+rules turn out to be jointly unsatisfiable. One residual edge case:
@@ -318,4 +325,4 @@ before trusting the algorithm against a new, untested rule set.
 | 2/3. Realizability check | `is_assignment_solvable` | `engine/generator.py` |
 | 3. Random assignment | `insert_random_triples` | `engine/edb.py` |
 | 1/3. Insertion buffering | `TripleBuffer` | `core/queries.py` |
-| Orchestration | `generate_edb` | `engine/edb.py` |
+| Orchestration | `generate_extensional_predicates` | `engine/edb.py` |

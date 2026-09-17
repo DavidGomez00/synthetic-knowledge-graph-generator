@@ -32,6 +32,7 @@ class PredicateProfile:
     range: dict[str, int] = field(default_factory=dict)
     frequency: int = 0
     reflexivity: int = 0
+    closed: bool = False
 
 
 @dataclass

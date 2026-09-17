@@ -122,6 +122,7 @@ class HornRule:
     std_confidence: float | None = None
     pca_confidence: float | None = None
     classification: str = "UNKNOWN"
+    closed: bool = False
 
     @property
     def head(self) -> Atom:
@@ -366,7 +367,7 @@ def get_extensional_dependencies(
         current_rule = rules[current_id]
         current_ext_preds = current_rule.get_extensional_preds(intensional_preds)
 
-        if not (current_ext_preds):
+        if not current_ext_preds:
             continue
 
         for next_id in sorted_ids[i + 1 :]:

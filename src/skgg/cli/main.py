@@ -13,10 +13,14 @@ from SPARQLWrapper import SPARQLWrapper
 
 from skgg.config import RunConfig
 from skgg.core.queries import get_predicate_frequencies, get_support, get_triple_count
-from skgg.core.rules import HornRule, get_relation_graph, parse_rule_set
+from skgg.core.rules import (
+    HornRule,
+    get_relation_graph,
+    parse_rule_set,
+)
 from skgg.core.visualization import plot_relation_graph
 from skgg.engine.completion import complete_graph
-from skgg.engine.edb import generate_edb
+from skgg.engine.edb import generate_extensional_predicates
 from skgg.engine.idb import get_closed_rules
 from skgg.engine.metrics import GraphMetrics, PredicateProfile
 from skgg.utils import (
@@ -134,9 +138,7 @@ def _format_progress_block(
 
     all_preds = sorted(og_predicates | syn_predicates)
     pred_name_width = max((len(p) for p in all_preds), default=0)
-    pred_freq_width = max(
-        (len(str(syn_freqs.get(p, 0))) for p in all_preds), default=1
-    )
+    pred_freq_width = max((len(str(syn_freqs.get(p, 0))) for p in all_preds), default=1)
     pred_target_width = max(
         (len(str(og_freqs.get(p, 0))) for p in all_preds), default=1
     )
@@ -310,10 +312,12 @@ def run_synthetic_graph_experiment(
         title=f"{config.graph.name} — relation graph",
     )
 
-    ## ------ EDB Generation  ------
+    ## ------ Initialization -------
     chunk_size = config.db_config.chunk_size
     edb_uri = config.graph.edb_uri
     synthetic_uri = config.graph.synthetic_uri
+    ## ------ EDB Generation  ------
+
     start_time = time.time()
 
     if skip_edb_generation:
@@ -322,10 +326,11 @@ def run_synthetic_graph_experiment(
             edb_uri,
             get_triple_count(client, edb_uri),
         )
+        # TODO: Update closed rules and preds from EDB.
     else:
         logger.info("Generating EDB...")
 
-        generate_edb(
+        generate_extensional_predicates(
             client=client,
             term_mapping=term_mapping,
             rules=rules,
@@ -334,11 +339,11 @@ def run_synthetic_graph_experiment(
             profiles=graph_metrics.profiles,
         )
 
-        edb_time = time.time() - start_time
+        extensional_preds_time = time.time() - start_time
 
         logger.info(
-            "Finished EDB generation after %f s at <%s> with %d triples",
-            edb_time,
+            "Finished ext. predicate generation after %fs at <%s> with %d triples",
+            extensional_preds_time,
             edb_uri,
             get_triple_count(client, edb_uri),
         )
@@ -348,7 +353,7 @@ def run_synthetic_graph_experiment(
         client=client,
         rules=rules,
         term_mapping=term_mapping,
-        base_uri=edb_uri,
+        initial_uri=edb_uri,
         complete_uri=synthetic_uri,
         chunk_size=chunk_size,
     )

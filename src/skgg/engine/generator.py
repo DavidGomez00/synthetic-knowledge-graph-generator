@@ -41,19 +41,16 @@ def decrement_counts(counts: dict[str, int], term: str) -> None:
         )
 
 
-def update_closed_preds(
-    profiles: dict[str, PredicateProfile],
-    closed_preds: set[str],
-) -> bool:
-    """Updates the state of the predicates.
+def update_closed_preds(profiles: dict[str, PredicateProfile]) -> bool:
+    """Marks predicates whose remaining frequency budget is exhausted as closed.
 
     Returns:
         True if new predicates are closed.
     """
     new = False
-    for predicate, profile in profiles.items():
-        if profile.frequency <= 0 and predicate not in closed_preds:
-            closed_preds.add(predicate)
+    for profile in profiles.values():
+        if profile.frequency <= 0 and not profile.closed:
+            profile.closed = True
             new = True
 
     return new

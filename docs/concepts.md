@@ -32,6 +32,8 @@ whole pipeline is built on:
   as the subject of this predicate.
 - **range** — `{object → count}`, the same for objects.
 - **reflexivity** — how many triples have the same subject and object.
+- **closed** — whether this predicate has reached its target `frequency`
+  (see [Closure](#closure)); `False` until then.
 
 `GraphMetrics` (same module) is just a `{predicate → PredicateProfile}` map plus
 a total triple count, extracted from a graph either over SPARQL (`from_uri`, the
@@ -95,13 +97,24 @@ Standard Datalog terminology, used directly as named-graph URIs in each config
 A predicate or rule is **closed** once it has reached its target count:
 
 - A predicate is closed when the number of triples using it in the graph
-  reaches its profile's `frequency`.
+  reaches its profile's `frequency` — recorded on the `PredicateProfile`
+  itself as `closed: bool` (`engine/metrics.py`), flipped to `True` once and
+  never reset.
 - A rule is closed when the number of distinct bindings satisfying both its
-  body and head reaches its `support`.
+  body and head reaches its `support` — recorded the same way on `HornRule`
+  as `closed: bool` (`core/rules.py`).
 
-Both EDB and IDB generation loop until everything relevant is closed (or a step
-makes no more progress), tracked via `closed_preds` / `closed_rule_ids` in
-`engine/edb.py` and `engine/idb.py`.
+Both EDB and IDB generation loop until everything relevant is closed (or a
+step makes no more progress). `engine/edb.py` treats these `closed` fields as
+the single source of truth: `generator.update_closed_preds` sets
+`PredicateProfile.closed`, the rule-support check in
+`generate_extensional_predicates` sets `HornRule.closed` directly, and any
+`closed_preds` seen locally in that module (or in `check_triples_from_rule`)
+is a short-lived set derived from `PredicateProfile.closed` for set algebra
+(unions, differences), not separately maintained state. `engine/idb.py` still
+tracks closure with its own `closed_preds` / `closed_rule_ids` accumulator
+sets (`get_closed_preds`/`get_closed_rules`/`update_closure`), independently
+of the `closed` fields.
 
 ## Intensional rule dependencies
 
