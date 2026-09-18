@@ -395,13 +395,10 @@ def get_intensional_dependencies(rules: dict[str, HornRule]) -> dict[str, set[st
     if any(rule.support is None for rule in rules.values()):
         raise ValueError("Can't determine rule dependencies for rules without support.")
 
-    intensional_preds = {rule.head.predicate for rule in rules.values()}
-
     # Group rules by the predicate in their heads
     by_head: dict[str, list[HornRule]] = defaultdict(list)
     for rule in rules.values():
-        if rule.head.predicate in intensional_preds:
-            by_head[rule.head.predicate].append(rule)
+        by_head[rule.head.predicate].append(rule)
     by_head = dict(by_head)  # Secure the dict type
 
     # Initialize dependency dict

@@ -9,6 +9,7 @@ the current architecture map. Resolved items are archived in
 
 ## `core/`
 - [ ] **`rules.py`** *(low priority)*: The extensional dependency graph is created over all the rules, not just the relevant ones for EDB generation. Restricting the dependencies only to EDB relevant rules could increase the efficiency of the tool.
+- [ ] **`get_existing_queries`** *(low priority)*: Seems counter intuitive that we are querying for the existing queries in the graph only to use them to see which queries are novel. Maybe we should use this call to return the set of triples from the candidates that are novel? I need to look through the usage of this function to be sure.
 
 ## 'engine/'
 - [ ] **`metrics.py`**: There has to be a way to pass the metrics without reading an actual graph. Pass the metrics through a JSON or smth. We should read the original metrics from the JSON or data input, not through SPARQL queries.

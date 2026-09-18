@@ -19,9 +19,9 @@ from skgg.core.rules import (
     parse_rule_set,
 )
 from skgg.core.visualization import plot_relation_graph
-from skgg.engine.completion import complete_graph
+from skgg.engine.completion import complete_graph, complete_open_rules_with_closed_head
 from skgg.engine.edb import generate_extensional_predicates
-from skgg.engine.idb import get_closed_rules
+from skgg.engine.idb import get_closed_preds, get_closed_rules
 from skgg.engine.metrics import GraphMetrics, PredicateProfile
 from skgg.utils import (
     create_sparql_client,
@@ -326,7 +326,11 @@ def run_synthetic_graph_experiment(
             edb_uri,
             get_triple_count(client, edb_uri),
         )
-        # TODO: Update closed rules and preds from EDB.
+        for predicate in get_closed_preds(client, edb_uri, graph_metrics.profiles):
+            graph_metrics.profiles[predicate].closed = True
+
+        for rule_id in get_closed_rules(client, edb_uri, rules):
+            rules[rule_id].closed = True
     else:
         logger.info("Generating EDB...")
 
@@ -348,20 +352,30 @@ def run_synthetic_graph_experiment(
             get_triple_count(client, edb_uri),
         )
 
-    ## ------ Graph completion following the rules  ------
-    complete_graph(
-        client=client,
-        rules=rules,
-        term_mapping=term_mapping,
-        initial_uri=edb_uri,
-        complete_uri=synthetic_uri,
-        chunk_size=chunk_size,
-    )
+    added = True
+    while added:
+        ## ------ Graph completion following the rules  ------
+        complete_graph(
+            client=client,
+            rules=rules,
+            term_mapping=term_mapping,
+            initial_uri=edb_uri,
+            complete_uri=synthetic_uri,
+            chunk_size=chunk_size,
+            profiles=graph_metrics.profiles,
+        )
 
-    """Here we reach a stale state, but I'd like to check if triples were not generated
-    because of cycles. """
+        summarize_progress(client, config.graph.base_uri, synthetic_uri, rules)
 
-    summarize_progress(client, config.graph.base_uri, synthetic_uri, rules)
+        ## ----- Generate triples from open rules with closed head ------
+        added = complete_open_rules_with_closed_head(
+            client=client,
+            rules=rules,
+            profiles=graph_metrics.profiles,
+            term_mapping=term_mapping,
+            graph_uri=synthetic_uri,
+            chunk_size=chunk_size,
+        )
 
     summary(client, config.graph.base_uri, synthetic_uri, rules)
 

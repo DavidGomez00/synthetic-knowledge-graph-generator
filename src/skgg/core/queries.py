@@ -576,19 +576,17 @@ def get_reflexivity(client: SPARQLWrapper, graph_uri: str, predicate: str) -> in
 def get_support(client: SPARQLWrapper, rule: HornRule, graph_uri: str) -> int:
     """Returns the support for the rule in the graph."""
 
-    patterns = "\n        ".join(
+    patterns = "\n          ".join(
         [f"{atom} ." for atom in rule.body] + [f"{rule.head} ."]
     )
     proj = " ".join(sorted(rule.get_head_variables()))
 
     query = f"""
-    SELECT (COUNT(*) AS ?supp)
-    WHERE {{
-      SELECT DISTINCT {proj}
-      WHERE {{
+    SELECT (COUNT(*) AS ?supp) WHERE {{
+      SELECT DISTINCT {proj} WHERE {{
         GRAPH <{graph_uri}> {{
-        {patterns}
-      }}
+          {patterns}
+        }}
       }}
     }}"""
 
@@ -648,7 +646,7 @@ def get_existing_triples(
     term_mapping: dict[str, str],
     chunk_size: int,
 ) -> set[str]:
-    """Return triples from 'candidate_triples' that already exist in 'edb_uri'."""
+    """Return triples from 'candidate_triples' that already exist in 'graph_uri'."""
     existing_triples = set()
 
     for chunk in _chunk_iter(candidate_triples, chunk_size):
