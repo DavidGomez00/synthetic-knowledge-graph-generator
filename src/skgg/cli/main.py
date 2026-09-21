@@ -19,7 +19,7 @@ from skgg.core.rules import (
     parse_rule_set,
 )
 from skgg.core.visualization import plot_relation_graph
-from skgg.engine.completion import complete_graph, complete_open_rules_with_closed_head
+from skgg.engine.completion import complete_graph
 from skgg.engine.edb import generate_extensional_predicates
 from skgg.engine.idb import get_closed_preds, get_closed_rules
 from skgg.engine.metrics import GraphMetrics, PredicateProfile
@@ -246,28 +246,6 @@ def run_synthetic_graph_experiment(
         chunk_size=chunk_size,
         profiles=graph_metrics.profiles,
     )
-
-    added = True
-    while added:
-        ## ----- Generate triples from open rules with closed head ------
-        added = complete_open_rules_with_closed_head(
-            client=client,
-            rules=rules,
-            profiles=graph_metrics.profiles,
-            term_mapping=term_mapping,
-            graph_uri=synthetic_uri,
-            chunk_size=chunk_size,
-        )
-
-        complete_graph(
-            client=client,
-            rules=rules,
-            term_mapping=term_mapping,
-            source=synthetic_uri,
-            target_uri=synthetic_uri,
-            chunk_size=chunk_size,
-            profiles=graph_metrics.profiles,
-        )
 
     log_summary(
         client, config.graph.base_uri, synthetic_uri, rules, graph_metrics.profiles

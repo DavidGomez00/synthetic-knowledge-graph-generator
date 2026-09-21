@@ -416,6 +416,48 @@ architecture map.
   - Intensional dependencies (the other half of the original idea) were
     *not* wired in — see the `## Next session` item about refreshing how
     those work, which is still open.
+- [x] **`completion.py`** — Tried a second implementation of
+      `complete_open_rules_with_closed_head` reusing `edb.py`'s searchspace
+      machinery instead of the bespoke CSP above, to compare tradeoffs
+      (branch `same_approach_searchspace`, commit `8de2353`). **Rejected as
+      too heavy; removed from the pipeline.**
+  - **The approach**: materialize a scratch searchspace graph
+    (`generator.create_searchspace`) for a rule's open body predicates, join
+    it against the real graph's closed atoms + head in one two-graph SPARQL
+    query (resolving every open-atom variable via the join itself, including
+    ones private to the open atoms — no bespoke "linking variable" solver
+    needed), then run the resulting bindings through `edb.py`'s
+    `_select_valid_bindings` (reused as-is) to pick a subset respecting
+    profile budgets.
+  - **What it got right, relative to the bespoke CSP**: `_select_valid_bindings`
+    backtracks across the *whole* binding list, so it doesn't share the
+    bespoke version's "greedy, not jointly" row-ordering limitation.
+  - **Why it was rejected**: an unselective correlation (two atoms joined
+    only on a shared `rdf:type`, in `french_royalty.json`) produced a
+    693,594-row candidate binding set for a rule that only needed 17 new
+    witnesses. `_select_valid_bindings` recurses once per binding examined,
+    so this first hit Python's `RecursionError` outright. A
+    `LIMIT {missing * 20}` cap on the query avoided the crash, but the
+    fundamental cost (materializing a full cartesian-product scratch graph
+    and a two-graph join, for every candidate rule tried) was judged too
+    expensive for what's meant to be a lightweight last-resort fallback.
+    Confirms, empirically, the general concern already on file about the
+    searchspace technique's cartesian-product cost (see the `edb.py`
+    *(low priority)* item in `BACKLOG.md`).
+  - **Found and fixed along the way, kept regardless of the rejection**: this
+    was apparently the first time `_select_valid_bindings` got exercised
+    end-to-end in a while — its internal `backtrack()` was missing the
+    `current_missing_heads` argument at all three call sites (the initial
+    kickoff and both recursive calls), a `TypeError` that would have broken
+    `edb.py`'s own `check_triples_from_rule`/`_filter_bindings` path too, not
+    just this new caller. Fixed in the same commit.
+  - **Recoverable via git history**: the full searchspace implementation
+    (and this bug fix) is preserved at commit `8de2353` on
+    `same_approach_searchspace` (`git show 8de2353 --
+    src/skgg/engine/completion.py`); `complete_open_rules_with_closed_head`
+    itself was then deleted from that branch's pipeline entirely — this
+    branch keeps only `complete_graph`, no closed-head-completion fallback
+    at all.
 
 ## `configurations/`
 
