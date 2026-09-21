@@ -159,21 +159,22 @@ builds a `{short name → namespace}` dict by scanning a `.ttl` ontology file's
 `utils.format_term`/`format_triple` use that mapping to resolve terms wherever
 a query or triple is built.
 
-## Searchspace
+## Grounding sampler
 
-A temporary named graph (`engine/generator.create_searchspace`) holding every
-candidate triple for a predicate: the cartesian product of its profile's domain
-× range. `engine/edb.py` (`check_triples_from_rule`) runs rule-body queries
-against this searchspace (plus the real graph) to find candidate variable
-bindings for extensional predicates, which are then filtered down to a
-profile-valid subset before being committed as real triples. Always cleared
-after use.
+`engine/generator.sample_groundings` builds only the groundings of a rule body
+that the rule still needs (`rule.support` minus the heads the EDB already yields, per `queries.count_producible_heads`),
+straight from the predicate profiles, instead of materializing every candidate
+triple and joining them. Variables shared between atoms are drawn once from the
+intersection of the profile positions they occupy, so the atoms connect the way
+the rule requires. Support counts distinct projections onto the head variables:
+head variables must take a new combination in every accepted grounding, while
+body-only (existential) variables add no support and are reused as witnesses.
 
-## Solvability check (CSP backtracking)
+## Solvability check
 
-While selecting which candidate bindings to commit to the EDB
-(`engine/edb.py: _select_valid_bindings`), the code runs a depth-first backtracking
-search: at each candidate binding, it checks whether committing it would still
+While selecting which groundings to commit to the EDB
+(`generator.sample_groundings`), each candidate grounding is checked: it is
+accepted only if committing it would still
 leave every affected predicate's remaining domain/range degree sequence
 realizable as a graph (`generator.is_assignment_solvable`, a
 Gale-Ryser/Havel-Hakimi style check) before accepting it — so early choices

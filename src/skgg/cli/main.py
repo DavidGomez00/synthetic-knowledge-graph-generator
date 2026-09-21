@@ -14,6 +14,7 @@ from SPARQLWrapper import SPARQLWrapper
 from skgg.config import RunConfig
 from skgg.core.queries import get_predicate_frequencies, get_support, get_triple_count
 from skgg.core.rules import (
+    Atom,
     HornRule,
     get_relation_graph,
     parse_rule_set,
@@ -31,6 +32,28 @@ from skgg.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _short_term(term: str) -> str:
+    """Shortens a URI term (bare or in brackets) to its last path/fragment segment,
+    e.g. `<http://FrenchRoyalty.org/child>` -> `child`. Variables and other terms are
+    returned unchanged."""
+    bare = term[1:-1] if term.startswith("<") and term.endswith(">") else term
+    if not bare.startswith("http"):
+        return term
+    return bare.rstrip("/#").rsplit("/", 1)[-1].rsplit("#", 1)[-1]
+
+
+def _format_rule(rule: HornRule) -> str:
+    """Formats a rule as `body atom & body atom => head` with shortened URIs."""
+
+    def atom(a: Atom) -> str:
+        return (
+            f"{_short_term(a.subject)} {_short_term(a.predicate)} {_short_term(a.obj)}"
+        )
+
+    body = " & ".join(atom(a) for a in sorted(rule.body))
+    return f"{body} => {atom(rule.head)}"
 
 
 def _format_summary_block(
@@ -58,7 +81,7 @@ def _format_summary_block(
     known_preds = sorted(og_freqs)
     extra_preds = sorted(set(syn_freqs) - set(og_freqs))
 
-    name_width = max((len(p) for p in known_preds), default=0)
+    name_width = max((len(_short_term(p)) for p in known_preds), default=0)
     og_width = max((len(str(og_freqs[p])) for p in known_preds), default=1)
     syn_width = max((len(str(syn_freqs.get(p, 0))) for p in known_preds), default=1)
     delta_width = max(
@@ -69,28 +92,29 @@ def _format_summary_block(
     lines.append(f"Predicates ({len(known_preds)}):")
     for pred in known_preds:
         og, syn = og_freqs[pred], syn_freqs.get(pred, 0)
-        status = "CLOSED" if profiles[pred].closed else "OPEN"
+        # Profiles are keyed by the bracketed URI, frequencies by the bare one.
+        status = "CLOSED" if profiles[f"<{pred}>"].closed else "OPEN"
         lines.append(
-            f"  {pred.ljust(name_width)}  "
+            f"  {_short_term(pred).ljust(name_width)}  "
             f"{og:>{og_width}} -> {syn:<{syn_width}}"
             f"  ({syn - og:+{delta_width}d})  [{status}]"
         )
 
     if extra_preds:
-        extra_width = max(len(p) for p in extra_preds)
+        extra_width = max(len(_short_term(p)) for p in extra_preds)
         lines += [
             "",
             f"Predicates in synthetic but not original ({len(extra_preds)}):",
             *(
-                f"  {pred.ljust(extra_width)}  {syn_freqs[pred]}"
+                f"  {_short_term(pred).ljust(extra_width)}  {syn_freqs[pred]}"
                 for pred in extra_preds
             ),
         ]
 
     rule_ids = sorted(rules)
-    heads = {rid: str(rules[rid].head) for rid in rule_ids}
+    rule_texts = {rid: _format_rule(rules[rid]) for rid in rule_ids}
     rule_id_width = max((len(rid) for rid in rule_ids), default=0)
-    head_width = max((len(h) for h in heads.values()), default=0)
+    rule_width = max((len(r) for r in rule_texts.values()), default=0)
     og_sup_width = max((len(str(og_supports[rid])) for rid in rule_ids), default=1)
     syn_sup_width = max((len(str(syn_supports[rid])) for rid in rule_ids), default=1)
     sup_delta_width = max(
@@ -103,7 +127,7 @@ def _format_summary_block(
         og_sup, syn_sup = og_supports[rid], syn_supports[rid]
         status = "CLOSED" if rules[rid].closed else "OPEN"
         lines.append(
-            f"  {rid.ljust(rule_id_width)}  {heads[rid].ljust(head_width)}  "
+            f"  {rid.ljust(rule_id_width)}  {rule_texts[rid].ljust(rule_width)}  "
             f"{og_sup:>{og_sup_width}} -> {syn_sup:<{syn_sup_width}}"
             f"  ({syn_sup - og_sup:+{sup_delta_width}d})  [{status}]"
         )

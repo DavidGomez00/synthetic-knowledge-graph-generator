@@ -17,7 +17,7 @@ from requests.auth import HTTPDigestAuth
 from SPARQLWrapper import JSON, POST, URLENCODED, SPARQLWrapper
 from yarl import URL
 
-from skgg.core.rules import HornRule, RuleSignature
+from skgg.core.rules import Atom, HornRule, RuleSignature
 from skgg.utils import format_term, format_triple
 
 logger = logging.getLogger(__name__)
@@ -255,7 +255,7 @@ def insert_triples_bulk(
 
     `INSERT DATA` queries force the store to parse a full SPARQL Update grammar for
     every triple, which does not scale to the hundreds of thousands of triples used to
-    initialize a rule's search space (see `engine/generator.py`'s `create_searchspace`).
+    initialize a graph (see `initialize_graph`).
     Posting raw N-Triples payloads straight to the store's Graph Store / bulk-statements
     REST endpoint is dramatically faster and is the scalable path for that use case.
     Dispatches to the right protocol based on the client's endpoint:
@@ -594,6 +594,52 @@ def get_support(client: SPARQLWrapper, rule: HornRule, graph_uri: str) -> int:
         return int(results[0]["supp"]["value"])
 
     logger.warning("Retrieved None for %s support in %s.", rule.rule_id, graph_uri)
+    return 0
+
+
+def count_producible_heads(
+    client: SPARQLWrapper, rule: HornRule, atoms: Iterable[Atom], graph_uri: str
+) -> int:
+    """Returns how many different heads the bodies formed by `atoms` can produce.
+
+    This counts the distinct head-variable bindings that satisfy `atoms` in
+    `graph_uri`, without requiring the head atom to be present (see `get_support`
+    for the support of the rule itself). While the EDB is being built, the head
+    predicate is intensional and absent from it, so this is the amount of the rule's
+    support that the triples already in the EDB will yield once the head is derived.
+    `atoms` is normally the rule's extensional body. Only head variables that occur
+    in `atoms` are projected.
+    """
+    atoms = list(atoms)
+    if not atoms:
+        return 0
+
+    patterns = "\n          ".join(f"{atom} ." for atom in atoms)
+    atom_vars = {t for a in atoms for t in (a.subject, a.obj) if t.startswith("?")}
+    proj = " ".join(sorted(rule.get_head_variables() & atom_vars))
+
+    if proj:
+        query = f"""
+    SELECT (COUNT(*) AS ?heads) WHERE {{
+      SELECT DISTINCT {proj} WHERE {{
+        GRAPH <{graph_uri}> {{
+          {patterns}
+        }}
+      }}
+    }}"""
+    else:
+        # No head variable to project: the body either holds (one head) or it doesn't.
+        query = f"""
+    SELECT (COUNT(*) AS ?heads) WHERE {{
+      SELECT * WHERE {{
+        GRAPH <{graph_uri}> {{
+          {patterns}
+        }}
+      }} LIMIT 1
+    }}"""
+
+    if results := execute_select_query(client, query):
+        return int(results[0]["heads"]["value"])
     return 0
 
 

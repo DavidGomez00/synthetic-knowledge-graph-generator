@@ -459,6 +459,18 @@ architecture map.
     branch keeps only `complete_graph`, no closed-head-completion fallback
     at all.
 
+- [x] **`edb.py`/`generator.py`**: Replaced the searchspace technique
+  (`create_searchspace` + join query + `_filter_bindings`/`_select_valid_bindings`)
+  with `generator.sample_groundings`, which constructs only the `support -
+  current_support` groundings a rule still needs directly from the predicate
+  profiles. The old approach materialized `domain × range` per predicate and
+  pulled every join binding into Python, running out of memory on bodies like
+  `?e father ?b ∧ ?e mother ?a`. Variables shared between atoms are drawn once
+  from the intersection of their profile positions; head variables must produce
+  a new projection per grounding (support counts distinct head projections),
+  while existential variables are reused as witnesses. Recoverable via git
+  history.
+
 ## `configurations/`
 
 - [x] **`simpsons.json` fails to load** — verified via `RunConfig.from_json`:

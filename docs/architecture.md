@@ -144,9 +144,9 @@ flowchart TD
 - **`engine/metrics.py`** — `GraphMetrics`/`PredicateProfile`: the topological
   descriptors extracted from the source graph.
 - **`engine/generator.py`** — shared triple-generation primitives.
-  `create_searchspace` (cartesian product of a predicate's domain × range) is
-  used only by `engine/edb.py`, to find candidate bindings for extensional
-  predicates. `apply_rule` — applying a single rule to produce new triples,
+  `sample_groundings` constructs groundings of a rule's extensional body
+  directly from the predicate profiles (no materialized cartesian product);
+  it is used only by `engine/edb.py`. `apply_rule` — applying a single rule to produce new triples,
   querying only the real graph for bindings, checking whether a candidate
   assignment keeps the remaining profile realizable
   (`is_assignment_solvable`) — is shared by `engine/idb.py` and
@@ -159,7 +159,8 @@ flowchart TD
   current support against its target, closed or not) to help spot a broken
   intensional-dependency cycle when generation reaches a stale state (see
   "Data flow" step 5); `summary` then logs the full synthetic-vs-original
-  comparison.
+  comparison, with URIs shortened to their last segment and each rule printed
+  as `body => head`.
 - **`cli/upload.py`** — standalone script (edit the `graph_config` path at the
   top and run it directly) that uploads a base graph and runs completion.
 

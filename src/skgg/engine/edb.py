@@ -5,46 +5,31 @@ graph's predicate profiles and the rule bodies that will later drive IDB generat
 `generate_extensional_predicates` iterates three strategies per predicate, in
 order, until every extensional predicate's target frequency is reached
 ("closed"):
-  1. `check_direct_matches` — deterministic matches forced by profile counts.
-  2. `check_triples_from_rule` — bindings satisfying a rule's extensional body,
-     selected via CSP backtracking (`_select_valid_bindings`) so a chosen triple
-     never violates another predicate's remaining domain/range budget.
-  3. `insert_random_triples` — random assignment for whatever isn't pinned down
+  1. `check_direct_matches`: deterministic matches forced by profile counts.
+  2. `check_triples_from_rule`: bindings satisfying a rule's extensional body,
+     constructed directly from the profiles (`generator.sample_groundings`) so a
+     chosen triple never violates another predicate's remaining domain/range budget.
+  3. `insert_random_triples`: random assignment for whatever isn't pinned down
      by the first two steps, still respecting the Gale-Ryser/Havel-Hakimi
      solvability check (`generator.is_assignment_solvable`).
 """
 
-import copy
 import logging
 import random
-import uuid
 from collections.abc import Iterator
 
 from SPARQLWrapper import SPARQLWrapper
 
 from skgg.core.queries import (
-    SparqlBinding,
     TripleBuffer,
-    build_rule_query,
-    clear_graph,
-    execute_select_query,
-    from_binding_row,
-    get_existing_triples,
-    get_support,
+    count_producible_heads,
     initialize_graph,
     insert_triples_sparql,
 )
-from skgg.core.rules import (
-    Atom,
-    HornRule,
-    RuleSignature,
-    get_extensional_dependencies,
-)
+from skgg.core.rules import HornRule, get_extensional_dependencies
 from skgg.engine.generator import (
-    create_searchspace,
     decrement_counts,
-    is_assignment_solvable,
-    triples_from_bindings,
+    sample_groundings,
     update_closed_preds,
 )
 from skgg.engine.metrics import PredicateProfile
@@ -113,207 +98,6 @@ def check_direct_matches(
 # ---------------------------------------------------------------------------
 # Step 2: Extract ext. predicates from rule bodies
 # ---------------------------------------------------------------------------
-def _filter_bindings(
-    client: SPARQLWrapper,
-    edb_uri: str,
-    intensional_preds: set[str],
-    raw_bindings: list[SparqlBinding],
-    searchspace_profiles: dict[str, PredicateProfile],
-    rule: HornRule,
-    term_mapping: dict[str, str],
-    closed_preds: set[str],
-) -> Iterator[str]:
-    """This function processes the bindings retrieved from a query that includes a
-    searchspace. It yields valid triples, checking if the triple is allowed by
-    predicate metrics.
-
-    Args:
-        ...
-
-        rule: The original Horn Rule against which we want to validate the triples (for
-            example, to check if we are violating rule's support upper bound).
-    """
-
-    # First thing is to check if the rule's body contains any open and intensional
-    # predicate. If this is not the case, the support of the rule should be entirely
-    # closed by the generated triples. Each binding is at most one different head, so
-    # the number of bindings must be at least the difference between the current and
-    # target support.
-
-    # If rule like A and B -> p has support = 100, there are 100 triples p(X, Y) that
-    # result from the projection of A and B, i.e., at least 100 unique convinations of
-    # A and B.
-
-    excluded_preds = intensional_preds | closed_preds
-
-    current_support = get_support(client=client, rule=rule, graph_uri=edb_uri)
-    missing_heads = rule.support - current_support
-
-    only_extensional = rule.get_body_predicates().isdisjoint(excluded_preds)
-    if only_extensional and len(raw_bindings) < missing_heads:
-        raise ValueError(
-            f"Missing {missing_heads} heads to close the rule, but only "
-            f"{len(raw_bindings)} bindings found."
-        )
-
-    # NOTE: If we implement the MRV (Minimum Remaining Values) heuristic later, we would
-    # replace random.shuffle with a sort function here.
-    candidate_bindings = list(raw_bindings)
-    random.shuffle(candidate_bindings)
-
-    selected_bindings = _select_valid_bindings(
-        client=client,
-        edb_uri=edb_uri,
-        bindings=candidate_bindings,
-        rule=rule,
-        missing_heads=missing_heads,
-        searchspace_profiles=searchspace_profiles,
-        term_mapping=term_mapping,
-    )
-
-    if len(selected_bindings) < rule.support and only_extensional:
-        logger.warning(
-            "%s's support is %d, but %d bindings were retrieved.",
-            rule.rule_id,
-            rule.support,
-            len(selected_bindings),
-        )
-
-    # Produce the new triples from selected bindings
-    for idx in selected_bindings:
-        binding_row = candidate_bindings[idx]
-        for atom in (a for a in rule.body if a.predicate in searchspace_profiles):
-            predicate = atom.predicate
-            subject = from_binding_row(atom.subject, binding_row)[0]
-            obj = from_binding_row(atom.obj, binding_row)[0]
-
-            triple = format_triple(
-                subject=subject,
-                predicate=predicate,
-                obj=obj,
-                term_mapping=term_mapping,
-            )
-
-            decrement_counts(searchspace_profiles[predicate].domain, subject)
-            decrement_counts(searchspace_profiles[predicate].range, obj)
-            searchspace_profiles[predicate].frequency -= 1
-
-            yield triple
-
-
-def _select_valid_bindings(
-    client: SPARQLWrapper,
-    edb_uri: str,
-    bindings: list[SparqlBinding],
-    rule: HornRule,
-    missing_heads: int,
-    searchspace_profiles: dict[str, PredicateProfile],
-    term_mapping: dict[str, str],
-    max_backtracks: int = 10000,
-    chunk_size: int = 1000,
-) -> list[int]:
-    """Selects a subset of `bindings` that define a set of conjunctions thet does not
-    violate the upper bound for the rule support and the upper bound for relation
-    (predicate) frequency.
-
-    Returns:
-        A list of indices corresponding to the accepted bindings.
-    """
-    logger.debug(
-        "Searching through %d bindings (%d needed).",
-        len(bindings),
-        missing_heads,
-    )
-
-    body_atoms = [a for a in rule.body if a.predicate in searchspace_profiles]
-
-    all_potential_triples = triples_from_bindings(bindings, body_atoms, term_mapping)
-    existing_triples = get_existing_triples(
-        client=client,
-        graph_uri=edb_uri,
-        candidate_triples=all_potential_triples,
-        term_mapping=term_mapping,
-        chunk_size=chunk_size,
-    )
-
-    added_bindings: list[int] = []
-    backtrack_counter = [0]
-
-    def backtrack(
-        current_idx: int,
-        current_profiles: dict[str, PredicateProfile],
-        current_triples: set[str],
-        current_missing_heads: int,
-    ) -> bool:
-        """Recursive DFS CSP solver."""
-        if len(added_bindings) >= current_missing_heads:
-            return True  # Success state
-
-        if current_idx >= len(bindings):
-            return False  # Failure by invalid state
-
-        if backtrack_counter[0] > max_backtracks:
-            # Failure by timeout
-            raise TimeoutError(
-                "CSP Backtrack budget exceeded. Graph may be unsatisfable."
-            )
-
-        binding_row = bindings[current_idx]
-        is_valid = True
-
-        branch_profiles = copy.deepcopy(current_profiles)
-        branch_triples = set(current_triples)
-
-        for atom in body_atoms:
-            predicate = atom.predicate
-            profile = branch_profiles[predicate]
-
-            subject = from_binding_row(atom.subject, binding_row)[0]
-            obj = from_binding_row(atom.obj, binding_row)[0]
-
-            triple = format_triple(subject, predicate, obj, term_mapping)
-
-            if triple in existing_triples or triple in branch_triples:
-                continue
-
-            if (
-                not profile.frequency
-                or subject not in profile.domain
-                or obj not in profile.range
-                or not is_assignment_solvable(profile, subject, obj)
-            ):
-                is_valid = False
-                break
-
-            # Apply mutations to the current branch state
-            branch_triples.add(triple)
-            decrement_counts(profile.domain, subject)
-            decrement_counts(profile.range, obj)
-            profile.frequency -= 1
-
-        if is_valid:
-            added_bindings.append(current_idx)
-
-            if backtrack(
-                current_idx + 1, branch_profiles, branch_triples, current_missing_heads
-            ):
-                return True  # Bubble up successful state
-
-            added_bindings.pop()
-            backtrack_counter[0] += 1
-
-        return backtrack(
-            current_idx + 1, current_profiles, current_triples, current_missing_heads
-        )
-
-    success = backtrack(0, searchspace_profiles, set(), missing_heads)
-
-    if not success:
-        logger.warning("Could not find a valid combination to satisfy rule support.")
-
-    return added_bindings
-
-
 def check_triples_from_rule(
     rule: HornRule,
     intensional_preds: set[str],
@@ -323,12 +107,12 @@ def check_triples_from_rule(
     edb_uri: str,
     chunk_size: int,
 ) -> int:
-    """Retrieves triples satisfying a rule's body and inserts them into the EDB.
+    """Builds groundings of a rule's extensional body and inserts them into the EDB.
 
     Args:
         rule: The HornRule being evaluated.
         intensional_preds: Set of intensional predicate strings.
-        edb_profiles: Global predicate profiles tracking domains and ranges.
+        profiles: Global predicate profiles tracking domains and ranges.
         client: Wrapper for SPARQL queries.
         term_mapping: Mapping of terms to their string representations.
         edb_uri: The URI of the target EDB.
@@ -338,76 +122,53 @@ def check_triples_from_rule(
         The number of successfully inserted triples.
     """
 
-    # Build a new rule body that excludes atoms containing excluded predicates.
-    # This check should be redundant since a similar check is perfomed at
-    # generate_extensional_predicates()
     closed_preds = {p for p, profile in profiles.items() if profile.closed}
     excluded_preds = intensional_preds | closed_preds
-    new_body = {atom for atom in rule.body if atom.predicate not in excluded_preds}
-    if not new_body:
+    # A predicate with no domain or range left can't be grounded, even if it has not
+    # been flagged as closed yet.
+    exhausted_preds = {
+        p for p, profile in profiles.items() if not profile.domain or not profile.range
+    }
+    candidate_atoms = [
+        a for a in rule.body if a.predicate not in excluded_preds | exhausted_preds
+    ]
+    if unprofiled := {a.predicate for a in candidate_atoms} - profiles.keys():
+        logger.warning(
+            "Checking triples from rule: No profile for %s (absent from the source ",
+            "graph or a predicate format mismatch); ignoring those atoms.",
+            rule.rule_id,
+            sorted(unprofiled),
+        )
+    body_atoms = [a for a in candidate_atoms if a.predicate in profiles]
+    if not body_atoms:
         return 0
 
-    logger.debug("Generating predicates from %s: %s", rule.rule_id, list(new_body))
-
-    # TODO: This new rule is built to query the graph, but I am not sure this is correct
-    # Maybe the best approach is to define a specific way of querying the graphs for
-    # these cases.
-
-    # NOTE: It also is used to identify which relation types / predicates we want in the
-    # searchspace.
-    new_rule = HornRule(
-        signature=RuleSignature(
-            rule_id=rule.rule_id,
-            body=frozenset(new_body),
-            head=Atom("", "", ""),  # Dummy head for query builder
-        ),
-        support=rule.support,
-        head_coverage=rule.head_coverage,
-        std_confidence=rule.std_confidence,
-        pca_confidence=rule.pca_confidence,
-        classification=rule.classification,
+    # Existing triples (also those of closed predicates, e.g. created for another
+    # rule) may already yield some of the heads this rule needs.
+    producible_heads = count_producible_heads(
+        client, rule, rule.get_extensional_body(intensional_preds), edb_uri
     )
+    missing_heads = int(rule.support - producible_heads)
+    if missing_heads <= 0:
+        return 0
 
-    # Create the searchspace
-    target_preds = new_rule.get_body_predicates()
-    searchspace_profiles = {
-        pred: profiles[pred] for pred in target_preds if pred in profiles
-    }
+    logger.debug("Generating predicates from rule %s: %s", rule.rule_id, body_atoms)
 
-    # Concurrency-safe unique URI
-    searchspace_uri = f"http://SearchSpace.org/{uuid.uuid4().hex}"
-
-    try:
-        create_searchspace(
-            client=client,
-            profiles=searchspace_profiles,
-            term_mapping=term_mapping,
-            searchspace_uri=searchspace_uri,
-        )
-
-        query = build_rule_query(rule=new_rule.signature, graph_uri=searchspace_uri)
-        bindings = execute_select_query(client, query)
-
-    finally:
-        # Guarantee cleanup even if the query engine timeouts or filtering fails
-        clear_graph(client=client, graph_uri=searchspace_uri)
-
-    # Filter the retrieved bindings
-    triple_stream = _filter_bindings(
+    triples = sample_groundings(
         client=client,
-        edb_uri=edb_uri,
-        rule=rule,
-        raw_bindings=bindings,
+        target_uri=edb_uri,
+        atoms=body_atoms,
+        head_vars=rule.get_head_variables(),
+        profiles=profiles,
+        missing_heads=missing_heads,
         term_mapping=term_mapping,
-        searchspace_profiles=searchspace_profiles,
-        intensional_preds=intensional_preds,
-        closed_preds=closed_preds,
+        chunk_size=chunk_size,
     )
 
     return insert_triples_sparql(
         client=client,
         graph_uri=edb_uri,
-        triple_stream=triple_stream,
+        triple_stream=iter(triples),
         chunk_size=chunk_size,
     )
 
@@ -622,8 +383,10 @@ def generate_extensional_predicates(
                 ):
                     continue
 
-                current_support = get_support(client=client, rule=r, graph_uri=edb_uri)
-                if current_support >= r.support:
+                producible_heads = count_producible_heads(
+                    client, r, r.get_extensional_body(intensional_preds), edb_uri
+                )
+                if producible_heads >= r.support:
                     checked_rules.add(r_id)
                     r.closed = True
                     continue
@@ -634,7 +397,7 @@ def generate_extensional_predicates(
                     continue
 
                 # Open rule with 2 or more ext. predicates and no ext. dependencies. get
-                # triples from searchspace.
+                # triples by sampling groundings.
                 r_count = check_triples_from_rule(
                     rule=r,
                     intensional_preds=intensional_preds,

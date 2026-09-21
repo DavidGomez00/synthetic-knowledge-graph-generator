@@ -4,7 +4,7 @@ How `engine/edb.py`'s `generate_extensional_predicates` turns predicate profiles
 the ground triples of the Extensional Database (EDB), the seed the IDB
 (`engine/idb.py`) later grows into the synthetic graph. See
 [`concepts.md`](concepts.md) for EDB/IDB, predicate profile, closure and
-searchspace definitions used throughout, and
+grounding-sampler definitions used throughout, and
 [`architecture.md`](architecture.md) for where this step sits in the overall
 pipeline.
 
@@ -202,50 +202,34 @@ For the one ready rule chosen this round:
    predicate is extensional and not yet closed. If empty, this rule has
    nothing left to contribute — return immediately (still counts as
    "checked").
-2. **Build a searchspace**: for each predicate in `new_body`, materialize
-   every triple in the cartesian product of its profile's remaining domain ×
-   range into a scratch named graph (`generator.create_searchspace`). This is
-   *not* rule-aware by itself — it's just "everything still profile-legal for
-   this predicate" — the rule-awareness comes from the next step.
-3. **Join query**: `build_rule_query` turns `new_body` into a single SPARQL
-   `SELECT DISTINCT` over that searchspace graph, with one triple pattern per
-   atom and a `FILTER` forcing all of the rule's variables to bind to
-   distinct values. Because the atoms share variables (e.g. `?Z` in both
-   `p(Z,X)` and `q(Z,Y)`), this query only returns bindings where the atoms
-   actually connect the way the rule requires — this is the step that
-   recovers the "selectivity between triples that appear together in a
-   rule's body" the summary describes; sampling each predicate independently
-   would lose it. The scratch graph is always cleared afterward, success or
-   failure.
-4. **Filter to profile-valid, non-duplicate bindings**
-   (`_filter_bindings` → `_select_valid_bindings`): if the rule's *entire*
-   body (not just `new_body`) is currently extensional and open, the number
-   of raw join bindings must already be at least `rule.support`, or this is
-   raised as a hard `ValueError` — a sign the mined rule's support is
-   inconsistent with the source profiles being reproduced. Otherwise,
-   candidate bindings are shuffled (there's a `# TODO` noting this is where
-   an MRV — minimum-remaining-values — heuristic could later replace random
-   order) and run through a depth-first CSP search:
-   - For each candidate binding, in order, build the triple for every
-     `new_body` atom under that binding.
-   - A triple that's a no-op — already present in the real EDB graph, or
-     already selected earlier in this same search — is skipped without
-     consequence (doesn't cost profile budget, doesn't invalidate the
-     binding).
-   - A triple that's novel must pass profile checks on *all* of its atoms
-     to accept the binding: the predicate still has frequency left, the
-     subject is still in its domain, the object is still in its range, and
-     `is_assignment_solvable` (below) still holds afterward. If any atom
-     fails, the whole binding is rejected.
-   - Accepted bindings decrement the (searchspace-scoped copy of the)
-     profiles and are appended to the result; the search backtracks
-     (undoing the tentative decrement) and tries the next binding once
-     either a binding is rejected or a subsequent binding can't complete the
-     target `rule.support` count. A budget of 10,000 backtracks
-     (`max_backtracks`) guards against searching an unsatisfiable
-     combination forever — exceeding it raises `TimeoutError`.
-5. For every accepted binding, one triple is emitted per `new_body` atom, and
-   `edb_profiles` is decremented accordingly before insertion.
+2. **Sample groundings** (`generator.sample_groundings`): compute
+   `missing_heads = rule.support - producible_heads`, where `producible_heads`
+   (`queries.count_producible_heads`) counts the distinct head bindings the rule's
+   extensional body already yields from triples in the EDB, then construct only that
+   many groundings of `new_body` directly from the profiles, in batches:
+   - Each variable's candidate pool is the intersection of the profile
+     positions it occupies (domain keys for subjects, range keys for objects),
+     weighted by remaining capacity. Variables shared between atoms (e.g. `?Z`
+     in `p(Z,X)` and `q(Z,Y)`) are drawn once per grounding, so the atoms
+     connect the way the rule requires — this is what recovers the
+     "selectivity between triples that appear together in a rule's body";
+     sampling each predicate independently would lose it. An empty pool raises
+     `ValueError` (the rule can't be satisfied under the profiles).
+   - Support counts *distinct projections onto the head variables*, so a
+     grounding is accepted only if its head projection is new. Body-only
+     (existential) variables add no support: one witness per head tuple is
+     enough, and capacity-weighted draws favor reusing high-capacity entities.
+   - A grounding whose triples all already exist in the EDB adds nothing (its
+     projection is already among the `producible_heads`) and is rejected. Otherwise
+     every novel triple must pass profile checks: the predicate still has
+     frequency left, the subject is still in its domain, the object is still in
+     its range, and `is_assignment_solvable` (below) still holds. If any atom
+     fails, the tentative decrements are undone and the grounding is rejected.
+   - Sampling stops at `missing_heads` accepted groundings, or after three
+     consecutive batches with no accepted grounding (a warning is logged; step 3
+     covers the remainder).
+3. For every accepted grounding, one triple is emitted per `new_body` atom, and
+   the profiles are decremented accordingly before insertion.
 
 ### The solvability check (`generator.is_assignment_solvable`)
 
@@ -320,8 +304,8 @@ before trusting the algorithm against a new, untested rule set.
 |---|---|---|
 | Dependency graph | `get_extensional_dependencies` | `core/rules.py` |
 | 1. Direct assignments | `check_direct_matches` | `engine/edb.py` |
-| 2. Rule-body selection | `check_triples_from_rule`, `_filter_bindings`, `_select_valid_bindings` | `engine/edb.py` |
-| 2. Searchspace / join query | `create_searchspace`, `build_rule_query` | `engine/generator.py`, `core/queries.py` |
+| 2. Rule-body selection | `check_triples_from_rule` | `engine/edb.py` |
+| 2. Grounding sampler | `sample_groundings` | `engine/generator.py` |
 | 2/3. Realizability check | `is_assignment_solvable` | `engine/generator.py` |
 | 3. Random assignment | `insert_random_triples` | `engine/edb.py` |
 | 1/3. Insertion buffering | `TripleBuffer` | `core/queries.py` |
