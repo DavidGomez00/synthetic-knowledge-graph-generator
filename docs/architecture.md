@@ -76,6 +76,12 @@ Blue nodes are named graphs in the database (keyed by the URIs in each config's
    before its `support` target is met), every rule gated on it stays skipped
    indefinitely, and generation can reach a stale state with a
    structurally-derivable predicate still short of its target frequency.
+6. **Pipeline as wired in `cli/main.py`.** The entry point logs five numbered
+   phases: metrics/rules, EDB, completion, cycle-breaking, summary. Completion
+   (`complete_graph`, which returns the number of triples it added and takes a
+   `label` for its log lines) forward-chains the rules over the EDB into
+   `synthetic_uri`. Cycle-breaking then alternates `break_cycles` (one stale
+   cycle per call) with `complete_graph` until `break_cycles` seeds nothing.
 
 ## Components
 

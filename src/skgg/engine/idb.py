@@ -256,9 +256,9 @@ def generate_idb(
             # Keep track of the rules appliead
             applied_rules[rule_id] = rule
 
-        logger.info("[Step %d] Added %d triples.", step, added_triples)
+        logger.debug("[Step %d] Added %d triples.", step, added_triples)
         if not added_triples:
-            logger.info("[Step %d] Reached stale state.", step)
+            logger.info("Reached stale state after %d steps.", step)
             break
 
         # Determine which rules should be checked for closure

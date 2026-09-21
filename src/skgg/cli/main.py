@@ -35,6 +35,13 @@ from skgg.utils import (
 
 logger = logging.getLogger(__name__)
 
+_TOTAL_PHASES = 5
+
+
+def _log_phase(number: int, title: str) -> None:
+    """Logs a pipeline stage header, e.g. `[3/5] Completing graph`."""
+    logger.info("[%d/%d] %s", number, _TOTAL_PHASES, title)
+
 
 def _format_rule(rule: HornRule) -> str:
     """Formats a rule as `body atom & body atom => head` with shortened URIs."""
@@ -194,7 +201,10 @@ def run_synthetic_graph_experiment(
     # SPARQL client
     client = create_sparql_client(config)
 
+    run_start = time.time()
+
     ## ------ Extraction of predicate profiles from original graph -------
+    _log_phase(1, "Extracting metrics and rules")
     # Graph metrics
     graph_metrics = GraphMetrics.from_uri(client, config.graph.base_uri)
 
@@ -221,7 +231,7 @@ def run_synthetic_graph_experiment(
     edb_uri = config.graph.edb_uri
     synthetic_uri = config.graph.synthetic_uri
     ## ------ EDB Generation  ------
-
+    _log_phase(2, "Generating EDB")
     start_time = time.time()
 
     if skip_edb_generation:
@@ -236,8 +246,6 @@ def run_synthetic_graph_experiment(
         for rule_id in get_closed_rules(client, edb_uri, rules):
             rules[rule_id].closed = True
     else:
-        logger.info("Generating EDB...")
-
         generate_extensional_predicates(
             client=client,
             term_mapping=term_mapping,
@@ -250,12 +258,13 @@ def run_synthetic_graph_experiment(
         extensional_preds_time = time.time() - start_time
 
         logger.info(
-            "Finished ext. predicate generation after %fs at <%s> with %d triples",
+            "EDB generated in %.1fs at <%s> with %d triples.",
             extensional_preds_time,
             edb_uri,
             get_triple_count(client, edb_uri),
         )
 
+    _log_phase(3, "Completing graph")
     complete_graph(
         client=client,
         rules=rules,
@@ -264,9 +273,12 @@ def run_synthetic_graph_experiment(
         target_uri=synthetic_uri,
         chunk_size=chunk_size,
         profiles=graph_metrics.profiles,
+        label="initial",
     )
 
-    seeded = True
+    _log_phase(4, "Breaking rule cycles")
+    round_no = 0
+    seeded = 1
     while seeded:
         seeded = break_cycles(
             client=client,
@@ -276,9 +288,8 @@ def run_synthetic_graph_experiment(
             chunk_size=chunk_size,
             profiles=graph_metrics.profiles,
         )
-        logger.debug("Debugging: %s", bool(seeded))
         if seeded:
-            logger.info("Seeded %d triples to break rule cycles.", seeded)
+            round_no += 1
             complete_graph(
                 client=client,
                 rules=rules,
@@ -287,13 +298,17 @@ def run_synthetic_graph_experiment(
                 target_uri=synthetic_uri,
                 chunk_size=chunk_size,
                 profiles=graph_metrics.profiles,
+                label=f"cycle round {round_no}",
             )
+    if not round_no:
+        logger.info("No stale cycles to break.")
 
+    _log_phase(5, "Summary")
     log_summary(
         client, config.graph.base_uri, synthetic_uri, rules, graph_metrics.profiles
     )
 
-    logger.info("Execution finished after %d s.", time.time() - start_time)
+    logger.info("Execution finished after %.1fs.", time.time() - run_start)
 
 
 def _parse_args() -> argparse.Namespace:

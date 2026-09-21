@@ -30,8 +30,16 @@ def complete_graph(
     target_uri: str,
     chunk_size: int,
     profiles: dict[str, PredicateProfile] | None = None,
-) -> None:
+    label: str = "Completion",
+) -> int:
     """Completes a graph by applying rules if able.
+
+    `label` prefixes this call's log lines, so the several completions of one
+    pipeline run can be told apart. Per-pass detail is logged at DEBUG; one INFO
+    line summarizes the whole call.
+
+    Returns:
+        The total number of triples added.
 
     `profiles`, if given, carries the target frequency each predicate should
     reach (e.g. extracted from the original source graph) -- when omitted
@@ -51,6 +59,7 @@ def complete_graph(
     grounded_preds = set(get_predicate_frequencies(client, target_uri).keys())
     state = {r_id: 0 for r_id in rules.keys()}
     step = 0
+    total_added = 0
     while True:
         step += 1
         added = 0
@@ -76,12 +85,17 @@ def complete_graph(
                     if state[r_id] > 0
                 ]
             )
-            logger.info("[Step %d] Added %d triples.", step, added)
+            total_added += added
+            logger.debug("[%s] Pass %d: added %d triples.", label, step, added)
             logger.debug("\n%s", state_msg)
 
         else:
-            logger.info("[Step %d]: No triples added. Reached stale state.", step)
+            logger.debug("[%s] Pass %d: no triples added.", label, step)
             break
+
+    logger.info(
+        "[%s] +%d triples in %d passes (stale state).", label, total_added, step
+    )
 
     for rule_id in get_closed_rules(client, target_uri, rules):
         rules[rule_id].closed = True
@@ -89,3 +103,5 @@ def complete_graph(
     if profiles is not None:
         for predicate in get_closed_preds(client, target_uri, profiles):
             profiles[predicate].closed = True
+
+    return total_added
