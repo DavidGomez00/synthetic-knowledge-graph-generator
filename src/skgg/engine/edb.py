@@ -267,19 +267,13 @@ def _select_valid_bindings(
         for atom in body_atoms:
             predicate = atom.predicate
             profile = branch_profiles[predicate]
-            logger.debug("Branch_profile state: %s", profile)
 
             subject = from_binding_row(atom.subject, binding_row)[0]
             obj = from_binding_row(atom.obj, binding_row)[0]
 
-            logger.debug("Subject: %s | Object: %s", subject, obj)
-
             triple = format_triple(subject, predicate, obj, term_mapping)
 
-            logger.debug("Trying triple: %s", triple)
-
             if triple in existing_triples or triple in branch_triples:
-                logger.debug("Triple already exists in selected triples or EDB.")
                 continue
 
             if (
@@ -288,7 +282,6 @@ def _select_valid_bindings(
                 or obj not in profile.range
                 or not is_assignment_solvable(profile, subject, obj)
             ):
-                logger.debug("Triple violates profiles.")
                 is_valid = False
                 break
 
@@ -300,19 +293,20 @@ def _select_valid_bindings(
 
         if is_valid:
             added_bindings.append(current_idx)
-            logger.debug(
-                "Binding %d valid, let's check %d.", current_idx, current_idx + 1
-            )
 
-            if backtrack(current_idx + 1, branch_profiles, branch_triples):
+            if backtrack(
+                current_idx + 1, branch_profiles, branch_triples, current_missing_heads
+            ):
                 return True  # Bubble up successful state
 
             added_bindings.pop()
             backtrack_counter[0] += 1
 
-        return backtrack(current_idx + 1, current_profiles, current_triples)
+        return backtrack(
+            current_idx + 1, current_profiles, current_triples, current_missing_heads
+        )
 
-    success = backtrack(0, searchspace_profiles, current_triples=set())
+    success = backtrack(0, searchspace_profiles, set(), missing_heads)
 
     if not success:
         logger.warning("Could not find a valid combination to satisfy rule support.")
@@ -392,7 +386,6 @@ def check_triples_from_rule(
         )
 
         query = build_rule_query(rule=new_rule.signature, graph_uri=searchspace_uri)
-        # logger.debug("Query: %s", query)
         bindings = execute_select_query(client, query)
 
     finally:
@@ -611,7 +604,7 @@ def generate_extensional_predicates(
             buffer=buffer,
         ):
             progress = True
-            logger.debug("[Step %d]: Added %d triples directly.", step, direct_count)
+            logger.debug("[Step %d] Added %d triples directly.", step, direct_count)
 
             if _end_edb():
                 break
@@ -680,7 +673,7 @@ def generate_extensional_predicates(
             )
             if ran_count:
                 logger.debug(
-                    "[Step %d]: Added %d triples by random assignment.", step, ran_count
+                    "[Step %d] Added %d triples by random assignment.", step, ran_count
                 )
 
             if _end_edb():

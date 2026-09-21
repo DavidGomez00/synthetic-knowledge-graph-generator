@@ -6,24 +6,25 @@ rule can add any more triples. The result (`graph.complete_uri`) is what
 `engine.metrics.GraphMetrics.from_uri` later profiles for EDB/IDB generation.
 """
 
-import copy
 import logging
 import random
+import uuid
 from collections import defaultdict
 
 from SPARQLWrapper import SPARQLWrapper
 
 from skgg.core.queries import (
+    clear_graph,
     execute_select_query,
     from_binding_row,
-    get_existing_triples,
     get_predicate_frequencies,
     get_support,
     initialize_graph,
     insert_triples_sparql,
 )
 from skgg.core.rules import Atom, HornRule
-from skgg.engine.generator import apply_rule, decrement_counts, is_assignment_solvable
+from skgg.engine.edb import _select_valid_bindings
+from skgg.engine.generator import apply_rule, create_searchspace, decrement_counts
 from skgg.engine.idb import get_closed_preds, get_closed_rules
 from skgg.engine.metrics import PredicateProfile
 from skgg.utils import format_triple
@@ -103,200 +104,17 @@ def complete_graph(
             profiles[predicate].closed = True
 
 
-_SolvedAtoms = tuple[
-    dict[str, str], dict[str, PredicateProfile], list[tuple[str, str, str]]
-]
-
-
-def _solve_open_atoms(
-    open_atoms: list[Atom],
-    known_values: dict[str, str],
-    profiles: dict[str, PredicateProfile],
-    client: SPARQLWrapper,
-    graph_uri: str,
-    term_mapping: dict[str, str],
-    chunk_size: int,
-) -> _SolvedAtoms | None:
-    """Finds a value for every variable in `open_atoms` not already fixed by
-    `known_values`, such that every atom becomes a profile-valid, solvable
-    triple. Returns (all_values, updated_profiles, novel_triples) --
-    `novel_triples` is the subset of open_atoms' (subject, predicate, obj)
-    triples confirmed not to already exist -- or None if no profile-valid
-    assignment exists at all.
-
-    At least one atom is guaranteed novel by construction: the caller's query
-    wraps every open atom in `FILTER NOT EXISTS`, with the linking variables
-    free inside it, so no value of them (including whatever `_solve_open_atoms`
-    picks) can make the full conjunction already hold in the graph. So
-    `novel_triples` is never empty here -- no explicit reject-and-backtrack
-    branch for that case is needed.
-
-    `known_values` may be incomplete: variables shared only among open atoms
-    ("linking variables", e.g. `w` in `p2(z,w), p3(w,y)` when `z`/`y` are
-    already known but `w` isn't) are solved for here, by intersecting the
-    relevant predicates' remaining domain/range budgets and trying candidates
-    at random. Forward-checking: an atom is validated (and, if valid,
-    decremented) as soon as every one of its variables is resolved, rather
-    than waiting for the full assignment -- an invalid choice is caught and
-    backtracked on immediately instead of wasting work assigning the rest.
-
-    Existence is pre-fetched once, up front, for every triple any atom could
-    possibly produce given `known_values` and each free variable's full
-    candidate pool -- mirroring `engine/edb.py`'s `_select_valid_bindings`,
-    which uses the same "pre-fetch once, then treat an already-existing
-    triple as a free no-op" pattern to avoid both a live query per candidate
-    tried and over-decrementing a profile for a triple that doesn't actually
-    consume any new budget.
-
-    Called independently per binding row by the caller -- rows are solved
-    greedily, not jointly, so an earlier row's choice can consume a scarce
-    term a later row also needed even when a different (still valid) choice
-    for the earlier row would have let both succeed. Unlike
-    `_select_valid_bindings`, there's no backtracking across rows to recover
-    from that; a known, deliberately deferred limitation.
-    """
-    free_vars = sorted(
-        {
-            v
-            for atom in open_atoms
-            for v in (atom.subject, atom.obj)
-            if v.startswith("?") and v not in known_values
-        }
-    )
-
-    def candidates_for(
-        var: str, branch_profiles: dict[str, PredicateProfile]
-    ) -> list[str]:
-        """Returns the possible values that fit for given variable."""
-        options: set[str] | None = None
-        for atom in open_atoms:
-            profile = branch_profiles[atom.predicate]
-            if atom.subject == var:
-                atom_options = set(profile.domain)
-            elif atom.obj == var:
-                atom_options = set(profile.range)
-            else:
-                continue
-            options = atom_options if options is None else options & atom_options
-        return list(options or set())
-
-    def term_options(term: str) -> list[str]:
-        """Every value `term` could possibly take: itself if already known or
-        a constant, else its full (unnarrowed) candidate pool."""
-        if term in known_values:
-            return [known_values[term]]
-        if not term.startswith("?"):
-            return [term]
-        return candidates_for(term, profiles)
-
-    all_potential_triples = {
-        format_triple(s, atom.predicate, o, term_mapping)
-        for atom in open_atoms
-        for s in term_options(atom.subject)
-        for o in term_options(atom.obj)
-    }
-    existing_triples = get_existing_triples(
-        client=client,
-        graph_uri=graph_uri,
-        candidate_triples=all_potential_triples,
-        term_mapping=term_mapping,
-        chunk_size=chunk_size,
-    )
-
-    def is_resolved(atom: Atom, values: dict[str, str]) -> bool:
-        return all(
-            not t.startswith("?") or t in values for t in (atom.subject, atom.obj)
-        )
-
-    def is_valid(
-        atom: Atom,
-        values: dict[str, str],
-        branch_profiles: dict[str, PredicateProfile],
-        branch_triples: set[str],
-        novel_triples: list[tuple[str, str, str]],
-    ) -> bool:
-        """Check if the triple violates profle constraints.
-
-        If the formated triple is included in the existing triples, no profile needs to
-        be updated. Else, check profile constraints and if passes, update profiles and
-        add the triple to the novel triples."""
-        subject = values.get(atom.subject, atom.subject)
-        obj = values.get(atom.obj, atom.obj)
-        triple = format_triple(subject, atom.predicate, obj, term_mapping)
-        if triple in existing_triples or triple in branch_triples:
-            return True
-
-        profile = branch_profiles[atom.predicate]
-        if (
-            profile.frequency <= 0
-            or subject not in profile.domain
-            or obj not in profile.range
-            or not is_assignment_solvable(profile, subject, obj)
-        ):
-            return False
-
-        decrement_counts(profile.domain, subject)
-        decrement_counts(profile.range, obj)
-        profile.frequency -= 1
-        branch_triples.add(triple)
-        novel_triples.append((subject, atom.predicate, obj))
-        return True
-
-    def backtrack(
-        remaining_variables: list[str],
-        values: dict[str, str],
-        branch_profiles: dict[str, PredicateProfile],
-        valid_atoms: set[Atom],
-        branch_triples: set[str],
-        novel_triples: list[tuple[str, str, str]],
-    ) -> _SolvedAtoms | None:
-        """Tries to extend `values` to a full assignment of `remaining_variables`.
-
-        Returns None if no assignment of the remaining free variables yields a
-        profile-valid triple for every atom in `open_atoms`; otherwise returns
-        a tuple of the complete variable assignment (`known_values` plus every
-        solved free variable), the resulting state of `profiles` after
-        decrementing each accepted atom, and the list of confirmed-novel
-        triples.
-        """
-        # Check for each atom resolved that it is valid. If there is an invalid atom,
-        # skip this branch (return None). Unresolved atoms cannot be invalid.
-        for atom in open_atoms:
-            if atom in valid_atoms or not is_resolved(atom, values):
-                continue
-            if not is_valid(
-                atom, values, branch_profiles, branch_triples, novel_triples
-            ):
-                return None
-            valid_atoms.add(atom)
-
-        # End of recursion
-        if not remaining_variables:
-            return values, branch_profiles, novel_triples
-
-        # Solve one variable
-        var, *rest = remaining_variables
-        options = candidates_for(var, branch_profiles)
-        random.shuffle(options)
-        for candidate in options:
-            # Check if there is a valid branch with these option
-            result = backtrack(
-                rest,
-                {**values, var: candidate},
-                copy.deepcopy(branch_profiles),
-                set(valid_atoms),
-                set(branch_triples),
-                list(novel_triples),
-            )
-            if result is not None:
-                # Solution found
-                return result
-        # There is no solution
-        return None
-
-    return backtrack(
-        free_vars, dict(known_values), copy.deepcopy(profiles), set(), set(), []
-    )
+# A join against an unselective correlation (e.g. two atoms sharing only a
+# common rdf:type) can return a candidate binding set orders of magnitude
+# larger than `missing` actually requires -- `_select_valid_bindings`
+# recurses once per binding it examines, so an uncapped set risks hitting
+# Python's recursion limit (confirmed in practice: 693594 bindings for 17
+# needed hit "maximum recursion depth exceeded"), on top of the wasted
+# query/transfer cost of retrieving all of them. Capping the query itself to
+# a generous-but-bounded multiple of `missing` keeps the candidate set large
+# enough to absorb some rejected/no-op bindings without reintroducing the
+# undershoot risk `LIMIT missing` (with no headroom at all) would have.
+_BINDING_LIMIT_FACTOR = 20
 
 
 # ---------------------------------------------------------------------------
@@ -325,9 +143,30 @@ def complete_open_rules_with_closed_head(
     added in aggregate. Any `open_pred` appearing as some other rule's *head* is safe
     and needs no check: `complete_graph` calls `apply_rule` uncapped to a full stale
     state, so every body-satisfying binding for every rule already has its head fact
-    present; a triple this function proposes, having survived its own FILTER NOT EXISTS,
-    can't also be a new witness for another rule's body, or apply_rule would already
-    have inserted it.
+    present; a triple this function proposes can't also be a new witness for another
+    rule's body, or apply_rule would already have inserted it.
+
+    Generation approach (searchspace variant): for the chosen rule, materializes a
+    scratch searchspace graph (`generator.create_searchspace`) holding the cartesian
+    product of each open predicate's remaining domain x range, then runs one join
+    query spanning two graphs -- the real graph (for the already-closed body atoms +
+    head, grounding the shared variables) and the searchspace (for the open atoms,
+    resolving every one of their variables via the join, including ones private to
+    the open atoms -- no separate "linking variable" handling needed here, unlike the
+    FILTER-NOT-EXISTS approach this replaces). The resulting candidate bindings are
+    run through `edb.py`'s `_select_valid_bindings` -- the same CSP-with-backtracking
+    used for EDB generation -- to pick a subset that doesn't violate any open
+    predicate's remaining domain/range/frequency budget.
+
+    Unlike the bespoke per-row solver this replaces, `_select_valid_bindings`
+    backtracks across the *whole* binding list (pop a row back out and try a
+    different one if a later row can't be satisfied), so it doesn't share that
+    approach's "greedy, not jointly" row-ordering limitation. It also doesn't share
+    its novelty guarantee: a binding whose triples already all exist is treated as a
+    no-op rather than excluded outright (matching edb.py's own semantics), so a
+    successful-looking selection can occasionally contribute less new support than
+    `missing` -- the post-hoc `get_support` recheck below still catches this and
+    simply leaves the rule open for the next retry-loop iteration.
 
     The function returns whenever triples are generated from any rule, breaking
     the loop. This is because in the current pipeline this method of generating triples
@@ -389,72 +228,75 @@ def complete_open_rules_with_closed_head(
     logger.info("Using closed head completion on %d rules.", len(candidates))
 
     for missing, rule, open_atoms in candidates:
-        ## ---- Query graph to retrieve values that don't generate new heads ----
+        ## ---- Build searchspace for the open predicates ----
         other_atoms = [atom for atom in rule.body if atom not in open_atoms]
-        other_patterns = "\n            ".join(
-            [f"{atom} ." for atom in other_atoms] + [f"{rule.head} ."]
-        )
-        other_patterns_vars = {
-            var
-            for atom in (*other_atoms, rule.head)
-            for var in (atom.subject, atom.obj)
-            if var.startswith("?")
-        }
-        open_patterns = "\n            ".join([f"{atom} ." for atom in open_atoms])
-        open_patterns_vars = {
-            t
-            for atom in open_atoms
-            for t in (atom.subject, atom.obj)
-            if t.startswith("?")
-        }
-        # A var in open_pattern_vars that is not in other_pattern_vars is just a "link"
-        # variable shared only among open atoms.
-        proj_vars = sorted(open_patterns_vars & other_patterns_vars)
-        proj = " ".join(proj_vars) if proj_vars else "*"
+        open_preds = {atom.predicate for atom in open_atoms}
+        # Same objects as `profiles`, not copies -- mirrors check_triples_from_rule's
+        # own convention, so _select_valid_bindings's (copy-based) exploration never
+        # touches the real profiles, and the commit step below decrements them directly.
+        searchspace_profiles = {pred: profiles[pred] for pred in open_preds}
 
-        query = f"""
-        SELECT DISTINCT {proj} WHERE {{
-          GRAPH <{graph_uri}> {{
-            {other_patterns}
-            FILTER NOT EXISTS {{
+        searchspace_uri = f"http://SearchSpace.org/{uuid.uuid4().hex}"
+        try:
+            create_searchspace(
+                client=client,
+                profiles=searchspace_profiles,
+                term_mapping=term_mapping,
+                searchspace_uri=searchspace_uri,
+            )
+
+            other_patterns = "\n            ".join(
+                [f"{atom} ." for atom in other_atoms] + [f"{rule.head} ."]
+            )
+            open_patterns = "\n            ".join([f"{atom} ." for atom in open_atoms])
+            # Every open-atom variable gets resolved by this join -- no more "linking
+            # variable" distinction, unlike the FILTER NOT EXISTS approach this
+            # replaces.
+            proj_vars = sorted(
+                {
+                    var
+                    for atom in open_atoms
+                    for var in (atom.subject, atom.obj)
+                    if var.startswith("?")
+                }
+            )
+            proj = " ".join(proj_vars) if proj_vars else "*"
+
+            query = f"""
+            SELECT DISTINCT {proj} WHERE {{
+              GRAPH <{graph_uri}> {{
+                {other_patterns}
+              }}
+              GRAPH <{searchspace_uri}> {{
                 {open_patterns}
+              }}
             }}
-          }}
-        }}
-        """
+            LIMIT {int(missing * _BINDING_LIMIT_FACTOR)}
+            """
 
-        logger.debug("%s", query)
+            logger.debug("%s", query)
 
-        bindings = execute_select_query(client, query)
+            bindings = execute_select_query(client, query)
+        finally:
+            # Guaranteed cleanup even if the query times out or raises.
+            clear_graph(client=client, graph_uri=searchspace_uri)
+
         if not bindings:
             continue
 
-        open_preds_for_atoms = {atom.predicate for atom in open_atoms}
-        working_profiles = {
-            pred: copy.deepcopy(profiles[pred]) for pred in open_preds_for_atoms
-        }
-        solved_bindings = 0
-        row_atom_values: list[list[tuple[str, str, str]]] = []
-        for row in bindings:
-            known_values = {var: from_binding_row(var, row)[0] for var in proj_vars}
-            solved = _solve_open_atoms(
-                open_atoms,
-                known_values,
-                working_profiles,
-                client,
-                graph_uri,
-                term_mapping,
-                chunk_size,
-            )
-            if solved is None:
-                continue
-            _, working_profiles, novel_triples = solved
-            row_atom_values.append(novel_triples)
-            solved_bindings += 1
-            if solved_bindings >= missing:
-                break
+        random.shuffle(bindings)
 
-        if not row_atom_values:
+        selected_indices = _select_valid_bindings(
+            client=client,
+            edb_uri=graph_uri,
+            bindings=bindings,
+            rule=rule,
+            missing_heads=missing,
+            searchspace_profiles=searchspace_profiles,
+            term_mapping=term_mapping,
+            chunk_size=chunk_size,
+        )
+        if not selected_indices:
             logger.debug(
                 "Rule %s retrieved %d bindings not fitting current profiles.",
                 rule.rule_id,
@@ -463,13 +305,18 @@ def complete_open_rules_with_closed_head(
             continue
 
         new_triples: list[str] = []
-        for triples in row_atom_values:
-            for subject, predicate, obj in triples:
-                profile = profiles[predicate]
+        for idx in selected_indices:
+            binding_row = bindings[idx]
+            for atom in open_atoms:
+                subject = from_binding_row(atom.subject, binding_row)[0]
+                obj = from_binding_row(atom.obj, binding_row)[0]
+                profile = searchspace_profiles[atom.predicate]
                 decrement_counts(profile.domain, subject)
                 decrement_counts(profile.range, obj)
                 profile.frequency -= 1
-                new_triples.append(format_triple(subject, predicate, obj, term_mapping))
+                new_triples.append(
+                    format_triple(subject, atom.predicate, obj, term_mapping)
+                )
 
         if added := insert_triples_sparql(
             client=client,
