@@ -153,14 +153,17 @@ flowchart TD
   `engine/completion.py`.
 - **`engine/edb.py`** / **`engine/idb.py`** — see "Data flow" above.
 - **`engine/completion.py`** — see "Data flow" above.
+- **`engine/cycles.py`** — `break_cycles` runs right after completion in
+  `cli/main.py`. It finds *stale cycles* (`core/rules.find_stale_cycles`), seeds
+  one rule per cycle in the synthetic graph via `sample_groundings` and completes
+  the graph again; see "Stale cycle" in `docs/concepts.md`.
 - **`cli/main.py`** — the experiment entry point (`run_synthetic_graph_experiment`).
-  After generation, `summarize_progress` logs a diagnostic snapshot (which
-  predicates are present/missing vs. the original graph, and each rule's
-  current support against its target, closed or not) to help spot a broken
-  intensional-dependency cycle when generation reaches a stale state (see
-  "Data flow" step 5); `summary` then logs the full synthetic-vs-original
-  comparison, with URIs shortened to their last segment and each rule printed
-  as `body => head`.
+  After generation, `log_summary` logs one consolidated synthetic-vs-original
+  report: total triples, one row per predicate (frequency original -> synthetic,
+  `[OPEN]`/`[CLOSED]`, and `[EXTENSIONAL]`/`[INTENSIONAL]` — intensional means
+  the predicate is the head of some rule) and one row per rule (support
+  original -> synthetic, `[OPEN]`/`[CLOSED]`), with URIs shortened to their last
+  segment and each rule printed as `body => head`.
 - **`cli/upload.py`** — standalone script (edit the `graph_config` path at the
   top and run it directly) that uploads a base graph and runs completion.
 

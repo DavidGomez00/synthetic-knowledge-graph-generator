@@ -170,6 +170,23 @@ the rule requires. Support counts distinct projections onto the head variables:
 head variables must take a new combination in every accepted grounding, while
 body-only (existential) variables add no support and are reused as witnesses.
 
+## Stale cycle
+
+EDB generation only seeds extensional predicates (never a rule head). If every
+rule producing a predicate depends on that predicate itself (`p -> p`, e.g.
+`spouse(a,b) => spouse(b,a)`) or on a rule that depends back on it
+(`A -> B -> A`), completion can never start: the predicates stay empty. A cycle
+of the relation graph (`core/rules.get_relation_graph`) none of whose
+predicates has triples after completion is *stale*.
+
+`engine/cycles.break_cycles` picks one rule per stale cycle (fewest ungrounded
+body atoms, non-recursive first, most restrictive first), instantiates its
+ungrounded body atoms with `sample_groundings` as if they were extensional
+(joined via `fixed_bindings` with any body atoms already grounded), inserts them
+into the synthetic graph only, and re-runs completion. Intensional dependencies
+do not gate the choice: the non-recursive rules a recursive rule would wait for
+can never fire inside a stale cycle.
+
 ## Solvability check
 
 While selecting which groundings to commit to the EDB

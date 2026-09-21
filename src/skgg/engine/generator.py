@@ -95,6 +95,26 @@ def is_assignment_solvable(profile: PredicateProfile, subject: str, obj: str) ->
 _MAX_EMPTY_BATCHES = 3
 
 
+def _usable_fixed_rows(
+    atoms: list[Atom],
+    profiles: dict[str, PredicateProfile],
+    fixed_bindings: list[dict[str, str]] | None,
+) -> list[dict[str, str]]:
+    """Keeps the fixed rows whose values sit in the profile position (domain for
+    subjects, range for objects) of every atom they bind."""
+    if not fixed_bindings:
+        return []
+    usable = []
+    for row in fixed_bindings:
+        if all(
+            (a.subject not in row or row[a.subject] in profiles[a.predicate].domain)
+            and (a.obj not in row or row[a.obj] in profiles[a.predicate].range)
+            for a in atoms
+        ):
+            usable.append(row)
+    return usable
+
+
 def _variable_pools(
     atoms: list[Atom], profiles: dict[str, PredicateProfile]
 ) -> dict[str, dict[str, int]]:
@@ -129,6 +149,7 @@ def sample_groundings(
     missing_heads: int,
     term_mapping: dict[str, str],
     chunk_size: int,
+    fixed_bindings: list[dict[str, str]] | None = None,
 ) -> list[str]:
     """Constructs groundings of a rule body directly from predicate profiles.
 
@@ -150,14 +171,31 @@ def sample_groundings(
         missing_heads: Number of new head projections to produce.
         term_mapping: Mapping from a term to its corresponding prefix.
         chunk_size: Maximum number of triples per existence query.
+        fixed_bindings: Optional rows binding some variables to existing terms (e.g.
+            from the rule's already grounded body atoms). Every candidate copies a
+            random row, and only the remaining variables are drawn from the profiles,
+            so the new triples join with what already exists. Those variables also
+            count in the head projection. No usable row means nothing is built.
 
     Returns:
         The new triples of the accepted groundings. Fewer than needed if a variable
         runs out of candidate values.
     """
     body_vars = {t for a in atoms for t in (a.subject, a.obj) if t.startswith("?")}
-    projection = sorted(head_vars & body_vars)
-    var_order = projection + sorted(body_vars - set(projection))
+    usable_rows = _usable_fixed_rows(atoms, profiles, fixed_bindings)
+    fixed_vars = set(fixed_bindings[0]) if fixed_bindings else set()
+    if fixed_bindings is not None and not usable_rows:
+        logger.warning(
+            "No fixed binding fits the profiles of %s; skipping.",
+            [str(a) for a in atoms],
+        )
+        return []
+
+    projection = sorted(head_vars & (body_vars | fixed_vars))
+    free_vars = sorted(body_vars - fixed_vars)
+    var_order = [v for v in projection if v not in fixed_vars] + [
+        v for v in free_vars if v not in projection
+    ]
 
     seen: set[tuple[str, ...]] = set()
     chosen: set[str] = set()
@@ -180,6 +218,7 @@ def sample_groundings(
 
         batch_size = min(max(2 * (missing_heads - len(seen)), 50), chunk_size)
 
+        rows = random.choices(usable_rows, k=batch_size) if usable_rows else []
         draws = {
             # NOTE: Weightinh values per availability may have effects on the behaviour
             # of the algorithm.
@@ -194,6 +233,8 @@ def sample_groundings(
         keys: list[tuple[str, ...]] = []
         for i in range(batch_size):
             binding = {var: draws[var][i] for var in var_order}
+            if usable_rows:
+                binding.update(rows[i])
             grounded = []
             for atom in atoms:
                 s = binding.get(atom.subject, atom.subject)

@@ -21,6 +21,7 @@ from skgg.core.rules import (
 )
 from skgg.core.visualization import plot_relation_graph
 from skgg.engine.completion import complete_graph
+from skgg.engine.cycles import break_cycles
 from skgg.engine.edb import generate_extensional_predicates
 from skgg.engine.idb import get_closed_preds, get_closed_rules
 from skgg.engine.metrics import GraphMetrics, PredicateProfile
@@ -29,28 +30,17 @@ from skgg.utils import (
     get_term_mapping,
     resolve_config_path,
     setup_logging,
+    short_term,
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _short_term(term: str) -> str:
-    """Shortens a URI term (bare or in brackets) to its last path/fragment segment,
-    e.g. `<http://FrenchRoyalty.org/child>` -> `child`. Variables and other terms are
-    returned unchanged."""
-    bare = term[1:-1] if term.startswith("<") and term.endswith(">") else term
-    if not bare.startswith("http"):
-        return term
-    return bare.rstrip("/#").rsplit("/", 1)[-1].rsplit("#", 1)[-1]
 
 
 def _format_rule(rule: HornRule) -> str:
     """Formats a rule as `body atom & body atom => head` with shortened URIs."""
 
     def atom(a: Atom) -> str:
-        return (
-            f"{_short_term(a.subject)} {_short_term(a.predicate)} {_short_term(a.obj)}"
-        )
+        return f"{short_term(a.subject)} {short_term(a.predicate)} {short_term(a.obj)}"
 
     body = " & ".join(atom(a) for a in sorted(rule.body))
     return f"{body} => {atom(rule.head)}"
@@ -81,7 +71,7 @@ def _format_summary_block(
     known_preds = sorted(og_freqs)
     extra_preds = sorted(set(syn_freqs) - set(og_freqs))
 
-    name_width = max((len(_short_term(p)) for p in known_preds), default=0)
+    name_width = max((len(short_term(p)) for p in known_preds), default=0)
     og_width = max((len(str(og_freqs[p])) for p in known_preds), default=1)
     syn_width = max((len(str(syn_freqs.get(p, 0))) for p in known_preds), default=1)
     delta_width = max(
@@ -89,24 +79,29 @@ def _format_summary_block(
         default=1,
     )
 
+    # A predicate is intensional iff some rule derives it (appears as a head).
+    intensional_preds = {r.head.predicate for r in rules.values()}
+
     lines.append(f"Predicates ({len(known_preds)}):")
     for pred in known_preds:
         og, syn = og_freqs[pred], syn_freqs.get(pred, 0)
+        kind = "INTENSIONAL" if f"<{pred}>" in intensional_preds else "EXTENSIONAL"
         # Profiles are keyed by the bracketed URI, frequencies by the bare one.
         status = "CLOSED" if profiles[f"<{pred}>"].closed else "OPEN"
         lines.append(
-            f"  {_short_term(pred).ljust(name_width)}  "
+            f"  {short_term(pred).ljust(name_width)}  "
             f"{og:>{og_width}} -> {syn:<{syn_width}}"
-            f"  ({syn - og:+{delta_width}d})  [{status}]"
+            f"  ({syn - og:+{delta_width}d})"
+            f"  {f'[{status}]':<8}  [{kind}]"
         )
 
     if extra_preds:
-        extra_width = max(len(_short_term(p)) for p in extra_preds)
+        extra_width = max(len(short_term(p)) for p in extra_preds)
         lines += [
             "",
             f"Predicates in synthetic but not original ({len(extra_preds)}):",
             *(
-                f"  {_short_term(pred).ljust(extra_width)}  {syn_freqs[pred]}"
+                f"  {short_term(pred).ljust(extra_width)}  {syn_freqs[pred]}"
                 for pred in extra_preds
             ),
         ]
@@ -270,6 +265,29 @@ def run_synthetic_graph_experiment(
         chunk_size=chunk_size,
         profiles=graph_metrics.profiles,
     )
+
+    seeded = True
+    while seeded:
+        seeded = break_cycles(
+            client=client,
+            rules=rules,
+            term_mapping=term_mapping,
+            synthetic_uri=synthetic_uri,
+            chunk_size=chunk_size,
+            profiles=graph_metrics.profiles,
+        )
+        logger.debug("Debugging: %s", bool(seeded))
+        if seeded:
+            logger.info("Seeded %d triples to break rule cycles.", seeded)
+            complete_graph(
+                client=client,
+                rules=rules,
+                term_mapping=term_mapping,
+                source=synthetic_uri,
+                target_uri=synthetic_uri,
+                chunk_size=chunk_size,
+                profiles=graph_metrics.profiles,
+            )
 
     log_summary(
         client, config.graph.base_uri, synthetic_uri, rules, graph_metrics.profiles

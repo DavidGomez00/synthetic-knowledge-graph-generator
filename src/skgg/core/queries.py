@@ -643,6 +643,38 @@ def count_producible_heads(
     return 0
 
 
+def get_atom_bindings(
+    client: SPARQLWrapper,
+    atoms: Iterable[Atom],
+    variables: Iterable[str],
+    graph_uri: str,
+    limit: int,
+) -> list[dict[str, str]]:
+    """Returns up to `limit` distinct bindings of `variables` that satisfy `atoms`.
+
+    Values come back as bracketed terms (`<uri>`), the same form used by the keys of
+    predicate profiles. With no variables to project, the result is `[{}]` if the
+    atoms hold in the graph and `[]` otherwise.
+    """
+    patterns = "\n          ".join(f"{atom} ." for atom in atoms)
+    proj = " ".join(sorted(set(variables))) or "*"
+
+    query = f"""
+    SELECT DISTINCT {proj}
+    FROM <{graph_uri}>
+    WHERE {{
+      {patterns}
+    }} LIMIT {limit if proj != "*" else 1}"""
+
+    rows = execute_select_query(client, query)
+    if proj == "*":
+        return [{}] if rows else []
+    return [
+        {f"?{name}": format_term(cell["value"]) for name, cell in row.items()}
+        for row in rows
+    ]
+
+
 def get_frequency(client: SPARQLWrapper, predicate: str, graph_uri: str) -> int:
     """Returns the number of times a predicate appears in the graph."""
 

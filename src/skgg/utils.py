@@ -25,6 +25,16 @@ def resolve_config_path(name: str) -> Path:
     return path if "/" in name else Path("configurations") / path
 
 
+def short_term(term: str) -> str:
+    """Shortens a URI term (bare or in brackets) to its last path/fragment segment,
+    e.g. `<http://FrenchRoyalty.org/child>` -> `child`. Variables and other terms are
+    returned unchanged."""
+    bare = term[1:-1] if term.startswith("<") and term.endswith(">") else term
+    if not bare.startswith("http"):
+        return term
+    return bare.rstrip("/#").rsplit("/", 1)[-1].rsplit("#", 1)[-1]
+
+
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------

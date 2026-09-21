@@ -85,6 +85,7 @@ src/skgg/
     idb.py                # Builds the Intensional DB: iteratively applies rules over the EDB, tracking closure of rules/predicates
     generator.py           # Lower-level triple generation/binding logic shared by edb.py/idb.py/completion.py: grounding sampler for rule bodies (`sample_groundings`, edb.py only) plus rule application (apply_rule, queries the real graph directly)
     completion.py          # complete_graph: forward-chains rules over a base graph assuming rule bodies are fully grounded
+    cycles.py              # break_cycles: seeds stale rule cycles (p -> p, A -> B -> A) in the synthetic graph after completion, then completes again
 ```
 
 Data flow: **ontology + rules CSV + source graph metrics → EDB (facts satisfying rule bodies) → IDB (rule-derived facts, grown until closure) → synthetic graph**, all mediated through SPARQL against the graph store, keyed by graph URIs defined per-experiment in the `graph` section of each config JSON (`base_uri`, `complete_uri`, `edb_uri`, `synthetic_uri`).

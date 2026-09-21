@@ -533,3 +533,32 @@ def get_relation_graph(rules: dict[str, HornRule]) -> nx.DiGraph:
                 graph.add_edge(body_pred, head_pred, rule_ids={rule.rule_id})
 
     return graph
+
+
+def find_stale_cycles(
+    rules: dict[str, HornRule], grounded_preds: set[str]
+) -> list[list[str]]:
+    """Finds cycles of the relation graph that completion can never ground.
+
+    A cycle (a self-loop `p -> p`, a 2-cycle `A -> B -> A`, or a longer one) is stale
+    when none of its predicates has triples yet: every rule producing them needs
+    one of them first, so forward chaining cannot start. A cyclic predicate that is
+    already grounded (by another rule or by the EDB) is an ordinary recursive rule and
+    needs no seed.
+
+    Args:
+        rules: Dict of rule_id -> HornRule, e.g. from `parse_rule_set`.
+        grounded_preds: Predicates (in the rules' bracketed `<uri>` form) that
+            currently have at least one triple in the graph.
+
+    Returns:
+        The stale cycles as lists of predicates in traversal order, sorted for
+        determinism.
+    """
+    graph = get_relation_graph(rules)
+    cycles = [
+        cycle
+        for cycle in nx.simple_cycles(graph)
+        if grounded_preds.isdisjoint(cycle)
+    ]
+    return sorted(cycles, key=lambda cycle: (len(cycle), cycle))
