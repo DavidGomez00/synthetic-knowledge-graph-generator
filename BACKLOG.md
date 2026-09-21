@@ -22,6 +22,23 @@ the current architecture map. Resolved items are archived in
 - [ ] **`upload.py`**: Add an option to complete / not complete the graph once uploaded.
 - [ ] **`upload.py`**: Change to work with .ttl files.
 
+## Graph layout (`config.py`, `cli/`, `engine/`)
+- [ ] **Graph storage layout**: Keep one GraphDB repository per dataset (already the case), and reorganize the named graphs inside each repository:
+  - Store the *inferred* triples of each stage in their own named graph (a delta over the previous stage) instead of duplicating the whole graph, so what each stage adds stays inspectable and can be cleared independently.
+  - Additionally build *self-contained* graphs (previous stage + inferred triples) when needed. The final `synthetic` graph should be self-contained, since it's the deliverable and shouldn't depend on the EDB/IDB delta graphs still existing.
+  - Decide and document per stage (`base`, `complete`, `edb`, `idb`, `synthetic`) whether it is a delta or a snapshot, and update the `graph` section of the config (`base_uri`, `complete_uri`, `edb_uri`, `synthetic_uri`) and the metric/query code that assumes a stage graph is self-contained (e.g. `GraphMetrics.from_uri` over `complete_uri`) accordingly.
+  - **Proposed naming**: `{namespace}graph/{variant}/{stage}[-delta]`. `{variant}` (e.g. `default`, `enriched`) replaces the current `enriched_` name prefix and is a path segment so a variant's graphs are easy to list; no suffix = self-contained, `-delta` = only what that stage added. Resulting graphs per variant:
+    - `…/base` (self-contained, written by `upload.py`)
+    - `…/complete-delta` (delta) and `…/complete` (= `base` + `complete-delta`, source for metric extraction), written by `completion.py`
+    - `…/edb` (self-contained; generated from metrics + rules, not derived from `complete`), written by `edb.py`
+    - `…/idb-delta` (delta) and `…/synthetic` (= `edb` + `idb-delta`, the deliverable), written by `idb.py`
+    - `…/_meta` (config, threshold, timestamp, triple counts per stage), written by `cli/main.py`
+    - `…/_tmp/searchspace-{n}` (scratch graphs from `generator.create_searchspace`, cleared after use; namespaced under the variant so leftovers from a crashed run can be wiped by prefix)
+  - Only `complete` and `synthetic` need both delta and snapshot forms. Materializing `synthetic` is recommended; `complete` could be skipped in favour of a `FROM` union if metric queries aren't simpler against a single graph.
+  - Replace the four `*_uri` config fields with a single `graph_prefix` (e.g. `http://FrenchRoyalty.org/graph/enriched`) and derive the stage URIs in `GraphConfig`, so names can't drift or contain typos.
+  - Fix the `graph.name` typo (`FrechRoyalty`) in `configurations/enriched_french_royalty.json`.
+  - *(optional)* Since the repository already isolates the dataset, graph URIs no longer need a dataset prefix. Add a run id only if comparing runs becomes a need, and consider a small `meta` graph recording config, threshold, timestamp and triple counts per stage.
+
 ## `data/`
 - [ ] **`french_royalty.tsv`** *(important)*: `spouse` is declared `rdfs:subPropertyOf` `marriedTo` in `french_royalty.ttl`, but the base graph doesn't materialize that: only 9 couples (18 triples) + 2 patch triples use `marriedTo` at all, out of 1152 `spouse` triples. For a complete KG, every `A spouse B` should imply `A marriedTo B`. Note that the ontology file does not specify marriedTo or spouse as symmetric, so `A spouse B` does not imply `B spouse A`. Not implemented yet — see `docs/french-royalty-corrections.md` for the full review this came out of.
 
