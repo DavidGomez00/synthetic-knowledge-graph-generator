@@ -3,9 +3,11 @@
 EDB generation only seeds extensional predicates, so a predicate whose every producing
 rule depends on the predicate itself (`p -> p`) or on a rule that depends back on it
 (`A -> B -> A`) stays empty after `engine.completion.complete_graph`. `break_cycles`
-finds those *stale* cycles (`core.rules.find_stale_cycles`), seeds the cycle-predicate
-atoms of one rule per cycle as if they were extensional, and completes the graph again.
-Seeds are written to the synthetic graph only; the EDB is left untouched.
+finds those *stale* cycles (`core.rules.find_stale_cycles`) and seeds the
+cycle-predicate atoms of one rule of one cycle as if they were extensional. It does not
+complete the graph: the pipeline (`cli.main`) alternates `break_cycles` and
+`complete_graph` until nothing more is seeded. Seeds are written to the synthetic graph
+only; the EDB is left untouched.
 """
 
 import logging
@@ -19,7 +21,6 @@ from skgg.core.queries import (
     insert_triples_sparql,
 )
 from skgg.core.rules import Atom, HornRule, find_stale_cycles, get_relation_graph
-from skgg.engine.completion import complete_graph
 from skgg.engine.generator import sample_groundings
 from skgg.engine.metrics import PredicateProfile
 from skgg.utils import short_term
@@ -203,67 +204,36 @@ def break_cycles(
     chunk_size: int,
     profiles: dict[str, PredicateProfile],
 ) -> int:
-    """Seeds stale rule cycles in the synthetic graph and completes it again.
+    """Breaks one stale rule cycle in the synthetic graph and returns.
 
-    Each round detects the stale cycles, seeds one rule per cycle (the best candidate
-    that yields triples) and re-runs `complete_graph` in place. Cycles that share
-    predicates are handled in successive rounds, since seeding one grounds the others.
-    Stops when no stale cycle remains or a round inserts nothing.
+    Detects the stale cycles and, for the first one that can be seeded, inserts the
+    triples of its best candidate rule. Cycles that cannot be seeded are skipped with
+    a warning. Completing the graph afterwards is the caller's job: seeding one cycle
+    may ground others, so call this again after each completion until it returns 0.
 
     Returns:
-        The number of seed triples inserted (not counting the ones completion derives).
+        The number of seed triples inserted; 0 if no stale cycle could be broken.
     """
-    total_seeded = 0
-    initial = find_stale_cycles(rules, get_grounded_predicates(client, synthetic_uri))
-    max_rounds = len(initial) + 1
+    grounded = get_grounded_predicates(client, synthetic_uri)
 
-    for round_no in range(1, max_rounds + 1):
-        grounded = get_grounded_predicates(client, synthetic_uri)
-        if not (cycles := find_stale_cycles(rules, grounded)):
-            break
-
-        touched: set[str] = set()
-        seeded = 0
-        for cycle in cycles:
-            if touched & set(cycle):
-                continue  # Grounded by an earlier seed; re-detected next round.
-
-            candidates = rank_seed_candidates(cycle, rules, grounded, profiles)
-            for candidate in candidates:
-                if inserted := _seed_rule(
-                    client, candidate, profiles, term_mapping, synthetic_uri, chunk_size
-                ):
-                    logger.info(
-                        "[Cycle round %d] Broke cycle %s: seeded %d triples "
-                        "for rule %s.",
-                        round_no,
-                        _format_cycle(cycle),
-                        inserted,
-                        candidate.rule.rule_id,
-                    )
-                    seeded += inserted
-                    touched |= set(cycle) | {a.predicate for a in candidate.seed_atoms}
-                    break
-            else:
-                logger.warning(
-                    "Cannot break cycle %s: no rule of it can be seeded (%d candidates "
-                    "tried; closed or exhausted predicates, or nothing to join with).",
+    for cycle in find_stale_cycles(rules, grounded):
+        candidates = rank_seed_candidates(cycle, rules, grounded, profiles)
+        for candidate in candidates:
+            if inserted := _seed_rule(
+                client, candidate, profiles, term_mapping, synthetic_uri, chunk_size
+            ):
+                logger.info(
+                    "Broke cycle %s: seeded %d triples for rule %s.",
                     _format_cycle(cycle),
-                    len(candidates),
+                    inserted,
+                    candidate.rule.rule_id,
                 )
-
-        if not seeded:
-            break
-        total_seeded += seeded
-
-        complete_graph(
-            client=client,
-            rules=rules,
-            term_mapping=term_mapping,
-            source=synthetic_uri,
-            target_uri=synthetic_uri,
-            chunk_size=chunk_size,
-            profiles=profiles,
+                return inserted
+        logger.warning(
+            "Cannot break cycle %s: no rule of it can be seeded (%d candidates "
+            "tried; closed or exhausted predicates, or nothing to join with).",
+            _format_cycle(cycle),
+            len(candidates),
         )
 
-    return total_seeded
+    return 0

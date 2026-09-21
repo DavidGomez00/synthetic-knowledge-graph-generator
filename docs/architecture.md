@@ -155,8 +155,8 @@ flowchart TD
 - **`engine/completion.py`** — see "Data flow" above.
 - **`engine/cycles.py`** — `break_cycles` runs right after completion in
   `cli/main.py`. It finds *stale cycles* (`core/rules.find_stale_cycles`), seeds
-  one rule per cycle in the synthetic graph via `sample_groundings` and completes
-  the graph again; see "Stale cycle" in `docs/concepts.md`.
+  one rule of one cycle in the synthetic graph via `sample_groundings` and
+  returns (`cli/main.py` completes the graph and calls it again until it returns 0); see "Stale cycle" in `docs/concepts.md`.
 - **`cli/main.py`** — the experiment entry point (`run_synthetic_graph_experiment`).
   After generation, `log_summary` logs one consolidated synthetic-vs-original
   report: total triples, one row per predicate (frequency original -> synthetic,

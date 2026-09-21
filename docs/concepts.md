@@ -179,11 +179,11 @@ rule producing a predicate depends on that predicate itself (`p -> p`, e.g.
 of the relation graph (`core/rules.get_relation_graph`) none of whose
 predicates has triples after completion is *stale*.
 
-`engine/cycles.break_cycles` picks one rule per stale cycle (fewest ungrounded
+`engine/cycles.break_cycles` picks one rule of one stale cycle (fewest ungrounded
 body atoms, non-recursive first, most restrictive first), instantiates its
 ungrounded body atoms with `sample_groundings` as if they were extensional
 (joined via `fixed_bindings` with any body atoms already grounded), inserts them
-into the synthetic graph only, and re-runs completion. Intensional dependencies
+into the synthetic graph only, and returns; the pipeline then re-runs completion and calls it again until nothing more is seeded. Intensional dependencies
 do not gate the choice: the non-recursive rules a recursive rule would wait for
 can never fire inside a stale cycle.
 
