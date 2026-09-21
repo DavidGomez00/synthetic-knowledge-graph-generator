@@ -3,9 +3,12 @@ and range distributions used to drive synthetic triple generation (`engine/edb.p
 `engine/idb.py`) without needing continued access to the original graph.
 """
 
+import json
 import logging
+import re
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 
 from rdflib import Graph
 from SPARQLWrapper import SPARQLWrapper
@@ -19,6 +22,11 @@ from skgg.core.queries import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_uri_for_filename(uri: str) -> str:
+    """Turns a graph URI into a safe, readable filename stem."""
+    return re.sub(r"[^A-Za-z0-9]+", "_", uri.strip("<>")).strip("_")
 
 
 # ---------------------------------------------------------------------------
@@ -35,6 +43,24 @@ class PredicateProfile:
     closed: bool = False
 
 
+def _dump_metrics_for_debugging(metrics: "GraphMetrics", graph_uri: str) -> None:
+    """Writes `metrics` to logs/metrics/<sanitized graph_uri>.json for ad hoc
+    inspection -- nothing in the pipeline reads this back; it exists purely
+    so predicate profiles can be consulted without re-querying the graph.
+    """
+    output_path = (
+        Path("logs") / "metrics" / f"{_sanitize_uri_for_filename(graph_uri)}.json"
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with output_path.open("w") as f:
+            json.dump(asdict(metrics), f, indent=2, sort_keys=True)
+    except OSError:
+        logger.warning(
+            "Could not write debug metrics dump to %s.", output_path, exc_info=True
+        )
+
+
 @dataclass
 class GraphMetrics:
     """A structured container for RDF graph metrics and properties."""
@@ -48,6 +74,10 @@ class GraphMetrics:
 
         Scales efficiently by querying distributions per-predicate, avoiding massive
         data transfers and database ResultSetMaxRows limits.
+
+        As a side effect, also dumps the resulting metrics to
+        logs/metrics/<graph_uri>.json for ad hoc debugging -- see
+        `_dump_metrics_for_debugging`; nothing in the pipeline reads it back.
         """
 
         triple_count = get_triple_count(client, graph_uri)
@@ -77,7 +107,9 @@ class GraphMetrics:
             if "?f" in profile.domain.keys():
                 raise ValueError(f"Error ?f en {predicate} domain.")
 
-        return cls(profiles=profiles, triple_count=triple_count)
+        metrics = cls(profiles=profiles, triple_count=triple_count)
+        _dump_metrics_for_debugging(metrics, graph_uri)
+        return metrics
 
     @classmethod
     def from_rdflib(cls, graph: Graph) -> "GraphMetrics":

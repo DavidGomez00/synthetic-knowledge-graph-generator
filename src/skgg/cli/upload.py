@@ -91,8 +91,8 @@ if __name__ == "__main__":
             client=client,
             rules=rules,
             term_mapping=term_mapping,
-            initial_uri=base_uri,
-            complete_uri=complete_uri,
+            source=base_uri,
+            target_uri=complete_uri,
             chunk_size=config.db_config.chunk_size,
         )
 

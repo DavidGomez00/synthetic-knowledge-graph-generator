@@ -17,6 +17,7 @@ from skgg.core.queries import (
     execute_select_query,
     from_binding_row,
     get_existing_triples,
+    get_predicate_frequencies,
     get_support,
     initialize_graph,
     insert_triples_sparql,
@@ -24,7 +25,7 @@ from skgg.core.queries import (
 from skgg.core.rules import Atom, HornRule
 from skgg.engine.generator import apply_rule, decrement_counts, is_assignment_solvable
 from skgg.engine.idb import get_closed_preds, get_closed_rules
-from skgg.engine.metrics import GraphMetrics, PredicateProfile
+from skgg.engine.metrics import PredicateProfile
 from skgg.utils import format_triple
 
 logger = logging.getLogger(__name__)
@@ -37,8 +38,8 @@ def complete_graph(
     client: SPARQLWrapper,
     rules: dict[str, HornRule],
     term_mapping: dict[str, str],
-    initial_uri: str,
-    complete_uri: str,
+    source: str,
+    target_uri: str,
     chunk_size: int,
     profiles: dict[str, PredicateProfile] | None = None,
 ) -> None:
@@ -51,29 +52,16 @@ def complete_graph(
     runs, since a rule's `support` target is intrinsic to it.
     """
 
-    # Initialize complete graph from base URI
-    initialize_graph(
-        client=client,
-        source=initial_uri,
-        new_graph_uri=complete_uri,
-        chunk_size=chunk_size,
-    )
+    if source != target_uri:
+        initialize_graph(
+            client=client,
+            source=source,
+            new_graph_uri=target_uri,
+            chunk_size=chunk_size,
+        )
 
-    # Get the grounded preds
-    # TODO: change this to a query that retrieves all unique relations
-    graph_metrics = GraphMetrics.from_uri(client, complete_uri)
-    grounded_preds = set(graph_metrics.profiles.keys())
-
-    def is_ready(rule: HornRule) -> bool:
-        """Returns True if the body from 'rule' is grounded.
-        TODO: Remove if obsolete."""
-        body_preds = rule.get_body_predicates()
-        return True if body_preds.issubset(grounded_preds) else False
-
-    state = dict()
-    for r_id in rules.keys():
-        state[r_id] = 0
-
+    grounded_preds = set(get_predicate_frequencies(client, target_uri).keys())
+    state = {r_id: 0 for r_id in rules.keys()}
     step = 0
     while True:
         step += 1
@@ -81,36 +69,37 @@ def complete_graph(
         for r_id, rule in rules.items():
             count = apply_rule(
                 client=client,
-                graph_uri=complete_uri,
+                graph_uri=target_uri,
                 rule=rule,
                 term_mapping=term_mapping,
                 chunk_size=chunk_size,
             )
-            logger.debug("Rule ID %s added %d triples.", r_id, count)
             if count:
+                logger.debug("Rule %s added %d triples.", r_id, count)
                 state[r_id] += count
                 added += count
                 grounded_preds.add(rule.head.predicate)
 
-        state_msg = " \n".join(
-            [
-                f"\tRule ID {r_id} added {state[r_id]} triples."
-                for r_id in rules.keys()
-                if state[r_id] > 0
-            ]
-        )
-        logger.info("[Step %d] Added %d triples.", step, added)
-        logger.debug("[Step %d] \n%s", step, state_msg)
+        if added:
+            state_msg = " \n".join(
+                [
+                    f"\tRule {r_id} added {state[r_id]} triples."
+                    for r_id in rules.keys()
+                    if state[r_id] > 0
+                ]
+            )
+            logger.info("[Step %d] Added %d triples.", step, added)
+            logger.debug("\n%s", state_msg)
 
-        if not added:
+        else:
             logger.info("[Step %d]: No triples added. Reached stale state.", step)
             break
 
-    for rule_id in get_closed_rules(client, complete_uri, rules):
+    for rule_id in get_closed_rules(client, target_uri, rules):
         rules[rule_id].closed = True
 
     if profiles is not None:
-        for predicate in get_closed_preds(client, complete_uri, profiles):
+        for predicate in get_closed_preds(client, target_uri, profiles):
             profiles[predicate].closed = True
 
 
@@ -200,11 +189,6 @@ def _solve_open_atoms(
             return [term]
         return candidates_for(term, profiles)
 
-    # Superset of every triple any atom could ever be asked about below --
-    # safe to over-fetch (decrementing during search only shrinks candidate
-    # pools, never grows them), so the *unnarrowed* pools computed against
-    # `profiles` up front are guaranteed to cover every triple `is_valid`
-    # will ever check.
     all_potential_triples = {
         format_triple(s, atom.predicate, o, term_mapping)
         for atom in open_atoms
@@ -231,11 +215,17 @@ def _solve_open_atoms(
         branch_triples: set[str],
         novel_triples: list[tuple[str, str, str]],
     ) -> bool:
+        """Check if the triple violates profle constraints.
+
+        If the formated triple is included in the existing triples, no profile needs to
+        be updated. Else, check profile constraints and if passes, update profiles and
+        add the triple to the novel triples."""
         subject = values.get(atom.subject, atom.subject)
         obj = values.get(atom.obj, atom.obj)
         triple = format_triple(subject, atom.predicate, obj, term_mapping)
         if triple in existing_triples or triple in branch_triples:
-            return True  # No-op: already true, doesn't consume any budget.
+            return True
+
         profile = branch_profiles[atom.predicate]
         if (
             profile.frequency <= 0
@@ -244,6 +234,7 @@ def _solve_open_atoms(
             or not is_assignment_solvable(profile, subject, obj)
         ):
             return False
+
         decrement_counts(profile.domain, subject)
         decrement_counts(profile.range, obj)
         profile.frequency -= 1
@@ -266,9 +257,10 @@ def _solve_open_atoms(
         a tuple of the complete variable assignment (`known_values` plus every
         solved free variable), the resulting state of `profiles` after
         decrementing each accepted atom, and the list of confirmed-novel
-        triples (never empty -- see the module-level note on why at least one
-        atom is always novel by construction).
+        triples.
         """
+        # Check for each atom resolved that it is valid. If there is an invalid atom,
+        # skip this branch (return None). Unresolved atoms cannot be invalid.
         for atom in open_atoms:
             if atom in valid_atoms or not is_resolved(atom, values):
                 continue
@@ -278,13 +270,16 @@ def _solve_open_atoms(
                 return None
             valid_atoms.add(atom)
 
+        # End of recursion
         if not remaining_variables:
             return values, branch_profiles, novel_triples
 
+        # Solve one variable
         var, *rest = remaining_variables
         options = candidates_for(var, branch_profiles)
         random.shuffle(options)
         for candidate in options:
+            # Check if there is a valid branch with these option
             result = backtrack(
                 rest,
                 {**values, var: candidate},
@@ -294,7 +289,9 @@ def _solve_open_atoms(
                 list(novel_triples),
             )
             if result is not None:
+                # Solution found
                 return result
+        # There is no solution
         return None
 
     return backtrack(
@@ -372,17 +369,29 @@ def complete_open_rules_with_closed_head(
 
         # Here the dependency check
         open_preds = {atom.predicate for atom in open_atoms}
-        if any(predicate_to_closed_rules[pred] for pred in open_preds):
+        blocked_pred = next(
+            (p for p in open_preds if predicate_to_closed_rules[p]), None
+        )
+        if blocked_pred is not None:
+            logger.debug(
+                "Rule %s - <%s> is in the body of a closed rule.",
+                rule.rule_id,
+                blocked_pred,
+            )
             continue
 
         candidates.append((missing, rule, open_atoms))
 
+    if not candidates:
+        return 0
+
     candidates.sort(key=lambda candidate: (candidate[0], len(candidate[2])))
+    logger.info("Using closed head completion on %d rules.", len(candidates))
 
     for missing, rule, open_atoms in candidates:
         ## ---- Query graph to retrieve values that don't generate new heads ----
         other_atoms = [atom for atom in rule.body if atom not in open_atoms]
-        other_patterns = "\n        ".join(
+        other_patterns = "\n            ".join(
             [f"{atom} ." for atom in other_atoms] + [f"{rule.head} ."]
         )
         other_patterns_vars = {
@@ -399,8 +408,7 @@ def complete_open_rules_with_closed_head(
             if t.startswith("?")
         }
         # A var in open_pattern_vars that is not in other_pattern_vars is just a "link"
-        # variable shared only among open atoms -- not bound by this query, solved for
-        # per row below instead.
+        # variable shared only among open atoms.
         proj_vars = sorted(open_patterns_vars & other_patterns_vars)
         proj = " ".join(proj_vars) if proj_vars else "*"
 
@@ -413,28 +421,19 @@ def complete_open_rules_with_closed_head(
             }}
           }}
         }}
-        LIMIT {missing}
         """
+
+        logger.debug("%s", query)
 
         bindings = execute_select_query(client, query)
         if not bindings:
             continue
 
-        ## ----- Solve each row's link variables, then commit only novel triples -----
-        # Cumulative across rows, so row N correctly sees row N-1's tentative
-        # consumption of the same open predicates' remaining budget. Rows are
-        # solved greedily here, not jointly -- an earlier row's choice can
-        # consume a scarce term a later row also needed even when a different
-        # (still valid) choice for the earlier row would have let both
-        # succeed. Unlike edb.py's `_select_valid_bindings` (which backtracks
-        # across its whole binding list), there's no mechanism here to go
-        # back and retry an earlier row's choice; a known, deliberately
-        # deferred limitation.
         open_preds_for_atoms = {atom.predicate for atom in open_atoms}
         working_profiles = {
             pred: copy.deepcopy(profiles[pred]) for pred in open_preds_for_atoms
         }
-
+        solved_bindings = 0
         row_atom_values: list[list[tuple[str, str, str]]] = []
         for row in bindings:
             known_values = {var: from_binding_row(var, row)[0] for var in proj_vars}
@@ -451,15 +450,18 @@ def complete_open_rules_with_closed_head(
                 continue
             _, working_profiles, novel_triples = solved
             row_atom_values.append(novel_triples)
+            solved_bindings += 1
+            if solved_bindings >= missing:
+                break
 
         if not row_atom_values:
+            logger.debug(
+                "Rule %s retrieved %d bindings not fitting current profiles.",
+                rule.rule_id,
+                len(bindings),
+            )
             continue
 
-        # `_solve_open_atoms` already guarantees each row's triples include at
-        # least one genuinely new one and tells us exactly which -- commit
-        # real profile decrements only for those. `working_profiles` above is
-        # a search-time simulation only; the real `profiles` dict is only
-        # ever touched here.
         new_triples: list[str] = []
         for triples in row_atom_values:
             for subject, predicate, obj in triples:
@@ -469,15 +471,14 @@ def complete_open_rules_with_closed_head(
                 profile.frequency -= 1
                 new_triples.append(format_triple(subject, predicate, obj, term_mapping))
 
-        added = insert_triples_sparql(
+        if added := insert_triples_sparql(
             client=client,
             graph_uri=graph_uri,
             triple_stream=new_triples,
             chunk_size=chunk_size,
-        )
-        if added:
-            logger.debug(
-                "%s: added %d triples using closed head completion.",
+        ):
+            logger.info(
+                "Rule %s added %d triples using closed head completion.",
                 rule.rule_id,
                 added,
             )
@@ -487,14 +488,11 @@ def complete_open_rules_with_closed_head(
             if new_support >= rule.support:
                 rule.closed = True
                 if new_support > rule.support:
-                    # "LIMIT" caps additions at exactly the gap to rule.support, but
-                    # flag it loudly if it's ever exceeded.
                     logger.warning(
                         "%s: exceeded support (%d) after using closed head completion.",
                         rule.rule_id,
                         rule.support - new_support,
                     )
-
             return added
 
     return 0

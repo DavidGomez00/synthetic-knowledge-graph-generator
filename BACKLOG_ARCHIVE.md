@@ -383,6 +383,39 @@ architecture map.
   - Verified via `mypy` (identical error set to baseline — zero new
     issues) and multiple end-to-end runs of `cli/upload.py` and
     `run_synthetic_graph_experiment` against `mario.json`.
+- [x] **`edb.py`** — Idea for reaching stale state with a rule still short
+      of its support: if an open rule's only remaining open predicate is in
+      its body (everything else already closed), directly instantiate the
+      triples needed to close it without exceeding the support upper bound.
+  - **Implemented in `engine/completion.py`, not `edb.py`**, as
+    `complete_open_rules_with_closed_head`: scans rules that are open but
+    whose head predicate is already closed, orders candidates by least
+    missing support (most restrictive first, ties broken by fewest open
+    body atoms), and generates triples for their remaining open body
+    predicate(s) directly. Guards against a predicate shared with an
+    already-closed sibling rule's body (that rule has no support headroom
+    left, so a new witness for it would be unsafe).
+  - Generalized beyond the original single-open-predicate idea to handle
+    any number of open body atoms, via a forward-checking CSP
+    (`_solve_open_atoms`) over "linking" variables shared only among open
+    atoms — profile-valid, with existence pre-fetched once up front
+    (mirroring `edb.py`'s `_select_valid_bindings`) so novelty is
+    guaranteed by construction (the caller's `FILTER NOT EXISTS` makes at
+    least one atom per solved row provably new) and an already-existing
+    triple is never double-decremented.
+  - Wired into `cli/main.py`'s pipeline in a retry loop alongside
+    `complete_graph`, looping until a full pass adds nothing.
+  - **Known, deliberately deferred limitation**: rows are solved greedily,
+    not jointly — an earlier binding row's choice can consume a scarce term
+    a later row also needed even when a different (still valid) choice for
+    the earlier row would have let both succeed. `edb.py`'s
+    `_select_valid_bindings` avoids this by backtracking across its whole
+    binding list; doing the same here would mean merging the per-row
+    variable search with row-level backtracking — deferred as a separate,
+    larger task.
+  - Intensional dependencies (the other half of the original idea) were
+    *not* wired in — see the `## Next session` item about refreshing how
+    those work, which is still open.
 
 ## `configurations/`
 

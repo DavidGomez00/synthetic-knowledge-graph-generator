@@ -80,12 +80,7 @@ def create_sparql_client(config: RunConfig) -> SPARQLWrapper:
 # Term mappings.
 # ---------------------------------------------------------------------------
 DEFAULT_PREFIXES: dict[str, str] = {
-    "type": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-    "Property": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-    "Class": "http://www.w3.org/2000/01/rdf-schema#",
-    "subClassOf": "http://www.w3.org/2000/01/rdf-schema#",
-    "sameAs": "http://www.w3.org/2002/07/owl#",
-    "name": "http://xmlns.com/foaf/0.1/",
+    "type": "http://www.w3.org/2000/01/rdf-schema#",
 }
 
 

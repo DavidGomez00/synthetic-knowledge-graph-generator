@@ -33,211 +33,101 @@ from skgg.utils import (
 logger = logging.getLogger(__name__)
 
 
-def _format_graph_block(
-    uri: str,
-    triple_count: int,
-    rules: dict[str, HornRule],
-    supports: dict[str, int],
-) -> str:
-    """Formats one graph's stats: total triples and per-rule support. Omits
-    per-predicate domain/range/frequency detail, which doesn't scale to large
-    KGs — see `_format_delta_block` for the compact predicate-level deltas
-    instead."""
-    lines = [f"=== <{uri}> ===", f"\tTotal triples: {triple_count}", "\tRules:"]
-    for rule_id in sorted(rules):
-        lines.append(f"\t\t{rule_id}:")
-        lines.append(f"\t\t\tSupport: {supports[rule_id]}")
-    return "\n".join(lines)
-
-
-def _format_delta_block(
+def _format_summary_block(
     og_triple_count: int,
     syn_triple_count: int,
-    og_metrics: GraphMetrics,
-    syn_metrics: GraphMetrics,
+    og_freqs: dict[str, int],
+    syn_freqs: dict[str, int],
+    profiles: dict[str, PredicateProfile],
     rules: dict[str, HornRule],
     og_supports: dict[str, int],
     syn_supports: dict[str, int],
 ) -> str:
-    """Formats synthetic-minus-original deltas for triples, per-predicate
-    frequency/domain/range size, and per-rule support as an aligned,
-    human-readable table."""
-    empty_profile = PredicateProfile()
+    """Formats one aligned report of the whole experiment: total triples,
+    then one row per predicate and one row per rule showing original ->
+    synthetic (delta) and open/closed status (read directly off
+    PredicateProfile.closed / HornRule.closed, the authoritative closure
+    state maintained throughout generation -- not re-derived here)."""
     triple_delta = syn_triple_count - og_triple_count
     pct = f", {triple_delta / og_triple_count:+.1%}" if og_triple_count else ""
     lines = [
         f"Triples: {og_triple_count} -> {syn_triple_count} ({triple_delta:+d}{pct})",
         "",
-        "Predicates (Δfrequency / Δdomain size / Δrange size):",
     ]
-    all_preds = sorted(set(og_metrics.profiles) | set(syn_metrics.profiles))
-    name_width = max((len(p) for p in all_preds), default=0)
 
-    pred_deltas = []
-    for pred in all_preds:
-        og_profile = og_metrics.profiles.get(pred, empty_profile)
-        syn_profile = syn_metrics.profiles.get(pred, empty_profile)
-        pred_deltas.append(
-            (
-                pred,
-                syn_profile.frequency - og_profile.frequency,
-                len(syn_profile.domain) - len(og_profile.domain),
-                len(syn_profile.range) - len(og_profile.range),
-            )
-        )
-    # Size each numeric column to its widest value (sign included) instead of
-    # a fixed width, so columns stay aligned however many digits deltas have.
-    freq_width = max((len(f"{d[1]:+d}") for d in pred_deltas), default=1)
-    domain_width = max((len(f"{d[2]:+d}") for d in pred_deltas), default=1)
-    range_width = max((len(f"{d[3]:+d}") for d in pred_deltas), default=1)
+    known_preds = sorted(og_freqs)
+    extra_preds = sorted(set(syn_freqs) - set(og_freqs))
 
-    for pred, freq_delta, domain_delta, range_delta in pred_deltas:
+    name_width = max((len(p) for p in known_preds), default=0)
+    og_width = max((len(str(og_freqs[p])) for p in known_preds), default=1)
+    syn_width = max((len(str(syn_freqs.get(p, 0))) for p in known_preds), default=1)
+    delta_width = max(
+        (len(f"{syn_freqs.get(p, 0) - og_freqs[p]:+d}") for p in known_preds),
+        default=1,
+    )
+
+    lines.append(f"Predicates ({len(known_preds)}):")
+    for pred in known_preds:
+        og, syn = og_freqs[pred], syn_freqs.get(pred, 0)
+        status = "CLOSED" if profiles[pred].closed else "OPEN"
         lines.append(
             f"  {pred.ljust(name_width)}  "
-            f"Δfreq: {freq_delta:+{freq_width}d}  "
-            f"Δdomain: {domain_delta:+{domain_width}d}  "
-            f"Δrange: {range_delta:+{range_width}d}"
+            f"{og:>{og_width}} -> {syn:<{syn_width}}"
+            f"  ({syn - og:+{delta_width}d})  [{status}]"
         )
-    lines.append("")
-    lines.append("Rules (support deltas):")
+
+    if extra_preds:
+        extra_width = max(len(p) for p in extra_preds)
+        lines += [
+            "",
+            f"Predicates in synthetic but not original ({len(extra_preds)}):",
+            *(
+                f"  {pred.ljust(extra_width)}  {syn_freqs[pred]}"
+                for pred in extra_preds
+            ),
+        ]
+
     rule_ids = sorted(rules)
+    heads = {rid: str(rules[rid].head) for rid in rule_ids}
     rule_id_width = max((len(rid) for rid in rule_ids), default=0)
-    og_width = max((len(str(og_supports[rid])) for rid in rule_ids), default=1)
-    syn_width = max((len(str(syn_supports[rid])) for rid in rule_ids), default=1)
-    delta_width = max(
+    head_width = max((len(h) for h in heads.values()), default=0)
+    og_sup_width = max((len(str(og_supports[rid])) for rid in rule_ids), default=1)
+    syn_sup_width = max((len(str(syn_supports[rid])) for rid in rule_ids), default=1)
+    sup_delta_width = max(
         (len(f"{syn_supports[rid] - og_supports[rid]:+d}") for rid in rule_ids),
         default=1,
     )
-    for rule_id in rule_ids:
-        og_support = og_supports[rule_id]
-        syn_support = syn_supports[rule_id]
-        support_delta = syn_support - og_support
+
+    lines += ["", f"Rules ({len(rule_ids)}):"]
+    for rid in rule_ids:
+        og_sup, syn_sup = og_supports[rid], syn_supports[rid]
+        status = "CLOSED" if rules[rid].closed else "OPEN"
         lines.append(
-            f"  {rule_id.ljust(rule_id_width)}  "
-            f"{og_support:>{og_width}} -> {syn_support:>{syn_width}}"
-            f"  ({support_delta:+{delta_width}d})"
+            f"  {rid.ljust(rule_id_width)}  {heads[rid].ljust(head_width)}  "
+            f"{og_sup:>{og_sup_width}} -> {syn_sup:<{syn_sup_width}}"
+            f"  ({syn_sup - og_sup:+{sup_delta_width}d})  [{status}]"
         )
+
     return "\n".join(lines)
 
 
-def _format_progress_block(
-    og_freqs: dict[str, int],
-    syn_freqs: dict[str, int],
-    rules: dict[str, HornRule],
-    syn_supports: dict[str, int],
-    closed_rule_ids: set[str],
-) -> str:
-    """Formats predicate presence/absence (each tagged open/closed by
-    comparing its synthetic-graph frequency against its original-graph
-    frequency) plus a per-rule closure/gap table, both as aligned columns."""
-    og_predicates = set(og_freqs)
-    syn_predicates = set(syn_freqs)
-    present = sorted(syn_predicates)
-    missing = sorted(og_predicates - syn_predicates)
-    extra = sorted(syn_predicates - og_predicates)
-
-    all_preds = sorted(og_predicates | syn_predicates)
-    pred_name_width = max((len(p) for p in all_preds), default=0)
-    pred_freq_width = max((len(str(syn_freqs.get(p, 0))) for p in all_preds), default=1)
-    pred_target_width = max(
-        (len(str(og_freqs.get(p, 0))) for p in all_preds), default=1
-    )
-    pred_gap_width = max(
-        (len(str(max(og_freqs.get(p, 0) - syn_freqs.get(p, 0), 0))) for p in all_preds),
-        default=1,
-    )
-
-    def _format_pred_row(pred: str) -> str:
-        syn_freq = syn_freqs.get(pred, 0)
-        target = og_freqs.get(pred, 0)
-        gap = max(target - syn_freq, 0)
-        status = "CLOSED" if syn_freq >= target else "OPEN"
-        return (
-            f"  {pred.ljust(pred_name_width)}  "
-            f"{syn_freq:>{pred_freq_width}}/{target:<{pred_target_width}}  "
-            f"(gap {gap:>{pred_gap_width}})  [{status}]"
-        )
-
-    lines = [
-        f"Predicates in synthetic graph ({len(syn_predicates)}):",
-        *(_format_pred_row(p) for p in present),
-        "",
-        f"Predicates in original but missing from synthetic ({len(missing)}):",
-        *(_format_pred_row(p) for p in missing),
-    ]
-    if extra:
-        lines += [
-            "",
-            f"Predicates in synthetic but not in original ({len(extra)}):",
-            *(_format_pred_row(p) for p in extra),
-        ]
-
-    lines += ["", "Rules (support -> target, gap, closed):"]
-    rule_ids = sorted(rules)
-    rule_id_width = max((len(rid) for rid in rule_ids), default=0)
-    heads = {rid: str(rules[rid].head) for rid in rule_ids}
-    head_width = max((len(h) for h in heads.values()), default=0)
-    targets = {rid: int(rules[rid].support) for rid in rule_ids}
-    gaps = {rid: max(targets[rid] - syn_supports[rid], 0) for rid in rule_ids}
-    support_width = max((len(str(syn_supports[rid])) for rid in rule_ids), default=1)
-    target_width = max((len(str(t)) for t in targets.values()), default=1)
-    gap_width = max((len(str(g)) for g in gaps.values()), default=1)
-
-    for rule_id in rule_ids:
-        status = "CLOSED" if rule_id in closed_rule_ids else "OPEN"
-        support = syn_supports[rule_id]
-        target = targets[rule_id]
-        lines.append(
-            f"  {rule_id.ljust(rule_id_width)}  {heads[rule_id].ljust(head_width)}  "
-            f"{support:>{support_width}}/{target:<{target_width}}  "
-            f"(gap {gaps[rule_id]:>{gap_width}})  [{status}]"
-        )
-    return "\n".join(lines)
-
-
-def summarize_progress(
+def log_summary(
     client: SPARQLWrapper,
     original_uri: str,
     synthetic_uri: str,
     rules: dict[str, HornRule],
+    profiles: dict[str, PredicateProfile],
 ) -> None:
-    """Logs which predicates/rules are stuck when generation reaches a stale
-    state: predicate presence vs. the original graph, and each rule's
-    support gap to closing, to help spot where a broken cycle or missing
-    triples are blocking further deduction."""
-    og_freqs = get_predicate_frequencies(client, original_uri)
-    syn_freqs = get_predicate_frequencies(client, synthetic_uri)
-
-    syn_supports = {
-        rid: get_support(client, rule, synthetic_uri) for rid, rule in rules.items()
-    }
-    closed_rule_ids = get_closed_rules(client, synthetic_uri, rules)
-
-    logger.info(
-        "Progress summary:\n%s",
-        _format_progress_block(
-            og_freqs, syn_freqs, rules, syn_supports, closed_rule_ids
-        ),
-    )
-
-
-def summary(
-    client: SPARQLWrapper,
-    original_uri: str,
-    synthetic_uri: str,
-    rules: dict[str, HornRule],
-) -> None:
-    """Creates a summary in the logs that compare the original metrics with the created
-    graph metrics."""
-    # OG triples
+    """Logs one consolidated report comparing the synthetic graph against the
+    original: total triples, per-predicate frequency, and per-rule support,
+    each as original -> synthetic (delta) plus open/closed status. Replaces
+    the previous summarize_progress()/summary() pair, which queried
+    overlapping data twice and logged two separate, overlapping reports.
+    """
     og_triple_count = get_triple_count(client, original_uri)
     syn_triple_count = get_triple_count(client, synthetic_uri)
-
-    # Profiles and frequencies
-    og_metrics = GraphMetrics.from_uri(client, original_uri)
-    syn_metrics = GraphMetrics.from_uri(client, synthetic_uri)
-
-    # Rule support
+    og_freqs = get_predicate_frequencies(client, original_uri)
+    syn_freqs = get_predicate_frequencies(client, synthetic_uri)
     og_supports = {
         rid: get_support(client, rule, original_uri) for rid, rule in rules.items()
     }
@@ -245,19 +135,14 @@ def summary(
         rid: get_support(client, rule, synthetic_uri) for rid, rule in rules.items()
     }
 
-    # og_block = _format_graph_block(original_uri, og_triple_count, rules, og_supports)
-    # syn_block = _format_graph_block(
-    #     synthetic_uri, syn_triple_count, rules, syn_supports
-    # )
-    # logger.info("Original graph summary:\n%s", og_block)
-    # logger.info("Synthetic graph summary:\n%s", syn_block)
     logger.info(
-        "Comparison (synthetic - original):\n%s",
-        _format_delta_block(
+        "Experiment summary:\n%s",
+        _format_summary_block(
             og_triple_count,
             syn_triple_count,
-            og_metrics,
-            syn_metrics,
+            og_freqs,
+            syn_freqs,
+            profiles,
             rules,
             og_supports,
             syn_supports,
@@ -352,21 +237,18 @@ def run_synthetic_graph_experiment(
             get_triple_count(client, edb_uri),
         )
 
+    complete_graph(
+        client=client,
+        rules=rules,
+        term_mapping=term_mapping,
+        source=edb_uri,
+        target_uri=synthetic_uri,
+        chunk_size=chunk_size,
+        profiles=graph_metrics.profiles,
+    )
+
     added = True
     while added:
-        ## ------ Graph completion following the rules  ------
-        complete_graph(
-            client=client,
-            rules=rules,
-            term_mapping=term_mapping,
-            initial_uri=edb_uri,
-            complete_uri=synthetic_uri,
-            chunk_size=chunk_size,
-            profiles=graph_metrics.profiles,
-        )
-
-        summarize_progress(client, config.graph.base_uri, synthetic_uri, rules)
-
         ## ----- Generate triples from open rules with closed head ------
         added = complete_open_rules_with_closed_head(
             client=client,
@@ -377,7 +259,19 @@ def run_synthetic_graph_experiment(
             chunk_size=chunk_size,
         )
 
-    summary(client, config.graph.base_uri, synthetic_uri, rules)
+        complete_graph(
+            client=client,
+            rules=rules,
+            term_mapping=term_mapping,
+            source=synthetic_uri,
+            target_uri=synthetic_uri,
+            chunk_size=chunk_size,
+            profiles=graph_metrics.profiles,
+        )
+
+    log_summary(
+        client, config.graph.base_uri, synthetic_uri, rules, graph_metrics.profiles
+    )
 
     logger.info("Execution finished after %d s.", time.time() - start_time)
 
