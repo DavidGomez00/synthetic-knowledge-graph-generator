@@ -230,6 +230,7 @@ def run_synthetic_graph_experiment(
     chunk_size = config.db_config.chunk_size
     edb_uri = config.graph.edb_uri
     synthetic_uri = config.graph.synthetic_uri
+
     ## ------ EDB Generation  ------
     _log_phase(2, "Generating EDB")
     start_time = time.time()
@@ -288,20 +289,19 @@ def run_synthetic_graph_experiment(
             chunk_size=chunk_size,
             profiles=graph_metrics.profiles,
         )
-        if seeded:
-            round_no += 1
-            complete_graph(
-                client=client,
-                rules=rules,
-                term_mapping=term_mapping,
-                source=synthetic_uri,
-                target_uri=synthetic_uri,
-                chunk_size=chunk_size,
-                profiles=graph_metrics.profiles,
-                label=f"cycle round {round_no}",
-            )
-    if not round_no:
-        logger.info("No stale cycles to break.")
+        round_no += 1
+        complete_graph(
+            client=client,
+            rules=rules,
+            term_mapping=term_mapping,
+            source=synthetic_uri,
+            target_uri=synthetic_uri,
+            chunk_size=chunk_size,
+            profiles=graph_metrics.profiles,
+            label=f"cycle round {round_no}",
+        )
+
+    logger.info("No cycles to break or rules to complete.")
 
     _log_phase(5, "Summary")
     log_summary(

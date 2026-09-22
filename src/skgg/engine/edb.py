@@ -336,7 +336,7 @@ def generate_extensional_predicates(
 
         if update_closed_preds(profiles):
             logger.info(
-                "[Step %d]: Closed ext. predicates [%d/%d].",
+                "[Step %d] Closed predicates [%d/%d].",
                 step,
                 sum(1 for pr in profiles.values() if pr.closed),
                 len(profiles),
