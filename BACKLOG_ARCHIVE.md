@@ -497,6 +497,45 @@ architecture map.
   while existential variables are reused as witnesses. Recoverable via git
   history.
 
+- [x] **`cycles.py`** — `break_cycles` was implemented and unit-tested offline
+      (`tests/test_cycles.py`) but had not yet been run end to end against a
+      graph store.
+  - **Confirmed working end-to-end**: ran `python -m skgg.cli.main -f
+    french_royalty_source.json` against a live GraphDB instance
+    (`logs/french_royalty.log`, 2026-09-22 run). The `[4/5] Breaking rule
+    cycles` phase shows `break_cycles` seeding a real cycle (`Broke cycle
+    successor -> predecessor -> successor: seeded 471 triples for rule 1.`),
+    the follow-up `complete_graph` pass consuming those seeds (`[cycle round
+    1] +471 triples in 2 passes (stale state)`), and a second round finding
+    nothing left to seed or complete (`[cycle round 2] +0 triples`, `No
+    cycles to break or rules to complete.`) before the run reaches `[5/5]
+    Summary`.
+  - **Not covered by this run, left open in `BACKLOG.md`**: the `--skip-edb`
+    reseeding behavior and whether a seeded cycle can overshoot its head
+    predicate's target frequency (`apply_rule` isn't profile-capped in the
+    completion loop) — see the `engine/` item in `BACKLOG.md`.
+
+## `docs/`
+
+- [x] **concepts.md** *(low priority)*: Check remaining definitions are as
+      intended (head coverage, std/PCA confidence).
+  - Verified against the current file: the "Horn Rules" section defines
+    support (matching AMIE3, already audited separately), head coverage
+    (support / total head-predicate triples), std confidence (support /
+    body-satisfying bindings that don't also satisfy the head), and PCA
+    confidence (the PCA-relaxed version of std confidence, ≥ std confidence,
+    and what `rules.pca_threshold` filters on) — all consistent with
+    `core/queries.py`/`core/rules.py`. Nothing left ambiguous.
+- [x] **getting_started.md** *(low priority)*: Define clearly all the
+      necessary inputs for the execution of the repo.
+  - The file (now `docs/getting-started.md`, hyphenated) walks through
+    install, starting a graph DB (Virtuoso or GraphDB, including the
+    GraphDB manual-repository-creation step), building the source graph via
+    `cli/upload.py` (`--complete` flag explained), running the experiment
+    via `cli/main.py` (all CLI flags documented), a "where things live"
+    table, and a troubleshooting pointer to `architecture.md`/`concepts.md`/
+    `BACKLOG.md`. Covers all necessary inputs end to end.
+
 ## `configurations/`
 
 - [x] **`simpsons.json` fails to load** — verified via `RunConfig.from_json`:
