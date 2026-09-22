@@ -26,8 +26,8 @@ from skgg.engine.edb import generate_extensional_predicates
 from skgg.engine.idb import get_closed_preds, get_closed_rules
 from skgg.engine.metrics import GraphMetrics, PredicateProfile
 from skgg.utils import (
+    build_term_mapping,
     create_sparql_client,
-    get_term_mapping,
     resolve_config_path,
     setup_logging,
     short_term,
@@ -209,8 +209,8 @@ def run_synthetic_graph_experiment(
     graph_metrics = GraphMetrics.from_uri(client, config.graph.base_uri)
 
     ## ------ Previous evaluation of rules ------
-    term_mapping = get_term_mapping(
-        ontology_file=input_dir / config.graph.ontology_file,
+    term_mapping = build_term_mapping(
+        term_namespaces=config.graph.term_namespaces,
         default_namespace=config.graph.namespace,
     )
 

@@ -10,8 +10,8 @@ from skgg.core.queries import get_triple_count, initialize_graph
 from skgg.core.rules import parse_rule_set
 from skgg.engine.completion import complete_graph
 from skgg.utils import (
+    build_term_mapping,
     create_sparql_client,
-    get_term_mapping,
     resolve_config_path,
     setup_logging,
 )
@@ -57,8 +57,8 @@ if __name__ == "__main__":
     base_uri = config.graph.base_uri
     complete_uri = config.graph.complete_uri
 
-    term_mapping = get_term_mapping(
-        ontology_file=input_dir / config.graph.ontology_file,
+    term_mapping = build_term_mapping(
+        term_namespaces=config.graph.term_namespaces,
         default_namespace=config.graph.namespace,
     )
 

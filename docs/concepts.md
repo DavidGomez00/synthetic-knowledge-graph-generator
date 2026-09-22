@@ -152,12 +152,13 @@ didn't exist before this ordering was introduced.
 
 ## Term mapping / namespace
 
-RDF terms are written as short names in rules/config (`ex:hasAge`) but need a
-full URI (`<http://example.org/hasAge>`) for SPARQL. `utils.get_term_mapping`
-builds a `{short name → namespace}` dict by scanning a `.ttl` ontology file's
-`@prefix` declarations line-by-line (no RDF library, O(1) memory) —
-`utils.format_term`/`format_triple` use that mapping to resolve terms wherever
-a query or triple is built.
+RDF terms are written as bare short names in rules/data (`hasAge`) but need a
+full URI (`<http://example.org/hasAge>`) for SPARQL. `utils.build_term_mapping`
+builds a `{short name → namespace}` dict from `utils.DEFAULT_PREFIXES`,
+overridden by the experiment's own `graph.term_namespaces` config entries, plus
+a `"default"` fallback set to `graph.namespace` for any term without an
+explicit override — `utils.format_term`/`format_triple` use that mapping to
+resolve terms wherever a query or triple is built.
 
 ## Grounding sampler
 

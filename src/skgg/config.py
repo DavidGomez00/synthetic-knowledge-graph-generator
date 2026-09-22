@@ -68,8 +68,6 @@ class GraphConfig:
 
     Attributes:
         name: Human-readable name for the graph/experiment.
-        ontology_file: Filename (relative to `data.input_dir`) of the ontology
-            (.ttl) used to build the term-to-namespace mapping.
         triple_file: Filename (relative to `data.input_dir`) of the base graph in
             N-Triples format, consumed by `cli/upload.py`.
         namespace: Default namespace URI used to resolve unprefixed terms.
@@ -79,16 +77,20 @@ class GraphConfig:
             metrics are extracted from.
         edb_uri: Named-graph URI for the generated Extensional Database.
         synthetic_uri: Named-graph URI for the final synthetic graph (EDB + IDB).
+        term_namespaces: Optional bare-term -> namespace-URI overrides, merged
+            over `utils.DEFAULT_PREFIXES` and under the `namespace` default
+            when resolving unprefixed terms (see `utils.build_term_mapping`).
+            Only needed when a term's namespace differs from `namespace`.
     """
 
     name: str
-    ontology_file: str
     triple_file: str
     namespace: str
     base_uri: str
     complete_uri: str
     edb_uri: str
     synthetic_uri: str
+    term_namespaces: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

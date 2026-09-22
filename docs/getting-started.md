@@ -52,7 +52,7 @@ graph. `-f`/`--config-file` resolves a bare filename under `configurations/`
 `graph.triple_file` also accepts a `.tsv` file of bare `subject<TAB>predicate<TAB>object`
 terms — `french_royalty.json` uses this format
 (`.data/FrenchRoyalty/french_royalty.tsv`); terms are resolved to full URIs via
-the ontology term mapping before insertion, the same way rule bodies are.
+the term mapping before insertion, the same way rule bodies are.
 
 ## 4. Run the experiment
 

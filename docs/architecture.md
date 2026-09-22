@@ -15,7 +15,7 @@ graph again once the profiles are extracted.
 ```mermaid
 flowchart LR
     NT["base graph<br/>(.nt/.tsv file)"] -->|cli/upload.py| BASE[("base_uri")]
-    ONTO["ontology<br/>(.ttl file)"] --> TERM["term mapping"]
+    ONTO["graph.term_namespaces<br/>(config)"] --> TERM["term mapping"]
     RULES["rules<br/>(.csv file)"] --> HORN["Horn rules"]
 
     BASE -->|"engine/completion.py<br/>forward-chain rules"| COMPLETE[("complete_uri")]
@@ -43,7 +43,7 @@ Blue nodes are named graphs in the database (keyed by the URIs in each config's
 
 1. **Upload** (`cli/upload.py`) loads a base `.nt` or `.tsv` file (`graph.triple_file`)
    into `base_uri`. `.tsv` rows are bare `subject\tpredicate\tobject` terms,
-   resolved to full URIs via the ontology term mapping before insertion.
+   resolved to full URIs via the term mapping before insertion.
 2. **Completion** (`engine/completion.py`) forward-chains the rule set over
    `base_uri` — assuming rule bodies are fully grounded — until no rule adds any
    more triples, producing `complete_uri`. This is a *real* graph, used only to

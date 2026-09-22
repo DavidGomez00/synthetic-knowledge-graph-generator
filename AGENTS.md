@@ -48,12 +48,12 @@ python -m skgg.cli.main -f mario.json --skip-edb --log-level DEBUG
 Typical experiment flow (see `cli/main.py`):
 1. Load `RunConfig` from JSON and set up logging.
 2. Compute `GraphMetrics` (predicate profiles) from the source graph (`graph.complete_uri`) over SPARQL.
-3. Parse the ontology into a term mapping and parse the Horn rule set from a CSV (`rules.rules_file`), filtered by `pca_threshold`.
+3. Build the term mapping (`graph.term_namespaces` overrides merged over `utils.DEFAULT_PREFIXES`, under the `graph.namespace` default) and parse the Horn rule set from a CSV (`rules.rules_file`), filtered by `pca_threshold`.
 4. Generate the EDB (extensional database) — `engine/edb.py` — inserting triples that satisfy rule bodies/profiles into `graph.edb_uri`.
 5. Generate the IDB (intensional database) — `engine/idb.py` — applying rules over the EDB to produce the synthetic graph at `graph.synthetic_uri`, iterating until rules/predicates reach target support/frequency (closure). Within a same-head-predicate group, rules are applied in intensional-dependency order (`core/rules.py`'s `get_intensional_dependencies`): more restrictive rules close before more general ones, and recursive rules wait for all non-recursive rules producing the same head — see `docs/concepts.md`.
 6. As currently wired, `cli/main.py` logs five numbered phases (`[n/5]`): metrics/rules, EDB, completion, cycle-breaking, summary. The completion phase forward-chains the rules over the EDB with `engine/completion.py`'s `complete_graph` (which returns the triples it added and takes a `label` for its log lines). The cycle-breaking phase then alternates `engine/cycles.py`'s `break_cycles` (seeds one stale cycle per call, returns the seeded triple count) with `complete_graph` until nothing is seeded — see "Stale cycle" in `docs/concepts.md`.
 
-`cli/upload.py` is a separate, standalone script (its body runs under an `if __name__ == "__main__":` guard, not via a reusable function) that uploads a base graph from a `.nt` or `.tsv` file (`graph.triple_file` in config; `.tsv` rows are bare `subject\tpredicate\tobject` terms, resolved to full URIs via the ontology term mapping):
+`cli/upload.py` is a separate, standalone script (its body runs under an `if __name__ == "__main__":` guard, not via a reusable function) that uploads a base graph from a `.nt` or `.tsv` file (`graph.triple_file` in config; `.tsv` rows are bare `subject\tpredicate\tobject` terms, resolved to full URIs via the term mapping):
 
 ```bash
 python -m skgg.cli.upload -f french_royalty.json
@@ -78,7 +78,7 @@ src/skgg/
     main.py            # run_synthetic_graph_experiment: the end-to-end experiment pipeline
     upload.py           # standalone script: upload base graph + rule-based completion
   core/
-    rules.py           # Atom / RuleSignature (Horn rule) dataclasses, rule-set CSV parsing, term mapping from ontology
+    rules.py           # Atom / RuleSignature (Horn rule) dataclasses, rule-set CSV parsing
     queries.py          # All SPARQL query construction + execution against the graph DB (insert/select/ask/clear/count)
   engine/
     metrics.py          # GraphMetrics / PredicateProfile: topological descriptors (domain/range frequency per predicate)
@@ -89,7 +89,7 @@ src/skgg/
     cycles.py              # break_cycles: seeds one stale rule cycle (p -> p, A -> B -> A) per call in the synthetic graph; the caller completes it again
 ```
 
-Data flow: **ontology + rules CSV + source graph metrics → EDB (facts satisfying rule bodies) → IDB (rule-derived facts, grown until closure) → synthetic graph**, all mediated through SPARQL against the graph store, keyed by graph URIs defined per-experiment in the `graph` section of each config JSON (`base_uri`, `complete_uri`, `edb_uri`, `synthetic_uri`).
+Data flow: **term mapping + rules CSV + source graph metrics → EDB (facts satisfying rule bodies) → IDB (rule-derived facts, grown until closure) → synthetic graph**, all mediated through SPARQL against the graph store, keyed by graph URIs defined per-experiment in the `graph` section of each config JSON (`base_uri`, `complete_uri`, `edb_uri`, `synthetic_uri`).
 
 Rules are parsed from CSV into `RuleSignature`/`Atom` objects (`core/rules.py`); each rule has body atoms and a head atom over predicates/variables, plus confidence metrics (PCA/Std confidence). `parse_rule_set` expects lowercase snake_case columns (`body`, `head`, `std_confidence`, `pca_confidence`, `head_coverage`, `positive_examples`), matching AMIE-style mined-rule exports like `.data/FrenchRoyalty/french_royalty_stdc=1.csv` — a CSV with the older CamelCase columns (`Body`/`Head`/`PCA_Confidence`/...) will raise a `KeyError`; see `BACKLOG.md` for the resulting `.data/Mario/mario.csv` incompatibility. `rules.pca_threshold` in config classifies each rule's `HornRule.classification` as POSITIVE/NEGATIVE/UNKNOWN by comparing PCA confidence against the threshold, but nothing currently filters rules out of EDB/IDB generation based on that classification — see `BACKLOG.md`.
 

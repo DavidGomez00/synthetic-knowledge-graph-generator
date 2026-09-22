@@ -3,7 +3,6 @@ RDF terms (short names) to their fully-qualified namespace URIs.
 """
 
 import logging
-import re
 from pathlib import Path
 
 from SPARQLWrapper import BASIC, DIGEST, SPARQLWrapper
@@ -128,44 +127,14 @@ def format_triple(
     return f"{subject_str} {predicate_str} {object_str} ."
 
 
-def get_term_mapping(ontology_file: Path, default_namespace: str) -> dict[str, str]:
-    """Extracts term->namespace mappings from a Turtle file using line-by-line regex.
-
-    Scales with O(1) memory footprint by avoiding in-memory graph construction.
+def build_term_mapping(
+    term_namespaces: dict[str, str], default_namespace: str
+) -> dict[str, str]:
+    """Builds the bare-term -> namespace-URI mapping used by `format_term`/
+    `format_triple`, from `DEFAULT_PREFIXES` overridden by the experiment's
+    own `graph.term_namespaces`, plus a "default" fallback namespace.
     """
-    term_mapping: dict[str, str] = DEFAULT_PREFIXES.copy()
-    custom_mapping: dict[str, str] = {}
-    prefixes: dict[str, str] = {}
-
-    # Matches: @prefix fr: <http://FrenchRoyalty.org/> .
-    prefix_pattern = re.compile(r"@prefix\s+([^:]+):\s*<([^>]+)>\s*\.")
-
-    # Matches: fr:father a rdfs:Property (captures "fr" and "father")
-    term_pattern = re.compile(r"^([a-zA-Z0-9_-]+):([a-zA-Z0-9_-]+)(?=\s)")
-
-    with open(ontology_file, encoding="utf-8") as f:
-        for line in f:
-            line = line.lstrip()  # Keep right spaces, just clear indents
-
-            # Skip empty lines and comments
-            if not line or line.startswith("#"):
-                continue
-
-            # 1. Catch Prefix Declarations
-            if line.startswith("@prefix"):
-                match = prefix_pattern.search(line)
-                if match:
-                    prefix, uri = match.groups()
-                    prefixes[prefix] = uri
-                continue
-
-            # 2. Catch Term Definitions
-            match = term_pattern.search(line)
-            if match:
-                prefix, term = match.groups()
-                if prefix in prefixes:
-                    custom_mapping[term] = prefixes[prefix]
-    logger.debug("Created term to prefix mapping.")
-    term_mapping.update(custom_mapping)
-    term_mapping.update({"default": default_namespace})
+    term_mapping = DEFAULT_PREFIXES.copy()
+    term_mapping.update(term_namespaces)
+    term_mapping["default"] = default_namespace
     return term_mapping
