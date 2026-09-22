@@ -1,8 +1,9 @@
 # EDB generation
 
 How `engine/edb.py`'s `generate_extensional_predicates` turns predicate profiles + Horn rules into
-the ground triples of the Extensional Database (EDB), the seed the IDB
-(`engine/idb.py`) later grows into the synthetic graph. See
+the ground triples of the Extensional Database (EDB), the seed
+`engine/completion.py` (with `engine/cycles.py`) later grows into the
+synthetic graph. See
 [`concepts.md`](concepts.md) for EDB/IDB, predicate profile, closure and
 grounding-sampler definitions used throughout, and
 [`architecture.md`](architecture.md) for where this step sits in the overall
@@ -14,8 +15,9 @@ pipeline.
 triples only for **extensional predicates** (`profiles.keys() - {every rule'shead predicate}`),
 i.e., predicates a rule never derives, whether because they only ever occur
 in a rule *body* or because they don't appear in the rule set at all. Every
-other predicate (**intensional**) is left for `engine/idb.py` to derive 
-later by forward-chaining.
+other predicate (**intensional**) is left for `engine/completion.py` to derive
+later by forward-chaining (with `engine/cycles.py` seeding any stale cycle
+completion alone could never start).
 
 For each extensional predicate, the EDB must reproduce, exactly, the
 `PredicateProfile` extracted from the source graph: the same `frequency`

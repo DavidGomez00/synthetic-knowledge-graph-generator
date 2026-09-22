@@ -349,6 +349,32 @@ architecture map.
     (see `BACKLOG.md`'s "docs/" section), so behavioral verification still
     requires an end-to-end run against a live DB comparing final EDB
     triple counts before/after.
+- [x] *(urgent)*: Refresh how intensional dependencies work and why they are
+      useful/necessary (see `core/rules.py`'s `get_intensional_dependencies`
+      and `docs/concepts.md`'s "Intensional rule dependencies" section).
+  - **Turned out to be dead code, not a doc gap**: `get_intensional_dependencies`
+    and the `generate_idb` function that consumed it (`engine/idb.py`) were
+    only ever called from each other — `git log -S"generate_idb("` on
+    `cli/main.py` shows the pipeline stopped calling `generate_idb` back
+    around commit `fdfd4ca`, long before `HEAD`, once `engine/completion.py`'s
+    `complete_graph` + `engine/cycles.py`'s `break_cycles` took over building
+    the synthetic graph. `check_uninferrable_preds` and `get_predicate_mapping`
+    were in the same boat (only called from `generate_idb`). All four were
+    removed instead of refreshed: `generate_idb`/`update_closure` from
+    `engine/idb.py` (which now only keeps `get_closed_rules`/`get_closed_preds`,
+    still used by `completion.py`/`cli/main.py`), and
+    `get_intensional_dependencies`/`check_uninferrable_preds`/
+    `get_predicate_mapping` from `core/rules.py`.
+  - `docs/concepts.md`'s "Intensional rule dependencies" section became
+    "Rule application order", describing what `complete_graph` actually
+    does (no rule ordering, no profile budget during the loop — a plain
+    forward-chaining fixpoint) instead of the removed dependency-gated
+    design. `docs/architecture.md` (diagram, "Data flow" step 5,
+    "Components" diagram/prose), `docs/edb-generation.md`, and `AGENTS.md`
+    updated to match. Verified via `python -c "import skgg.cli.main, ..."`
+    (all modules still import cleanly) and `mypy` (no new errors beyond a
+    pre-existing, unrelated `pandas.itertuples` typing issue in
+    `core/rules.py`).
 
 ## `engine/`
 

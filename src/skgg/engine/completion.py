@@ -12,8 +12,7 @@ from SPARQLWrapper import SPARQLWrapper
 
 from skgg.core.queries import get_predicate_frequencies, initialize_graph
 from skgg.core.rules import HornRule
-from skgg.engine.generator import apply_rule
-from skgg.engine.idb import get_closed_preds, get_closed_rules
+from skgg.engine.generator import apply_rule, get_closed_preds, get_closed_rules
 from skgg.engine.metrics import PredicateProfile
 
 logger = logging.getLogger(__name__)

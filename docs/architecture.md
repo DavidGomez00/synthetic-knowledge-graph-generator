@@ -28,7 +28,7 @@ flowchart LR
     TERM --> EDBGEN
     EDBGEN["engine/edb.py"] --> EDB[("edb_uri")]
 
-    EDB -->|"engine/idb.py<br/>forward-chain rules"| SYN[("synthetic_uri")]
+    EDB -->|"engine/completion.py<br/>forward-chain rules"| SYN[("synthetic_uri")]
     HORN --> SYN
     METRICS --> SYN
 
@@ -56,32 +56,24 @@ Blue nodes are named graphs in the database (keyed by the URIs in each config's
    *extensional* predicates (ones no rule head ever produces) that satisfy both
    the profiles and the rule bodies that reference them, producing `edb_uri`.
    See [`edb-generation.md`](edb-generation.md) for the full algorithm.
-5. **IDB generation** (`engine/idb.py`) forward-chains the rules again, this
-   time starting from the EDB instead of a real graph, growing `synthetic_uri`
-   until every rule/predicate reaches its target support/frequency (closure).
-   Within each step, a rule only fires once every rule it *depends on* is
-   closed: `core/rules.py`'s `get_intensional_dependencies` makes a rule
-   depend on every other rule that shares its head predicate and is *more
-   restrictive* (a bigger/more specific body — a strict superset of the
-   dependent rule's body predicates; for recursive rules — head predicate
-   also in the body — every non-recursive rule for that head counts as a
-   dependency too). More restrictive rules are generated first, so a looser
-   rule can't consume bindings/budget (the head predicate's remaining
-   `frequency`/`support`) a stricter same-head rule still needs. This still
-   holds under the "complete rules" assumption (`check_uninferrable_preds`'s
-   upfront check, that every intensional predicate has *some* path back to
-   extensional predicates, is unaffected — it never consults the dependency
-   graph) — but it does mean *runtime* closure is now coupled to it: if a
-   dependency rule itself never closes (no more bindings satisfy its body
-   before its `support` target is met), every rule gated on it stays skipped
-   indefinitely, and generation can reach a stale state with a
-   structurally-derivable predicate still short of its target frequency.
-6. **Pipeline as wired in `cli/main.py`.** The entry point logs five numbered
-   phases: metrics/rules, EDB, completion, cycle-breaking, summary. Completion
-   (`complete_graph`, which returns the number of triples it added and takes a
-   `label` for its log lines) forward-chains the rules over the EDB into
-   `synthetic_uri`. Cycle-breaking then alternates `break_cycles` (one stale
-   cycle per call) with `complete_graph` until `break_cycles` seeds nothing.
+5. **Synthetic graph generation, as wired in `cli/main.py`.** The entry point
+   logs five numbered phases: metrics/rules, EDB, completion, cycle-breaking,
+   summary. Completion (`engine/completion.py`'s `complete_graph`, which
+   returns the number of triples it added and takes a `label` for its log
+   lines) forward-chains *every* rule over the EDB into `synthetic_uri` each
+   pass, repeating until a pass adds nothing — there's no rule ordering and
+   no profile budget applied during this loop (`apply_rule` is called
+   without a `profile`, so a rule can in principle overshoot its head
+   predicate's target frequency; only rule `support` and predicate
+   `frequency` targets are checked afterward, via `engine/generator.py`'s
+   `get_closed_rules`/`get_closed_preds`, to flip the `closed` fields used
+   for reporting). Cycle-breaking then alternates `engine/cycles.py`'s
+   `break_cycles` (seeds one [stale cycle](concepts.md#stale-cycle) per call)
+   with another `complete_graph` pass until `break_cycles` seeds nothing more.
+   (An earlier design, `engine/idb.py`'s `generate_idb`, forward-chained with
+   explicit same-head rule ordering and an upfront inferrability check; it's
+   no longer wired into the pipeline — see `docs/concepts.md`'s "Rule
+   application order".)
 
 ## Components
 
@@ -95,9 +87,9 @@ flowchart TD
     subgraph engine ["engine/"]
         METRICS["metrics.py"]
         EDB["edb.py"]
-        IDB["idb.py"]
         GEN["generator.py"]
         COMPLETION["completion.py"]
+        CYCLES["cycles.py"]
     end
 
     subgraph core ["core/"]
@@ -109,13 +101,13 @@ flowchart TD
     UTILS["utils.py"]
     DB[("Virtuoso /<br/>GraphDB")]
 
-    MAIN --> CONFIG & METRICS & EDB & IDB & RULES & UTILS
+    MAIN --> CONFIG & METRICS & EDB & GEN & COMPLETION & CYCLES & RULES & UTILS
     UPLOAD --> CONFIG & COMPLETION & RULES
 
     EDB --> GEN & METRICS & RULES & QUERIES
-    IDB --> GEN & METRICS & RULES & QUERIES
     COMPLETION --> GEN & METRICS & QUERIES
-    GEN --> QUERIES & RULES
+    CYCLES --> GEN & METRICS & RULES & QUERIES & UTILS
+    GEN --> QUERIES & RULES & METRICS
     METRICS --> QUERIES
     RULES --> UTILS
 
@@ -132,12 +124,11 @@ flowchart TD
   ↔ namespace mapping (parses `@prefix` declarations from a `.ttl` file without
   loading it into an RDF library).
 - **`core/rules.py`** — `Atom`/`RuleSignature`/`HornRule` dataclasses, CSV
-  parsing into a rule set, and rule-set-level checks (e.g.
-  `check_uninferrable_preds` verifies every intensional predicate is actually
-  derivable from the extensional ones before IDB generation starts, and
-  `get_intensional_dependencies` builds the per-rule "must close first"
-  dependency set consumed by `engine/idb.py`'s generation loop — see "Data
-  flow" step 5).
+  parsing into a rule set, `get_extensional_dependencies` (the "more
+  restrictive rule first" ordering EDB generation uses — see
+  [`edb-generation.md`](edb-generation.md)), and `get_relation_graph`/
+  `find_stale_cycles` (the predicate dependency graph `engine/cycles.py`
+  scans for stale cycles).
 - **`core/queries.py`** — every SPARQL query construction/execution function.
   Nothing outside this module talks to `SPARQLWrapper` directly for reads/writes.
   SELECTs are sent as POST (URL-encoded) rather than GET: `get_existing_triples`
@@ -152,12 +143,17 @@ flowchart TD
 - **`engine/generator.py`** — shared triple-generation primitives.
   `sample_groundings` constructs groundings of a rule's extensional body
   directly from the predicate profiles (no materialized cartesian product);
-  it is used only by `engine/edb.py`. `apply_rule` — applying a single rule to produce new triples,
-  querying only the real graph for bindings, checking whether a candidate
-  assignment keeps the remaining profile realizable
-  (`is_assignment_solvable`) — is shared by `engine/idb.py` and
-  `engine/completion.py`.
-- **`engine/edb.py`** / **`engine/idb.py`** — see "Data flow" above.
+  used by `engine/edb.py` and by `engine/cycles.py` (to seed a stale cycle's
+  ungrounded body atoms). `apply_rule` — applying a single rule to produce
+  new triples, querying only the real graph for bindings, and, when given a
+  `profile`, checking whether a candidate assignment keeps the remaining
+  profile realizable (`is_assignment_solvable`) — is used by
+  `engine/completion.py` (always without a `profile`, so unconstrained by any
+  target frequency there). `get_closed_rules`/`get_closed_preds` are the
+  small SPARQL-backed checks for whether a rule/predicate has reached its
+  `support`/`frequency` target, used by
+  `engine/completion.py` and `cli/main.py`.
+- **`engine/edb.py`** — see "Data flow" above.
 - **`engine/completion.py`** — see "Data flow" above.
 - **`engine/cycles.py`** — `break_cycles` runs right after completion in
   `cli/main.py`. It finds *stale cycles* (`core/rules.find_stale_cycles`), seeds

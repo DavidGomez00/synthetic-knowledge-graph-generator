@@ -4,9 +4,6 @@ Known issues and pending refactors, organized by module. See `AGENTS.md` for
 the current architecture map. Resolved items are archived in
 `BACKLOG_ARCHIVE.md` once checked off here, to keep this file scannable.
 
-## Next session
-- [ ] *(urgent)*: Refresh how intensional dependencies work and why they are useful/necessary (see `core/rules.py`'s `get_intensional_dependencies` and `docs/concepts.md`'s "Intensional rule dependencies" section).
-
 ## `core/`
 - [ ] **`rules.py`** *(low priority)*: The extensional dependency graph is created over all the rules, not just the relevant ones for EDB generation. Restricting the dependencies only to EDB relevant rules could increase the efficiency of the tool.
 - [ ] **`get_existing_queries`** *(low priority)*: Seems counter intuitive that we are querying for the existing queries in the graph only to use them to see which queries are novel. Maybe we should use this call to return the set of triples from the candidates that are novel? I need to look through the usage of this function to be sure.
@@ -31,7 +28,7 @@ the current architecture map. Resolved items are archived in
     - `…/base` (self-contained, written by `upload.py`)
     - `…/complete-delta` (delta) and `…/complete` (= `base` + `complete-delta`, source for metric extraction), written by `completion.py`
     - `…/edb` (self-contained; generated from metrics + rules, not derived from `complete`), written by `edb.py`
-    - `…/idb-delta` (delta) and `…/synthetic` (= `edb` + `idb-delta`, the deliverable), written by `idb.py`
+    - `…/idb-delta` (delta) and `…/synthetic` (= `edb` + `idb-delta`, the deliverable), written by `completion.py`/`cycles.py`
     - `…/_meta` (config, threshold, timestamp, triple counts per stage), written by `cli/main.py`
   - Only `complete` and `synthetic` need both delta and snapshot forms. Materializing `synthetic` is recommended; `complete` could be skipped in favour of a `FROM` union if metric queries aren't simpler against a single graph.
   - Replace the four `*_uri` config fields with a single `graph_prefix` (e.g. `http://FrenchRoyalty.org/graph/enriched`) and derive the stage URIs in `GraphConfig`, so names can't drift or contain typos.

@@ -1,12 +1,12 @@
 """Defines data structures and logic for Horn Rule-based systems.
 
-Provides the HornRule dataclass, Pandas CSV parsing, and core logic operations
-to verify and evaluate inferrable predicates within a rule set.
+Provides the HornRule dataclass, Pandas CSV parsing, and rule-set-level
+operations (dependency graphs, cycle detection) used to drive EDB/synthetic
+graph generation.
 """
 
 import logging
 import re
-from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -313,51 +313,6 @@ def parse_rule_set(
     return rules
 
 
-def check_uninferrable_preds(
-    rules: dict[str, HornRule],
-    intensional_predicates: set[str],
-    extensional_predicates: set[str],
-) -> set[str]:
-    """Calls the method to see if there is any uninferrable intensional predicate in the
-    rule set.
-
-    Args:
-        rules: Dict containing all rules in the set.
-        intensional_predicates: Set of all predicates that must be inferrable.
-        extensional_predicates: Set of extensional predicates assumed to be inferrable.
-
-    Raises:
-        ValueError: If there are any non-inferrable predicates.
-    """
-
-    # Create rule mappings
-    rule_mapping: dict[str, list[set[str]]] = defaultdict(list)
-    for _, rule in rules.items():
-        head_predicate = rule.head.predicate
-        if head_predicate in intensional_predicates:
-            body_intensional = (
-                rule.signature.get_body_predicates() - extensional_predicates
-            )
-            rule_mapping[head_predicate].append(body_intensional)
-
-    deducible: set[str] = set()
-
-    # Iteratively expand the set of deducible predicates
-    while True:
-        added_new = False
-        for head, bodies in rule_mapping.items():
-            if head in deducible:
-                continue
-            if any((body - {head}).issubset(deducible) for body in bodies):
-                deducible.add(head)
-                added_new = True
-
-        if not added_new:
-            break
-
-    return intensional_predicates - deducible
-
-
 def get_extensional_dependencies(
     rules: dict[str, HornRule],
 ) -> dict[str, set[str]]:
@@ -399,121 +354,6 @@ def get_extensional_dependencies(
                     rule_dependency[current_id].add(next_id)
 
     return rule_dependency
-
-
-def get_intensional_dependencies(rules: dict[str, HornRule]) -> dict[str, set[str]]:
-    """Builds a dictionary that represents rule dependencies in a ruleset based on the
-    head of the rule. A rule depends on other rules if they are more restrictive than it
-    and produce the same head.
-    """
-
-    if any(rule.support is None for rule in rules.values()):
-        raise ValueError("Can't determine rule dependencies for rules without support.")
-
-    # Group rules by the predicate in their heads
-    by_head: dict[str, list[HornRule]] = defaultdict(list)
-    for rule in rules.values():
-        by_head[rule.head.predicate].append(rule)
-    by_head = dict(by_head)  # Secure the dict type
-
-    # Initialize dependency dict
-    rule_dependency: dict[str, set[str]] = {r_id: set() for r_id in rules.keys()}
-
-    # Process each group independently
-    for rule_group in by_head.values():
-        # Select recursive rules (e.g., p -> p)
-        recursive_rules: list[HornRule] = []
-        non_recursive_rules: list[HornRule] = []
-        for rule in rule_group:
-            if rule.head.predicate in rule.get_body_predicates():
-                recursive_rules.append(rule)
-            else:
-                non_recursive_rules.append(rule)
-
-        # Set dependencies for recursive rules first. A recursive rule depends on every
-        # other rule from this group that is not recursive and on the rules it subsumes.
-        sorted_recursive_rules = sorted(recursive_rules, key=len)
-        sorted_non_recursive_rules = sorted(non_recursive_rules, key=len)
-        for i, current_rule in enumerate(sorted_recursive_rules):
-            current_id = current_rule.rule_id
-            current_support = current_rule.support
-
-            for next_rule in sorted_recursive_rules[i + 1 :]:
-                next_id = next_rule.rule_id
-                next_support = next_rule.support
-
-                # Current rule subsumes next rule if all the current predicates are in
-                # the next rule's body.
-                if any(
-                    pred not in next_rule.get_body_predicates()
-                    for pred in current_rule.get_body_predicates()
-                ):
-                    continue
-                # If the continue did not trigger (current_rule subsumes next_rule),
-                # most likely next_rule is larger than current_rule. Just in case they
-                # are the same size (basically same rule but with variables changed in
-                # order) we compare the support.
-                if len(next_rule) < len(current_rule):
-                    raise RuntimeError(
-                        "Next rule is smaller than current rule. Cannot be!"
-                    )
-                elif (
-                    len(next_rule) == len(current_rule)
-                    and next_support > current_support
-                ):
-                    rule_dependency[next_id].add(current_id)
-                else:
-                    rule_dependency[current_id].add(next_id)
-
-            # Finally, recursive rules depend on all non recursive rules
-            for rule in sorted_non_recursive_rules:
-                rule_dependency[current_id].add(rule.rule_id)
-
-        # Set dependencies for non-recursive rules. A non-recursive rule only depends on
-        # the rules it subsumes.
-        for i, current_rule in enumerate(sorted_non_recursive_rules):
-            current_id = current_rule.rule_id
-            current_support = current_rule.support
-
-            for next_rule in sorted_non_recursive_rules[i + 1 :]:
-                next_id = next_rule.rule_id
-                next_support = next_rule.support
-                # If current_rule contains any predicate that is not in next_rule,
-                # current_rule cannot subsume next_rule.
-                if any(
-                    pred not in next_rule.get_body_predicates()
-                    for pred in current_rule.get_body_predicates()
-                ):
-                    continue
-
-                # Just in case they are the same rule but with variables changed, we
-                # compare the support.
-                if len(next_rule) < len(current_rule):
-                    raise RuntimeError(
-                        "Next rule is smaller than current rule. Cannot be!"
-                    )
-                elif (
-                    len(next_rule) == len(current_rule)
-                    and next_support > current_support
-                ):
-                    rule_dependency[next_id].add(current_id)
-                else:
-                    rule_dependency[current_id].add(next_id)
-
-    logger.info("Created dependency graph for %d rules.", len(rules))
-    return rule_dependency
-
-
-def get_predicate_mapping(rules: dict[str, HornRule]) -> dict[str, set[str]]:
-    """Returns a mapping from predicates to the ids of rules where they are present."""
-
-    mapping: defaultdict[str, set[str]] = defaultdict(set)
-
-    for r_id, rule in rules.items():
-        for pred in rule.get_predicates():
-            mapping[pred].add(r_id)
-
-    return dict(mapping)
 
 
 def get_relation_graph(rules: dict[str, HornRule]) -> nx.DiGraph:

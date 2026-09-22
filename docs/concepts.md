@@ -88,9 +88,11 @@ Standard Datalog terminology, used directly as named-graph URIs in each config
   rule bodies that reference these predicates.
 - **Intensional predicate** — appears as some rule's head; its truth is
   *derived* by applying rules over already-known facts. The **Intensional
-  Database (IDB)**, built by `engine/idb.py`, is the EDB plus everything
-  derivable from it by forward-chaining the rules — this is the final
-  synthetic graph.
+  Database (IDB)** is the EDB plus everything derivable from it by
+  forward-chaining the rules — this is the final synthetic graph
+  (`graph.synthetic_uri`), built by `engine/completion.py`'s `complete_graph`
+  starting from the EDB, with `engine/cycles.py`'s `break_cycles` interleaved
+  to seed any [stale cycle](#stale-cycle) completion alone could never start.
 
 ## Closure
 
@@ -104,51 +106,55 @@ A predicate or rule is **closed** once it has reached its target count:
   body and head reaches its `support` — recorded the same way on `HornRule`
   as `closed: bool` (`core/rules.py`).
 
-Both EDB and IDB generation loop until everything relevant is closed (or a
-step makes no more progress). `engine/edb.py` treats these `closed` fields as
-the single source of truth: `generator.update_closed_preds` sets
-`PredicateProfile.closed`, the rule-support check in
-`generate_extensional_predicates` sets `HornRule.closed` directly, and any
-`closed_preds` seen locally in that module (or in `check_triples_from_rule`)
-is a short-lived set derived from `PredicateProfile.closed` for set algebra
-(unions, differences), not separately maintained state. `engine/idb.py` still
-tracks closure with its own `closed_preds` / `closed_rule_ids` accumulator
-sets (`get_closed_preds`/`get_closed_rules`/`update_closure`), independently
-of the `closed` fields.
+Both EDB generation and synthetic-graph completion loop until everything
+relevant is closed (or a step makes no more progress), and both treat these
+`closed` fields as the single source of truth rather than separately
+maintained state: `engine/edb.py`'s `generator.update_closed_preds` sets
+`PredicateProfile.closed`, and the rule-support check in
+`generate_extensional_predicates` sets `HornRule.closed` directly (any
+`closed_preds` seen locally in that module, or in `check_triples_from_rule`,
+is a short-lived set derived from `PredicateProfile.closed` for set algebra,
+not separately maintained state). `engine/completion.py`'s `complete_graph`
+sets both the same way, via `engine/generator.py`'s `get_closed_rules`/
+`get_closed_preds` — small SPARQL queries checking a rule's support or a
+predicate's frequency against the graph — called once after each
+forward-chaining pass reaches a stale state.
 
-## Intensional rule dependencies
+## Rule application order
 
-Multiple rules can share the same head predicate. Without an order between
-them, a more general (looser) rule could consume bindings/budget (the
-head predicate's remaining `frequency`/`support`) that a more specific
-(restrictive) rule for the same head still needs, or a recursive rule (one
-whose head predicate also appears in its own body) could fire before its
-predicate has enough non-recursively-derived facts to recurse over.
+`engine/completion.py`'s `complete_graph` does not order rules at all: every
+pass it attempts every rule in the set (`generator.apply_rule`), and repeats
+until a pass adds nothing. Whichever rules can fire, fire, in whatever order
+the rule dict happens to iterate in — the loop's repetition substitutes for
+explicit ordering (e.g. a rule whose body depends on another rule's head
+simply produces nothing until a later pass, once that head exists). Multiple
+rules sharing a head predicate, or a recursive rule (head predicate also in
+its own body), are not gated on each other in any way; whichever fires first
+in a pass, fires.
 
-`core/rules.get_intensional_dependencies` computes, per rule, the set of
-other rule IDs it depends on and must wait for:
+`complete_graph` also calls `apply_rule` without a `profile`, so this loop is
+not budget-constrained by a predicate's target `frequency` either — it runs
+to full saturation (every triple every rule can derive) each time it's
+invoked, and target `support`/`frequency` are only checked *afterward* (see
+[Closure](#closure)) to report what's closed, not to cap generation.
 
-- Within a same-head group, a rule depends on every other rule whose body is
-  a strict superset of its own — i.e. more restrictive, so it's produced
-  first. Ties on equal-size bodies (the same rule up to variable renaming)
-  are broken by support: the lower-support/rarer rule goes first.
-- Recursive rules additionally depend on *every* non-recursive rule for the
-  same head, plus the same superset-based dependency among themselves.
+Only EDB generation still orders work explicitly: `core/rules.get_extensional_dependencies`
+makes a less restrictive rule wait for a more restrictive one that shares an
+extensional predicate, so satisfying the looser rule first can't consume
+bindings the stricter rule still needs — see
+[`edb-generation.md`](edb-generation.md). That ordering exists only because
+EDB generation is profile-budget-constrained in a way completion isn't, so it
+has no equivalent here.
 
-`engine/idb.py`'s generation loop (`generate_idb`) only applies a rule once
-every rule ID in its dependency set is in `closed_rule_ids` — so more
-restrictive (and, for recursive rules, all non-recursive) same-head rules
-always close first.
-
-**Caveat**: this only reorders *when* a structurally-derivable rule is
-allowed to run — it doesn't change `check_uninferrable_preds`'s upfront
-guarantee that every intensional predicate has some path back to extensional
-ones. But it does mean a rule can now be gated on another rule's closure
-indefinitely: if a dependency never closes (no more bindings satisfy its
-body before its `support` target is met), everything depending on it stays
-skipped, and the generation loop can reach a stale state with a predicate
-still short of its target — a way of failing to reach full closure that
-didn't exist before this ordering was introduced.
+**Note**: an earlier version of this pipeline (`engine/idb.py`'s
+`generate_idb`, since removed) took a different approach — a same-head
+"more restrictive first" dependency order (`get_intensional_dependencies`)
+gating which rule could fire, plus an upfront `check_uninferrable_preds`
+check that every intensional predicate has some derivation path back to
+extensional ones. Neither is wired into the pipeline today: `complete_graph`
+is a plain brute-force fixpoint instead, so a rule set that can't actually be
+fully derived currently surfaces late, as a stale/under-target result, rather
+than failing upfront.
 
 ## Term mapping / namespace
 

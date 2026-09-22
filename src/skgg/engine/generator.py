@@ -16,6 +16,8 @@ from skgg.core.queries import (
     execute_select_query,
     from_binding_row,
     get_existing_triples,
+    get_frequency,
+    get_support,
     insert_triples_sparql,
 )
 from skgg.core.rules import Atom, HornRule
@@ -86,6 +88,49 @@ def is_assignment_solvable(profile: PredicateProfile, subject: str, obj: str) ->
     )
 
     return max_domain_freq <= s_range_len and max_range_freq <= s_domain_len
+
+
+# ---------------------------------------------------------------------------
+# Closure checks (via SPARQL).
+# ---------------------------------------------------------------------------
+def get_closed_rules(
+    client: SPARQLWrapper, graph_uri: str, rules: dict[str, HornRule]
+) -> set[str]:
+    """Queries the database to find which rules reached their target support.
+
+    A rule is considered 'closed' when the count of distinct bindings
+    satisfying both its body and head in the graph meets or exceeds
+    its defined support threshold.
+    """
+    closed_rules: set[str] = set()
+
+    # Check support
+    for r_id, rule in rules.items():
+        support = get_support(client, rule, graph_uri)
+        if support:
+            if support >= rule.support:
+                closed_rules.add(r_id)
+
+    return closed_rules
+
+
+def get_closed_preds(
+    client: SPARQLWrapper, graph_uri: str, profiles: dict[str, PredicateProfile]
+) -> set[str]:
+    """Queries the database to find which predicates reached their target frequency.
+
+    A predicate is considered 'closed' when the count of distinct triples containing the
+    predicate is equal to the predicate's frequency.
+    """
+
+    closed_predicates: set[str] = set()
+
+    for predicate, profile in profiles.items():
+        frequency = get_frequency(client, predicate, graph_uri)
+        if frequency >= profile.frequency:
+            closed_predicates.add(predicate)
+
+    return closed_predicates
 
 
 # ---------------------------------------------------------------------------

@@ -443,5 +443,5 @@ def generate_extensional_predicates(
                 break
 
     # Guarantee every buffered triple lands before this graph is considered
-    # complete by callers (e.g. get_triple_count, generate_idb, complete_graph).
+    # complete by callers (e.g. get_triple_count, complete_graph).
     buffer.flush(client=client, graph_uri=edb_uri, chunk_size=chunk_size)

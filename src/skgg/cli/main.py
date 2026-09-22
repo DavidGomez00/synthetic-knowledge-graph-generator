@@ -23,7 +23,7 @@ from skgg.core.visualization import plot_relation_graph
 from skgg.engine.completion import complete_graph
 from skgg.engine.cycles import break_cycles
 from skgg.engine.edb import generate_extensional_predicates
-from skgg.engine.idb import get_closed_preds, get_closed_rules
+from skgg.engine.generator import get_closed_preds, get_closed_rules
 from skgg.engine.metrics import GraphMetrics, PredicateProfile
 from skgg.utils import (
     build_term_mapping,

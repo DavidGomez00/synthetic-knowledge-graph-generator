@@ -97,11 +97,10 @@ def rank_seed_candidates(
     budget. Ranking: fewest seed atoms (least new triples), non-recursive before
     recursive, most restrictive (largest body) first, then lowest rule id.
 
-    Intensional dependencies (`get_intensional_dependencies`) deliberately do not gate
-    eligibility: in a stale cycle the non-recursive rules a recursive rule would wait
-    for can never fire, so waiting would deadlock exactly the rule that must go first.
-    Their "restrictive first" idea is only used as a tie-breaker. If the pipeline ever
-    moves to `generate_idb`, its dependency gate needs the same exemption.
+    Same-head/recursive-rule ordering deliberately does not gate eligibility here: in a
+    stale cycle, rules a recursive rule would otherwise wait for can never fire, so
+    waiting would deadlock exactly the rule that must go first. The "restrictive first"
+    idea behind such an ordering is only used here as a tie-breaker.
     """
     graph = get_relation_graph(rules)
     rule_ids: set[str] = set()
