@@ -95,16 +95,18 @@ class GraphConfig:
 
 @dataclass(frozen=True)
 class RulesConfig:
-    """Settings for loading and classifying the Horn rule set.
+    """Settings for loading and filtering the Horn rule set.
 
     Attributes:
         rules_file: Filename (relative to `data.input_dir`) of the rules CSV,
             parsed by `core.rules.parse_rule_set`.
-        pca_threshold: Minimum PCA confidence a rule must have to be classified
-            "POSITIVE"; rules below it are classified "NEGATIVE", and rules with
-            a missing PCA confidence are classified "UNKNOWN". Note this only
-            labels each `HornRule.classification` — nothing currently filters
-            rules out of EDB/IDB generation based on it (see BACKLOG.md).
+        pca_threshold: Minimum PCA confidence a rule must have to be kept.
+            `core.rules.parse_rule_set` classifies each rule as POSITIVE (PCA
+            confidence >= this threshold), NEGATIVE (below it), or UNKNOWN
+            (missing PCA confidence), then drops every rule that isn't
+            POSITIVE — so only rules meeting the threshold flow into EDB
+            generation, IDB/completion, and cycle-breaking. Overridable
+            per-run via `--pca-threshold` on the CLI.
     """
 
     rules_file: str

@@ -35,18 +35,18 @@ docker compose --profile all up        # both
 ## Running an experiment
 
 Experiments are driven by JSON config files in `configurations/` (e.g.
-`mario.json`, `french_royalty.json`):
+`french_royalty_source.json`, `lung_cancer.json`):
 
 ```bash
-python -m skgg.cli.main -f mario.json
-python -m skgg.cli.main -f mario.json --skip-edb --log-level DEBUG
+python -m skgg.cli.main -f french_royalty_source.json
+python -m skgg.cli.main -f french_royalty_source.json --skip-edb --log-level DEBUG
 ```
 
 ```python
 from pathlib import Path
 from skgg.cli.main import run_synthetic_graph_experiment
 
-run_synthetic_graph_experiment(Path("configurations/mario.json"))
+run_synthetic_graph_experiment(Path("configurations/french_royalty_source.json"))
 ```
 
 This loads the config, computes graph metrics over SPARQL, parses the

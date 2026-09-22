@@ -35,7 +35,7 @@ the current architecture map. Resolved items are archived in
     - `…/_meta` (config, threshold, timestamp, triple counts per stage), written by `cli/main.py`
   - Only `complete` and `synthetic` need both delta and snapshot forms. Materializing `synthetic` is recommended; `complete` could be skipped in favour of a `FROM` union if metric queries aren't simpler against a single graph.
   - Replace the four `*_uri` config fields with a single `graph_prefix` (e.g. `http://FrenchRoyalty.org/graph/enriched`) and derive the stage URIs in `GraphConfig`, so names can't drift or contain typos.
-  - Fix the `graph.name` typo (`FrechRoyalty`) in `configurations/enriched_french_royalty.json`.
+  - Fix the `graph.name` typo (`FrechRoyalty`) in `configurations/french_royalty*.json`.
   - *(optional)* Since the repository already isolates the dataset, graph URIs no longer need a dataset prefix. Add a run id only if comparing runs becomes a need, and consider a small `meta` graph recording config, threshold, timestamp and triple counts per stage.
 
 ## `data/`

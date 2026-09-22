@@ -180,6 +180,7 @@ def run_synthetic_graph_experiment(
     config_file: Path,
     skip_edb_generation: bool = False,
     log_level: int | str | None = None,
+    pca_threshold: float | None = None,
 ) -> None:
     """Runs a Synthetic Graph generation experiment.
 
@@ -188,6 +189,8 @@ def run_synthetic_graph_experiment(
     in the database (e.g. from a previous run) instead of regenerating them.
 
     `log_level`, if given, overrides `config.logging.level` for this run.
+    `pca_threshold`, if given, overrides `config.rules.pca_threshold` for
+    this run's rule filtering only.
     """
 
     ## ------ Setup ------
@@ -217,7 +220,9 @@ def run_synthetic_graph_experiment(
     rules = parse_rule_set(
         rules_file=rules_file,
         term_mapping=term_mapping,
-        pca_threshold=config.rules.pca_threshold,
+        pca_threshold=(
+            pca_threshold if pca_threshold is not None else config.rules.pca_threshold
+        ),
     )
 
     plot_relation_graph(
@@ -332,6 +337,12 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Override the config file's logging level (e.g. DEBUG, INFO, WARNING).",
     )
+    parser.add_argument(
+        "--pca-threshold",
+        type=float,
+        default=None,
+        help="Override the config file's rules.pca_threshold for this run only.",
+    )
     return parser.parse_args()
 
 
@@ -341,4 +352,5 @@ if __name__ == "__main__":
         resolve_config_path(args.config_file),
         skip_edb_generation=args.skip_edb,
         log_level=args.log_level,
+        pca_threshold=args.pca_threshold,
     )

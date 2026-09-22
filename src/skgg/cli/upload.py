@@ -37,6 +37,12 @@ def _parse_args() -> argparse.Namespace:
         help="Override the config file's logging level (e.g. DEBUG, INFO, WARNING).",
     )
     parser.add_argument(
+        "--pca-threshold",
+        type=float,
+        default=None,
+        help="Override the config file's rules.pca_threshold for this run only.",
+    )
+    parser.add_argument(
         "--complete",
         action="store_true",
         help="Also run rule-based graph completion after uploading the base "
@@ -83,7 +89,11 @@ if __name__ == "__main__":
         rules = parse_rule_set(
             rules_file=input_dir / config.rules.rules_file,
             term_mapping=term_mapping,
-            pca_threshold=config.rules.pca_threshold,
+            pca_threshold=(
+                args.pca_threshold
+                if args.pca_threshold is not None
+                else config.rules.pca_threshold
+            ),
         )
 
         # Complete graph

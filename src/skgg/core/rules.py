@@ -266,12 +266,14 @@ def parse_rule_set(
     Args:
         rules_file: Path to the rules CSV file.
         term_mapping: Mapping from ontology terms to their formatted form.
-        pca_threshold: Classifies each rule as POSITIVE/NEGATIVE by comparing
-            its PCA confidence against this threshold (UNKNOWN if the PCA
-            confidence is missing).
+        pca_threshold: Minimum PCA confidence a rule must have to be classified
+            "POSITIVE" and kept; rules below it, or with missing PCA
+            confidence, are classified "NEGATIVE"/"UNKNOWN" respectively and
+            dropped from the returned rule set entirely.
 
     Returns:
-        A dict of HornRules identified by rule_id.
+        A dict of the surviving (classification == "POSITIVE") HornRules,
+        identified by rule_id.
     """
     rule_dataframe = pd.read_csv(rules_file)
 
@@ -281,6 +283,19 @@ def parse_rule_set(
     ] = "POSITIVE"
     rule_dataframe.loc[rule_dataframe["pca_confidence"].isna(), "classification"] = (
         "UNKNOWN"
+    )
+
+    n_total = len(rule_dataframe)
+    rule_dataframe = rule_dataframe[
+        rule_dataframe["classification"] == "POSITIVE"
+    ].reset_index(drop=True)
+    logger.info(
+        "Kept %d/%d rules with PCA confidence >= %.3f (classification == "
+        "POSITIVE); dropped %d (NEGATIVE or UNKNOWN).",
+        len(rule_dataframe),
+        n_total,
+        pca_threshold,
+        n_total - len(rule_dataframe),
     )
 
     rules: dict[str, HornRule] = {}
