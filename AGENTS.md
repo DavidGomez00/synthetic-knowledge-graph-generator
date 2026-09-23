@@ -53,14 +53,15 @@ Typical experiment flow (see `cli/main.py`):
 4. Generate the EDB (extensional database) — `engine/edb.py` — inserting triples that satisfy rule bodies/profiles into `graph.edb_uri`.
 5. As currently wired, `cli/main.py` logs five numbered phases (`[n/5]`): metrics/rules, EDB, completion, cycle-breaking, summary. The completion phase forward-chains *every* rule over the EDB with `engine/completion.py`'s `complete_graph` (which returns the triples it added and takes a `label` for its log lines), repeating each pass until nothing more is added — no rule ordering and no profile budget applied during this loop (`apply_rule` is called without a `profile`, so a rule can in principle overshoot its head predicate's target frequency). The cycle-breaking phase then alternates `engine/cycles.py`'s `break_cycles` (seeds one stale cycle per call, returns the seeded triple count) with `complete_graph` until nothing is seeded — see "Stale cycle" in `docs/concepts.md`. Rule/predicate closure (`support`/`frequency` targets reached) is tracked via `engine/generator.py`'s `get_closed_rules`/`get_closed_preds`, called after each `complete_graph` pass — see "Rule application order" in `docs/concepts.md` for why this differs from `engine/idb.py`'s original (now-removed) `generate_idb`.
 
-`cli/upload.py` is a separate, standalone script (its body runs under an `if __name__ == "__main__":` guard, not via a reusable function) that uploads a base graph from a `.nt` or `.tsv` file (`graph.triple_file` in config; `.tsv` rows are bare `subject\tpredicate\tobject` terms, resolved to full URIs via the term mapping):
+`cli/upload.py` is a separate, standalone script (CLI under an `if __name__ == "__main__":` guard; the upload step itself is the importable `upload_graph(client, triple_file, graph_uri, term_mapping)`) that uploads a base graph from a `.nt` or `.tsv` file (`graph.triple_file` in config; `.tsv` rows are bare `subject\tpredicate\tobject` terms, resolved to full URIs via the term mapping):
 
 ```bash
 python -m skgg.cli.upload -f french_royalty_source.json
 python -m skgg.cli.upload -f french_royalty_source.json --complete --log-level DEBUG --pca-threshold 0.95
+python -m skgg.cli.upload -f french_royalty.json --triple-file path/to/skgg.tsv --graph-uri http://FrenchRoyalty.org/normalized/skgg
 ```
 
-It takes the same `-f`/`--config-file`, `--log-level`, and `--pca-threshold` as `cli/main.py` (the latter only affects rule parsing when `--complete` is also passed), plus `--complete` (off by default): pass it to also run rule-based completion (`engine/completion.py`) right after the upload, building the "complete" graph used as the source for metric extraction; without it, the script only uploads the base graph.
+It takes the same `-f`/`--config-file`, `--log-level`, and `--pca-threshold` as `cli/main.py` (the latter only affects rule parsing when `--complete` is also passed), plus `--complete` (off by default): pass it to also run rule-based completion (`engine/completion.py`) right after the upload, building the "complete" graph used as the source for metric extraction; without it, the script only uploads the base graph. `--triple-file` overrides `graph.triple_file` (a bare filename resolves under `data.input_dir`; a path containing `/` is used as given) and `--graph-uri` overrides the target graph (default `graph.base_uri`) — e.g. to re-insert an already generated synthetic graph into `graph.synthetic_uri` without regenerating it. With `--complete`, completion runs over whichever graph was just uploaded.
 
 `cli/main.py`'s `__main__` block parses `-f`/`--config-file`, `--skip-edb`, `--log-level`, and `--pca-threshold` from the CLI (see the `bash` example above) and calls `run_synthetic_graph_experiment` end-to-end; confirmed working (verified via `python -m skgg.cli.main -f french_royalty_source.json`; see `BACKLOG.md`). Check `BACKLOG.md` for the current TODO list before assuming any other code path is exercised/working.
 
@@ -76,7 +77,7 @@ src/skgg/
   utils.py             # logging setup, SPARQL client factory, misc file helpers
   cli/
     main.py            # run_synthetic_graph_experiment: the end-to-end experiment pipeline
-    upload.py           # standalone script: upload base graph + rule-based completion
+    upload.py           # standalone script: upload a .nt/.tsv file to a graph URI (+ optional rule-based completion)
   core/
     rules.py           # Atom / RuleSignature (Horn rule) dataclasses, rule-set CSV parsing
     queries.py          # All SPARQL query construction + execution against the graph DB (insert/select/ask/clear/count)
