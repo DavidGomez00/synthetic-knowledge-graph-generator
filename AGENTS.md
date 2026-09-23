@@ -1,7 +1,6 @@
 # AGENTS.md
 
-This file provides guidance to AI coding assistants (Claude Code, Codex,
-Cursor, Gemini CLI, etc.) when working with code in this repository.
+This file provides guidance to AI coding assistants (Claude Code, Codex, Cursor, Gemini CLI, etc.) when working with code in this repository.
 
 ## Project Summary
 
@@ -63,13 +62,20 @@ python -m skgg.cli.upload -f french_royalty.json --triple-file path/to/skgg.tsv 
 
 It takes the same `-f`/`--config-file`, `--log-level`, and `--pca-threshold` as `cli/main.py` (the latter only affects rule parsing when `--complete` is also passed), plus `--complete` (off by default): pass it to also run rule-based completion (`engine/completion.py`) right after the upload, building the "complete" graph used as the source for metric extraction; without it, the script only uploads the base graph. `--triple-file` overrides `graph.triple_file` (a bare filename resolves under `data.input_dir`; a path containing `/` is used as given) and `--graph-uri` overrides the target graph (default `graph.base_uri`) — e.g. to re-insert an already generated synthetic graph into `graph.synthetic_uri` without regenerating it. With `--complete`, completion runs over whichever graph was just uploaded.
 
+`cli/prepare_data.py` is another standalone, local-only script (no SPARQL; importable as `prepare_data(input_file, output, term_mapping)`). It writes a cleaned copy of a `.nt`/`.tsv` file in **both** formats (`<output>.tsv` and `<output>.nt`), with two things removed: duplicate triples (the first occurrence is kept), and "literals", meaning every non-type triple whose object is never typed (never the subject of a `type`/`rdf:type` triple). Every triple whose predicate is in `--literal-predicates` (default `name`, whose objects are always literals, even when a person's name equals their entity ID and so looks typed) is dropped too. Type triples are always kept. It also logs a warning for every subject term that is never typed.
+
+Converting `.tsv` to `.nt` needs a term mapping: pass `-f` (only the config's `graph` section is read, for `namespace`/`term_namespaces`) or `--namespace`. A `/` inside a bare term is written as `%2F` in the `.nt`. For `.nt` input no mapping is needed: every IRI is cut to its last segment in the `.tsv` (`%2F` decoded back to `/`), and the script fails if two IRIs collide.
+
+```bash
+python -m skgg.cli.prepare_data .data/source/french_royalty.tsv -f french_royalty_source.json  # -> french_royalty.no_literals.{tsv,nt}
+python -m skgg.cli.prepare_data path/to/graph.nt -o path/to/out --log-level DEBUG              # -> out.{tsv,nt}; DEBUG lists every untyped subject
+```
+
 `cli/main.py`'s `__main__` block parses `-f`/`--config-file`, `--skip-edb`, `--log-level`, and `--pca-threshold` from the CLI (see the `bash` example above) and calls `run_synthetic_graph_experiment` end-to-end; confirmed working (verified via `python -m skgg.cli.main -f french_royalty_source.json`; see `BACKLOG.md`). Check `BACKLOG.md` for the current TODO list before assuming any other code path is exercised/working.
 
 ## Architecture
 
-Terse reference below; see `docs/architecture.md` for diagrams and prose, and
-`docs/concepts.md` for a glossary of the domain terms used here (EDB/IDB, Horn
-rule, closure, predicate profile, ...).
+Terse reference below; see `docs/architecture.md` for diagrams and prose, and `docs/concepts.md` for a glossary of the domain terms used here (EDB/IDB, Horn rule, closure, predicate profile, ...).
 
 ```
 src/skgg/
@@ -78,6 +84,7 @@ src/skgg/
   cli/
     main.py            # run_synthetic_graph_experiment: the end-to-end experiment pipeline
     upload.py           # standalone script: upload a .nt/.tsv file to a graph URI (+ optional rule-based completion)
+    prepare_data.py     # standalone script: copy a .nt/.tsv file without duplicates or untyped objects; report untyped subjects
   core/
     rules.py           # Atom / RuleSignature (Horn rule) dataclasses, rule-set CSV parsing
     queries.py          # All SPARQL query construction + execution against the graph DB (insert/select/ask/clear/count)
@@ -100,3 +107,27 @@ LoRA fine-tuning of LLMs and Chain-of-Thought dataset generation from KGs are no
 - No test suite, linting/CI pipeline, or Makefile currently exists in this repo — `ruff` and `mypy` are configured in `pyproject.toml` (strict mypy, ruff rule sets E/F/I/UP/B/N) but are not wired into any automated command; run them manually (`ruff check .`, `mypy .`) if validating changes. See `BACKLOG.md` for the open question of whether/how to add a `tests/` + CI setup.
 - Per-experiment outputs (logs) are written under `logs/`. This folder is gitignored.
 - Input graph data (`.nt`/`.tsv`, `.ttl`, rule CSVs) per dataset lives under `.data/<dataset>/` (e.g. `.data/french_royalty/`, `.data/lung_cancer/`) and is referenced by `data.input_dir` in each experiment config.
+
+## Writing documentation
+
+These rules apply to every Markdown file in the repo (`AGENTS.md`, `BACKLOG*.md`, `README.md`, `docs/`) and to any other prose you write for it, such as commit messages and docstrings where they fit.
+
+### Line breaks
+
+Markdown has no line-length limit, so don't hard-wrap text. Write each paragraph and each list item on a single line, however long. Only break a line where the rendered output needs it: between paragraphs and blocks, between list items, table rows, and inside code blocks. Hard-wrapped text makes every edit reflow the lines around it and turns small changes into noisy diffs.
+
+### Plain, readable prose
+
+Avoid the patterns listed in Wikipedia's [Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing). The point is readability, not hiding that an AI helped write the text. The ones that show up most in technical docs:
+
+- Inflated significance or promotional tone: "pivotal", "crucial", "robust", "seamless", "marks a shift", "plays a key role".
+- Filler words and transitions: "Additionally", "Furthermore", "Moreover", "It's worth noting that", "delve", "leverage", "utilize".
+- "Serves as", "stands as" or "represents" where "is" works.
+- Negative parallelisms ("not just X, but Y", "not X, but Y", "Y rather than X") and lists of three added only for rhythm.
+- Trailing "-ing" clauses that add vague analysis, e.g. "…, highlighting the importance of X" or "…, ensuring consistency".
+- Vague attributions ("it is widely considered", "experts argue") instead of a concrete source, file or measurement.
+- Closing paragraphs that restate what was just said, or "Challenges and future work" sections with no specifics.
+- Heavy formatting: bold scattered through sentences, em dashes as the default punctuation, bullet lists with bold inline headers where a sentence would do, emoji, headings that only contain other headings, skipped heading levels.
+- Chat-style lines aimed at a reader in a conversation ("Let me know if…", "I hope this helps") and leftover placeholder text.
+
+Instead, say what the code does using concrete names, numbers and file paths. Prefer short sentences and plain verbs, and cut any sentence that adds no information.

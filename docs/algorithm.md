@@ -21,20 +21,7 @@ A knowledge graph is a set of triples $G \subseteq \mathcal{E} \times \mathcal{P
 
 ### 2.2 Horn rules
 
-A Horn rule has the form
-$$
-r:\quad B_1(\mathbf{x}_1) \wedge \dots \wedge B_n(\mathbf{x}_n) \;\Rightarrow\; H(\mathbf{x}_h),
-$$
-where the body atoms $B_i$ and the head atom $H$ are triple patterns whose subject and object are variables or constants. For example,
-$$
-\text{parent}(a,b) \wedge \text{parent}(b,c) \Rightarrow \text{grandparent}(a,c).
-$$
-A **grounding** (or binding) of $r$ in a graph $G$ is an assignment $\sigma$ of entities to the variables of $r$ such that every body atom $\sigma(B_i)$ belongs to $G$. Following the usual convention in rule mining, different variables are bound to different entities.
-The **support** of a rule in $G$ counts the distinct head instantiations that are both derivable and present:
-$$
-\operatorname{supp}_G(r) = \bigl|\{\, \sigma|_{\mathrm{vars}(H)} \;:\; \sigma \text{ grounds } r \text{ in } G,\ \sigma(H) \in G \,\}\bigr|.
-$$
-Variables that occur only in the body are not counted. A single witness for them is enough. The support measures how much evidence the rule has, and it is the quantity the synthetic graph must reproduce for each rule. Other rule statistics (head coverage, standard and PCA confidence) are used upstream to decide which mined rules to trust. Only the trusted rules enter $\mathcal{R}$.
+A Horn rule has the form $$ r:\quad B_1(\mathbf{x}_1) \wedge \dots \wedge B_n(\mathbf{x}_n) \;\Rightarrow\; H(\mathbf{x}_h), $$ where the body atoms $B_i$ and the head atom $H$ are triple patterns whose subject and object are variables or constants. For example, $$ \text{parent}(a,b) \wedge \text{parent}(b,c) \Rightarrow \text{grandparent}(a,c). $$ A **grounding** (or binding) of $r$ in a graph $G$ is an assignment $\sigma$ of entities to the variables of $r$ such that every body atom $\sigma(B_i)$ belongs to $G$. Following the usual convention in rule mining, different variables are bound to different entities. The **support** of a rule in $G$ counts the distinct head instantiations that are both derivable and present: $$ \operatorname{supp}_G(r) = \bigl|\{\, \sigma|_{\mathrm{vars}(H)} \;:\; \sigma \text{ grounds } r \text{ in } G,\ \sigma(H) \in G \,\}\bigr|. $$ Variables that occur only in the body are not counted. A single witness for them is enough. The support measures how much evidence the rule has, and it is the quantity the synthetic graph must reproduce for each rule. Other rule statistics (head coverage, standard and PCA confidence) are used upstream to decide which mined rules to trust. Only the trusted rules enter $\mathcal{R}$.
 
 ### 2.3 Extensional and intensional predicates
 
@@ -42,41 +29,25 @@ A predicate is **intensional** if it is the head of at least one rule in $\mathc
 
 ### 2.4 Predicate profiles
 
-The topological description of $G$ is a **profile** for each predicate $p$:
-$$
-\pi_p = \bigl(f_p,\ d^{\mathrm{dom}}_p,\ d^{\mathrm{ran}}_p\bigr),
-$$
-where
+The topological description of $G$ is a **profile** for each predicate $p$: $$ \pi_p = \bigl(f_p,\ d^{\mathrm{dom}}_p,\ d^{\mathrm{ran}}_p\bigr), $$ where
 
 - $f_p = |G_p|$ is the number of facts using $p$;
 - $d^{\mathrm{dom}}_p : \mathcal{E} \to \mathbb{N}$ maps each entity $e$ to the number of facts in which $e$ is the subject of $p$, that is $d^{\mathrm{dom}}_p(e) = |\{o : (e,o) \in G_p\}|$;
 - $d^{\mathrm{ran}}_p : \mathcal{E} \to \mathbb{N}$ is defined symmetrically for objects.
 
-Both degree maps sum to the frequency:
-$$
-\sum_{e} d^{\mathrm{dom}}_p(e) \;=\; \sum_{e} d^{\mathrm{ran}}_p(e) \;=\; f_p .
-$$
-The profile also records how many facts are reflexive ($s = o$). The profile is exactly the degree sequence of the bipartite graph $G_p$. It fixes how many facts a relation has and how many facts each entity takes part in, but not which pairs are actually connected. Choosing the pairs is the job of the generator, and the rules constrain that choice.
+Both degree maps sum to the frequency: $$ \sum_{e} d^{\mathrm{dom}}_p(e) \;=\; \sum_{e} d^{\mathrm{ran}}_p(e) \;=\; f_p . $$ The profile also records how many facts are reflexive ($s = o$). The profile is exactly the degree sequence of the bipartite graph $G_p$. It fixes how many facts a relation has and how many facts each entity takes part in, but not which pairs are actually connected. Choosing the pairs is the job of the generator, and the rules constrain that choice.
 
 The profiles are extracted from a *completed* version of the source: the closure of $G$ under $\mathcal{R}$ (Section 5), so that facts implied by the rules but absent from $G$ are counted. The rule supports used as targets are likewise measured on this completed graph.
 
 ## 3. Realizability of a profile
 
-Given degree maps $a$ (over subjects) and $b$ (over objects) with equal total $f$, a set of pairs $S$ with exactly those degrees, and no repeated pair, may or may not exist. The classical **Gale–Ryser** condition characterises when it does. Sort the subject degrees as $a_1 \ge a_2 \ge \dots \ge a_m$. A simple bipartite graph with these degrees exists if and only if the totals agree and
-$$
-\sum_{i=1}^{k} a_i \;\le\; \sum_{j} \min(b_j,\, k) \qquad \text{for all } k = 1,\dots,m .
-$$
-Its first instance ($k=1$) says that no subject may need more distinct partners than there are objects with non-zero degree, and the symmetric statement holds for objects.
+Given degree maps $a$ (over subjects) and $b$ (over objects) with equal total $f$, a set of pairs $S$ with exactly those degrees, and no repeated pair, may or may not exist. The classical **Gale–Ryser** condition characterises when it does. Sort the subject degrees as $a_1 \ge a_2 \ge \dots \ge a_m$. A simple bipartite graph with these degrees exists if and only if the totals agree and $$ \sum_{i=1}^{k} a_i \;\le\; \sum_{j} \min(b_j,\, k) \qquad \text{for all } k = 1,\dots,m . $$ Its first instance ($k=1$) says that no subject may need more distinct partners than there are objects with non-zero degree, and the symmetric statement holds for objects.
 
 This matters because the generator commits to facts one at a time. A commitment consumes one unit of degree from a subject and one from an object. If commitments are made carelessly, a later state can arise in which some entity still requires more partners than exist. For example, take $d^{\mathrm{dom}} = \{X{:}2,\ Y{:}1\}$ and $d^{\mathrm{ran}} = \{W{:}2,\ Z{:}1\}$. Choosing the fact $(Y, W)$ first leaves subject $X$ needing two distinct objects, but $W$ has one unit left and $Z$ has one unit left, so the state $\{X{:}2\}$, $\{W{:}1, Z{:}1\}$ is still realizable. Choosing $(Y, Z)$ instead leaves $\{X{:}2\}$ against $\{W{:}2\}$, which is not, because $X$ cannot connect to $W$ twice.
 
 The generator therefore accepts a candidate fact $(s,o)$ for predicate $p$ only if the residual profile obtained by decrementing $d^{\mathrm{dom}}_p(s)$ and $d^{\mathrm{ran}}_p(o)$ (removing entities whose degree reaches zero) still satisfies
 
-$$
-\max_e d^{\mathrm{dom}}_p(e) \le |\operatorname{supp} d^{\mathrm{ran}}_p|
-\qquad\text{and}\qquad
-\max_e d^{\mathrm{ran}}_p(e) \le |\operatorname{supp} d^{\mathrm{dom}}_p| .
-$$
+$$ \max_e d^{\mathrm{dom}}_p(e) \le |\operatorname{supp} d^{\mathrm{ran}}_p| \qquad\text{and}\qquad \max_e d^{\mathrm{ran}}_p(e) \le |\operatorname{supp} d^{\mathrm{dom}}_p| . $$
 
 This is the $k=1$ instance of Gale–Ryser applied to the residual profile after each tentative commitment. It is a **necessary** condition, cheap enough to check for every candidate, and it rules out the failures that occur in practice. It is not sufficient, so the method does not formally guarantee that every intermediate state is completable. Section 9 returns to this.
 
@@ -86,11 +57,7 @@ Let $\mathcal{P}_{\mathrm{ext}}$ be the extensional predicates. Predicates that 
 
 ### 4.1 Why independent sampling is not enough
 
-If each predicate were filled independently to match its profile, the profiles would be satisfied but the rules would be blind to it. Consider
-$$
-t(x,y) \Leftarrow p(z,x) \wedge q(z,y).
-$$
-The rule fires only for entities $z$ that appear as the subject of both $p$ and $q$. Two independently generated relations would share such entities only by chance, and the rule's support in $G'$ could be far below its support in $G$. The generator must therefore create **correlated** facts across the predicates that co-occur in a rule body, while still never violating the individual profiles.
+If each predicate were filled independently to match its profile, the profiles would be satisfied but the rules would be blind to it. Consider $$ t(x,y) \Leftarrow p(z,x) \wedge q(z,y). $$ The rule fires only for entities $z$ that appear as the subject of both $p$ and $q$. Two independently generated relations would share such entities only by chance, and the rule's support in $G'$ could be far below its support in $G$. The generator must therefore create **correlated** facts across the predicates that co-occur in a rule body, while still never violating the individual profiles.
 
 ### 4.2 Working state
 
@@ -98,11 +65,7 @@ Throughout Phase I, each extensional predicate carries a *residual profile* $\ti
 
 ### 4.3 Mechanism 1: forced assignments
 
-Some commitments are forced by the degree sequences and involve no choice. Let $s$ be a subject of $p$ with residual demand $\tilde d^{\mathrm{dom}}_p(s) = k$, and let
-$$
-O_s = \{\,o \in \operatorname{supp}\tilde d^{\mathrm{ran}}_p : o \neq s\,\}
-$$
-be the objects it could still connect to. If $k = |O_s|$, then $s$ must be connected to *every* member of $O_s$: it needs $k$ distinct partners and exactly $k$ exist. All these facts can be committed at once. The symmetric rule applies to objects. Committing them may make other entities forced in turn, so the rule is applied repeatedly until nothing more is forced. This mechanism costs nothing in freedom. Every fact it adds is one that any completion of the profile would have to contain.
+Some commitments are forced by the degree sequences and involve no choice. Let $s$ be a subject of $p$ with residual demand $\tilde d^{\mathrm{dom}}_p(s) = k$, and let $$ O_s = \{\,o \in \operatorname{supp}\tilde d^{\mathrm{ran}}_p : o \neq s\,\} $$ be the objects it could still connect to. If $k = |O_s|$, then $s$ must be connected to *every* member of $O_s$: it needs $k$ distinct partners and exactly $k$ exist. All these facts can be committed at once. The symmetric rule applies to objects. Committing them may make other entities forced in turn, so the rule is applied repeatedly until nothing more is forced. This mechanism costs nothing in freedom. Every fact it adds is one that any completion of the profile would have to contain.
 
 ### 4.4 Mechanism 2: rule-driven grounding
 
@@ -110,17 +73,9 @@ The second mechanism builds groundings of rule bodies so that the joins the rule
 
 **Order of rules.** Rules whose bodies share an extensional predicate compete for the same degree budget. A rule with more extensional atoms in its body is *more restrictive*: it imposes more joins, so fewer facts can satisfy it. If a less restrictive rule were served first, it could consume the entities that were the only way to satisfy a more restrictive one. Ties in the number of atoms are broken by support, with the rule of lower support being more restrictive. The generator induces a dependency order from this: a rule is processed only after every more restrictive rule that shares an extensional predicate with it. Only rules with at least two extensional body atoms are processed this way, because with fewer there is no join to correlate. The facts of a rule with a single extensional atom are simply left to the other two mechanisms.
 
-**How many groundings are needed.** For a rule $r$ the target is its support $\operatorname{supp}(r)$ in the completed source. Base facts already committed may yield some head instantiations. Let $h_r$ be the number of distinct head instantiations that the rule's extensional body already produces. The generator needs
-$$
-m_r = \operatorname{supp}(r) - h_r
-$$
-additional groundings. If $m_r \le 0$, the rule needs nothing more.
+**How many groundings are needed.** For a rule $r$ the target is its support $\operatorname{supp}(r)$ in the completed source. Base facts already committed may yield some head instantiations. Let $h_r$ be the number of distinct head instantiations that the rule's extensional body already produces. The generator needs $$ m_r = \operatorname{supp}(r) - h_r $$ additional groundings. If $m_r \le 0$, the rule needs nothing more.
 
-**Sampling.** Let $A_r$ be the extensional body atoms of $r$ whose predicates are not yet closed. Each variable $v$ of $A_r$ occupies subject or object positions of one or more atoms. Its *candidate pool* is the set of entities that appear in the residual profile of every position it occupies:
-$$
-\mathcal{C}(v) = \bigcap_{(p,\,\mathrm{pos}) \ni v} \operatorname{supp} \tilde d^{\mathrm{pos}}_p ,
-$$
-where $\mathrm{pos} \in \{\mathrm{dom}, \mathrm{ran}\}$. The capacity of $e \in \mathcal{C}(v)$ is the minimum of its residual degrees across those positions. A candidate grounding draws one entity per variable, with probability proportional to capacity, and a variable is drawn **once** even if it occurs in several atoms. This sharing is what forces the atoms to join.
+**Sampling.** Let $A_r$ be the extensional body atoms of $r$ whose predicates are not yet closed. Each variable $v$ of $A_r$ occupies subject or object positions of one or more atoms. Its *candidate pool* is the set of entities that appear in the residual profile of every position it occupies: $$ \mathcal{C}(v) = \bigcap_{(p,\,\mathrm{pos}) \ni v} \operatorname{supp} \tilde d^{\mathrm{pos}}_p , $$ where $\mathrm{pos} \in \{\mathrm{dom}, \mathrm{ran}\}$. The capacity of $e \in \mathcal{C}(v)$ is the minimum of its residual degrees across those positions. A candidate grounding draws one entity per variable, with probability proportional to capacity, and a variable is drawn **once** even if it occurs in several atoms. This sharing is what forces the atoms to join.
 
 A candidate is **accepted** if
 
@@ -142,15 +97,7 @@ If Phase I terminates, then for every extensional predicate the base facts repro
 
 ## 5. Phase II: derivation by forward chaining
 
-Given the base facts $F_0$, the synthetic graph is obtained by applying the rules until nothing new can be derived. The immediate-consequence operator of a rule set is
-$$
-T_{\mathcal{R}}(F) \;=\; F \;\cup\; \bigl\{\, \sigma(H_r) \;:\; r \in \mathcal{R},\ \sigma \text{ grounds } r \text{ in } F \,\bigr\},
-$$
-and the iteration
-$$
-F_{k+1} = T_{\mathcal{R}}(F_k)
-$$
-is repeated until $F_{k+1} = F_k$. Because $T_{\mathcal{R}}$ is monotone and the entity and predicate sets are finite, the sequence stabilises at the least fixpoint $F^{*}$, the smallest set that contains $F_0$ and is closed under every rule. This is the standard semantics of Datalog. The same operator, applied to $G$ itself, gives the completed source graph of Section 2.4. Once no rule adds a further fact, the graph is in a *stale state*.
+Given the base facts $F_0$, the synthetic graph is obtained by applying the rules until nothing new can be derived. The immediate-consequence operator of a rule set is $$ T_{\mathcal{R}}(F) \;=\; F \;\cup\; \bigl\{\, \sigma(H_r) \;:\; r \in \mathcal{R},\ \sigma \text{ grounds } r \text{ in } F \,\bigr\}, $$ and the iteration $$ F_{k+1} = T_{\mathcal{R}}(F_k) $$ is repeated until $F_{k+1} = F_k$. Because $T_{\mathcal{R}}$ is monotone and the entity and predicate sets are finite, the sequence stabilises at the least fixpoint $F^{*}$, the smallest set that contains $F_0$ and is closed under every rule. This is the standard semantics of Datalog. The same operator, applied to $G$ itself, gives the completed source graph of Section 2.4. Once no rule adds a further fact, the graph is in a *stale state*.
 
 After the fixpoint, rule and predicate **closure** is recorded. A rule is closed when its support in the graph has reached its target, and a predicate is closed when its frequency has reached its profile frequency $f_p$.
 
@@ -178,11 +125,7 @@ For a stale cycle $\gamma$, the generator chooses one rule $r$ among the rules w
 
 If $J_r$ is non-empty, the seed must join with the facts already present. The generator first retrieves bindings of the variables of $J_r$ that also occur in $S_r$ or in the head. Each candidate grounding then copies one such binding, and only the remaining variables are drawn from the residual profiles as in Section 4.4. The head projection of a grounding includes the bound variables, so distinct heads are counted correctly. For $p(x,y) \wedge q(y,z) \Rightarrow p(x,z)$ with $q$ populated, the atom $p(x,y)$ is seeded, $y$ and $z$ are taken from existing $q$ facts, and $x$ is drawn from the profile of $p$.
 
-The number of seed groundings is
-$$
-\min\bigl(\operatorname{supp}(r),\ \min_{B \in S_r} \tilde f_{\mathrm{pred}(B)}\bigr).
-$$
-The first term is the support target of $r$, since all of it is still missing when the body is empty. The second term reflects that each grounding consumes one unit of frequency budget per seeded atom.
+The number of seed groundings is $$ \min\bigl(\operatorname{supp}(r),\ \min_{B \in S_r} \tilde f_{\mathrm{pred}(B)}\bigr). $$ The first term is the support target of $r$, since all of it is still missing when the body is empty. The second term reflects that each grounding consumes one unit of frequency budget per seeded atom.
 
 **Choosing the rule.** A rule is *eligible* if it is not closed and every predicate it would seed is open, profiled and has budget left. Among eligible rules, the preference is
 
@@ -197,9 +140,7 @@ The usual ordering between same-head rules, which makes recursive rules wait for
 
 Cycles that share predicates are handled one at a time, because seeding one cycle populates predicates of the others. The overall procedure alternates
 
-$$
-\text{seed one stale cycle} \;\longrightarrow\; \text{forward chain to fixpoint} \;\longrightarrow\; \text{re-detect stale cycles}
-$$
+$$ \text{seed one stale cycle} \;\longrightarrow\; \text{forward chain to fixpoint} \;\longrightarrow\; \text{re-detect stale cycles} $$
 
 until no stale cycle remains or no cycle can be seeded. A cycle is left unbroken, with a warning, if every candidate rule has a closed or exhausted predicate, or has no facts to join with. Seeds are added to the synthetic graph only. The base facts of Phase I are left unchanged.
 
