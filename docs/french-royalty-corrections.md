@@ -23,6 +23,16 @@ Result: 12,519 → 9,260 rows (measured directly from the file at the time of th
 
 Result: 9,260 → 8,633 rows.
 
+## Applied — 2026-09-23
+
+| # | Issue | Rows affected | Action |
+|---|-------|---------------|--------|
+| 6 | 15 `marriedTo` rows were still in `.data/source/french_royalty.tsv` and in the derived `french_royalty.no_literals.{tsv,nt}`, despite #2. `french_royalty.nt` already had none. | 15 | Deleted from `french_royalty.tsv`, then regenerated `french_royalty.no_literals.{tsv,nt}` with `cli/prepare_data.py`. |
+
+Result: `french_royalty.tsv` 12,245 → 12,230 rows; `french_royalty.no_literals.{tsv,nt}` 7,227 → 7,212 rows. The rule set `french_royalty.no_literals.csv` still has 5 rules mentioning `marriedTo`; it needs re-mining with `mine_rules/run_amie.py`.
+
+The schema `.data/source/french_royalty.ttl` was added the same day. It declares one class (`Person`) and seven `Person` → `Person` relations: `child`, `father`, `mother`, `parent`, `spouse`, `successor`, `predecessor`.
+
 ## Reviewed, no action taken
 
 | # | Issue | Decision |
