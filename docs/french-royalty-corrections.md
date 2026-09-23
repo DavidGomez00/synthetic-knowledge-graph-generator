@@ -1,17 +1,8 @@
 # French Royalty dataset corrections
 
-Corrections log for `.data/french_royalty/french_royalty.tsv`. This file
-records changes that aren't visible in `git log`, because `.data` is a
-git-tracked **symlink** to `/home/master/Datasets/knowledge_graphs/`, a plain
-directory with no version control of its own — edits to the data leave no
-git diff. A one-time pre-correction backup was kept alongside the data at
-`.data/french_royalty/french_royalty.pre-correction.tsv` for the same
-reason.
+Corrections log for `.data/french_royalty/french_royalty.tsv`. This file records changes that aren't visible in `git log`, because `.data` is a git-tracked **symlink** to `/home/master/Datasets/knowledge_graphs/`, a plain directory with no version control of its own — edits to the data leave no git diff. A one-time pre-correction backup was kept alongside the data at `.data/french_royalty/french_royalty.pre-correction.tsv` for the same reason.
 
-The issues below were found by a manual consistency review (predicate
-counts, entity-typing, inverse-relation checks, `type`-object audit,
-character-encoding check) run against the original 12,554-row file. See
-`BACKLOG.md` for the one deferred item.
+The issues below were found by a manual consistency review (predicate counts, entity-typing, inverse-relation checks, `type`-object audit, character-encoding check) run against the original 12,554-row file. See `BACKLOG.md` for the one deferred item.
 
 ## Applied — 2026-09-10
 

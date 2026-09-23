@@ -1,7 +1,6 @@
 # AGENTS.md
 
-This file provides guidance to AI coding assistants (Claude Code, Codex,
-Cursor, Gemini CLI, etc.) when working with code in this repository.
+This file provides guidance to AI coding assistants (Claude Code, Codex, Cursor, Gemini CLI, etc.) when working with code in this repository.
 
 ## Project Summary
 
@@ -76,9 +75,7 @@ python -m skgg.cli.prepare_data path/to/graph.nt -o path/to/out --log-level DEBU
 
 ## Architecture
 
-Terse reference below; see `docs/architecture.md` for diagrams and prose, and
-`docs/concepts.md` for a glossary of the domain terms used here (EDB/IDB, Horn
-rule, closure, predicate profile, ...).
+Terse reference below; see `docs/architecture.md` for diagrams and prose, and `docs/concepts.md` for a glossary of the domain terms used here (EDB/IDB, Horn rule, closure, predicate profile, ...).
 
 ```
 src/skgg/
@@ -110,3 +107,27 @@ LoRA fine-tuning of LLMs and Chain-of-Thought dataset generation from KGs are no
 - No test suite, linting/CI pipeline, or Makefile currently exists in this repo — `ruff` and `mypy` are configured in `pyproject.toml` (strict mypy, ruff rule sets E/F/I/UP/B/N) but are not wired into any automated command; run them manually (`ruff check .`, `mypy .`) if validating changes. See `BACKLOG.md` for the open question of whether/how to add a `tests/` + CI setup.
 - Per-experiment outputs (logs) are written under `logs/`. This folder is gitignored.
 - Input graph data (`.nt`/`.tsv`, `.ttl`, rule CSVs) per dataset lives under `.data/<dataset>/` (e.g. `.data/french_royalty/`, `.data/lung_cancer/`) and is referenced by `data.input_dir` in each experiment config.
+
+## Writing documentation
+
+These rules apply to every Markdown file in the repo (`AGENTS.md`, `BACKLOG*.md`, `README.md`, `docs/`) and to any other prose you write for it, such as commit messages and docstrings where they fit.
+
+### Line breaks
+
+Markdown has no line-length limit, so don't hard-wrap text. Write each paragraph and each list item on a single line, however long. Only break a line where the rendered output needs it: between paragraphs and blocks, between list items, table rows, and inside code blocks. Hard-wrapped text makes every edit reflow the lines around it and turns small changes into noisy diffs.
+
+### Plain, readable prose
+
+Avoid the patterns listed in Wikipedia's [Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing). The point is readability, not hiding that an AI helped write the text. The ones that show up most in technical docs:
+
+- Inflated significance or promotional tone: "pivotal", "crucial", "robust", "seamless", "marks a shift", "plays a key role".
+- Filler words and transitions: "Additionally", "Furthermore", "Moreover", "It's worth noting that", "delve", "leverage", "utilize".
+- "Serves as", "stands as" or "represents" where "is" works.
+- Negative parallelisms ("not just X, but Y", "not X, but Y", "Y rather than X") and lists of three added only for rhythm.
+- Trailing "-ing" clauses that add vague analysis, e.g. "…, highlighting the importance of X" or "…, ensuring consistency".
+- Vague attributions ("it is widely considered", "experts argue") instead of a concrete source, file or measurement.
+- Closing paragraphs that restate what was just said, or "Challenges and future work" sections with no specifics.
+- Heavy formatting: bold scattered through sentences, em dashes as the default punctuation, bullet lists with bold inline headers where a sentence would do, emoji, headings that only contain other headings, skipped heading levels.
+- Chat-style lines aimed at a reader in a conversation ("Let me know if…", "I hope this helps") and leftover placeholder text.
+
+Instead, say what the code does using concrete names, numbers and file paths. Prefer short sentences and plain verbs, and cut any sentence that adds no information.
