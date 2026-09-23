@@ -49,6 +49,7 @@ This loads the config, computes graph metrics over SPARQL, parses the ontology a
 ```
 src/skgg/          # package source (see docs/architecture.md for the full module map)
 configurations/    # per-experiment JSON configs
+schemas/           # schema template (.ttl) for declaring a graph's classes and relations
 .data/<Dataset>/   # source graph data (.nt/.tsv/.ttl/.csv) referenced by configs
 docs/              # architecture, concepts glossary, getting-started guide
 notebooks/         # exploratory/prototype work

@@ -1,0 +1,62 @@
+# Schema template for a knowledge graph.
+#
+# A schema declares the classes and relations of one graph.
+# Copy this file next to the dataset (e.g. .data/<dataset>/<dataset>.ttl) and
+# replace the placeholders.
+#
+# Rules:
+# - The `ex:` namespace must equal the experiment config's `graph.namespace`,
+#   so local names resolve to the same IRIs as the data.
+# - Local names must match the bare terms in the .tsv file (or the last IRI
+#   segment in the .nt file).
+# - Declare only entity-to-entity relations (owl:ObjectProperty). Literal-valued
+#   relations are not yet supported and removed in the data processing step.
+# - `type` (rdf:type) is not declared here; its objects must be declared classes.
+#   rdf:type relations can be shortened to 'a'.
+
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix ex:   <http://example.org/> .
+
+# Classes
+
+ex:ClassA a owl:Class .
+
+ex:ClassB a owl:Class .
+    # Optional: ClassB is a subclass of ClassA.
+    # rdfs:subClassOf ex:ClassA .
+
+# Properties
+
+ex:relation a owl:ObjectProperty ;
+    rdfs:domain ex:ClassA ;
+    rdfs:range  ex:ClassB .
+    
+    # =========================================================================
+    # INHERITANCE RULES
+    # =========================================================================
+    # Optional: relation is a sub-relation or the inverse of another relation.
+    # rdfs:subPropertyOf ex:otherRelation ;
+    # 
+    # INHERITANCE NOTE: If you use `rdfs:subPropertyOf`, this relation automatically 
+    # inherits the domain and range of `ex:otherRelation`. 
+    # You do NOT need to declare domain and range again unless you are actively 
+    # making them MORE restrictive.
+    
+    # =========================================================================
+    # BEHAVIORAL CONSTRAINTS
+    # =========================================================================
+    # BEHAVIORAL NOTE: Graphs use the Open World Assumption. By default, properties 
+    # have NO behavioral restrictions. They are NOT assumed to be asymmetric, 
+    # irreflexive, transitive, or functional. 
+    # 
+    # To restrict how triples are interpreted, add the following classes to the 
+    # property definition using a comma. For example:
+
+    # ex:relation a owl:ObjectProperty ,
+    #     owl:TransitiveProperty ,          # (A inside B, and B inside C -> A inside C)
+    #     owl:SymmetricProperty ;           # (A is married to B -> B is married to A)
+    #     rdfs:domain ex:ClassA ;
+    #     rdfs:range ex:ClassB ;
+    #     owl:inverseOf ex:otherRelation .  # (A is father of B -> B is child of A)

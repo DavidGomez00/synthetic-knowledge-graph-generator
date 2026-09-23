@@ -18,4 +18,7 @@ Known issues and pending refactors, organized by module. Resolved items are arch
   - **Config**: replace the four `*_uri` fields with a single `graph_prefix` and derive the stage URIs in `GraphConfig`, so names can't drift. Also fix the `graph.name` typo (`FrechRoyalty`) in `configurations/french_royalty*.json`.
 
 ## Schema support
-- [ ] Add schema support. The schema should be a file that defines the classes and relations of the graph.
+- [ ] Add schema support. The schema is a `.ttl` file that defines the classes and relations of the graph.
+  - [x] Add a schema template (`schemas/template.ttl`) and the French Royalty schema (`.data/source/french_royalty.ttl`).
+  - [ ] Add a `schema_file` config field and parse the schema.
+  - [ ] Use the schema in the pipeline.
