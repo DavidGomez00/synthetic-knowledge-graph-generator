@@ -200,7 +200,7 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="Output path without extension; writes <output>.tsv and <output>.nt "
-        "(defaults to <stem>.no_literals next to the input).",
+        "(defaults to <stem>.no-literals next to the input).",
     )
     parser.add_argument(
         "-f",
@@ -255,7 +255,7 @@ if __name__ == "__main__":
     input_file: Path = args.input_file
     prepare_data(
         input_file,
-        args.output or input_file.with_name(f"{input_file.stem}.no_literals"),
+        args.output or input_file.with_name(f"{input_file.stem}.no-literals"),
         term_mapping=(
             build_term_mapping(term_namespaces, namespace)
             if namespace is not None

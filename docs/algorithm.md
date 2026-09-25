@@ -2,121 +2,133 @@
 
 *Working draft. Describes the ideas behind the method, independently of any implementation.*
 
-## 1. Problem
+## 1. Preliminaries
 
-Let $G$ be a source knowledge graph that cannot be shared or used directly (for privacy, size or licensing reasons). We want a graph $G'$ that is *structurally similar* to $G$ and *logically consistent with the same rules*, built using only
+### 1.1 Knowledge graphs
 
-1. a small collection of **topological metrics** extracted once from $G$, and
-2. a set $\mathcal{R}$ of **Horn rules** that hold (approximately) over $G$.
+A Knowledge Graph (KG) is a directed edge-labeled graph $KG=(V,E,L)$ where $V$ is a set of entities, $L$ is a set of relation labels, and $E\subseteq V\times L\times V$ is a set of labeled edges represented as triples $(s,p,o)$ \cite{Hogan_2021_knowledge_graphs}.
 
-After the metrics are extracted, $G$ is never consulted again.
+Triple pattern: .... Important: In this project all triple patterns may contain variables in the subject and object, but never in the predicate.
 
-Structural similarity is made precise in two ways. For every relation, $G'$ should reproduce how many facts the relation has and how those facts are distributed over entities. For every rule, $G'$ should contain about as many instances of the rule as $G$ does. The algorithm below builds $G'$ in three phases: seeding it with base facts that satisfy the metrics and the rule bodies, deriving everything the rules imply, and repairing situations in which derivation cannot start.
+### 1.2 Horn rules
 
-## 2. Preliminaries
+A Horn rule has the form $$r:\quad B_1(\mathbf{x}_1) \wedge \dots \wedge B_n(\mathbf{x}_n) \;\Rightarrow\; H(\mathbf{x}_h)$$ where the body atoms $B_i$ and the head atom $H$ are triple patterns whose subject and object are variables or constants. A **grounding** $$\sigma(t, \mathcal{G})$$ is an assignment of entities from $\mathcal{G}$ to the variables in $t$ such that $\forall (s,p,o)\in t,\sigma(t)\in\mathcal{G}$.
 
-### 2.1 Knowledge graphs
+### 1.3 Rule metrics
 
-A knowledge graph is a set of triples $G \subseteq \mathcal{E} \times \mathcal{P} \times \mathcal{E}$, where $\mathcal{E}$ is a set of entities and $\mathcal{P}$ a set of predicates (relations). For a predicate $p$ we write $G_p = \{(s,o) : (s,p,o) \in G\}$ for the set of pairs it connects. Each $G_p$ is a bipartite relation between subjects and objects. It contains no repeated pairs.
+The **support** of a rule $r$ in $\mathcal{G}$ measures its evidence in $\mathcal{G}$. It is computed as the count of distinct groundings of the rule's head that have at least one corresponding grounded body: $$ \operatorname{support}(r, \mathcal{G}) = \bigl|\{H_r\in \sigma(\overrightarrow{B_r}\land H_r, \mathcal{G}) \}\bigr|$$.
 
-### 2.2 Horn rules
+**Standard confidence** ....
 
-A Horn rule has the form $$ r:\quad B_1(\mathbf{x}_1) \wedge \dots \wedge B_n(\mathbf{x}_n) \;\Rightarrow\; H(\mathbf{x}_h), $$ where the body atoms $B_i$ and the head atom $H$ are triple patterns whose subject and object are variables or constants. For example, $$ \text{parent}(a,b) \wedge \text{parent}(b,c) \Rightarrow \text{grandparent}(a,c). $$ A **grounding** (or binding) of $r$ in a graph $G$ is an assignment $\sigma$ of entities to the variables of $r$ such that every body atom $\sigma(B_i)$ belongs to $G$. Following the usual convention in rule mining, different variables are bound to different entities. The **support** of a rule in $G$ counts the distinct head instantiations that are both derivable and present: $$ \operatorname{supp}_G(r) = \bigl|\{\, \sigma|_{\mathrm{vars}(H)} \;:\; \sigma \text{ grounds } r \text{ in } G,\ \sigma(H) \in G \,\}\bigr|. $$ Variables that occur only in the body are not counted. A single witness for them is enough. The support measures how much evidence the rule has, and it is the quantity the synthetic graph must reproduce for each rule. Other rule statistics (head coverage, standard and PCA confidence) are used upstream to decide which mined rules to trust. Only the trusted rules enter $\mathcal{R}$.
+**PCA confidence** ....
 
-### 2.3 Extensional and intensional predicates
+### 1.4 Deductive databases
 
-A predicate is **intensional** if it is the head of at least one rule in $\mathcal{R}$, and **extensional** otherwise. Extensional predicates can only be established by asserting facts, since nothing derives them. Intensional predicates can be derived from other facts. This split organises the whole method: base facts are generated only for extensional predicates, and intensional predicates are obtained by inference.
+Deductive databases ....
 
-### 2.4 Predicate profiles
+#### 1.4.1. Extensional database (EDB) and intensional database (IDB)
 
-The topological description of $G$ is a **profile** for each predicate $p$: $$ \pi_p = \bigl(f_p,\ d^{\mathrm{dom}}_p,\ d^{\mathrm{ran}}_p\bigr), $$ where
+The extensional database (EDB) is a set of triples from which we can produce the rest of the graph applying the rules defined in the intensional database (IDB). In this case, the EDB is composed of triples $(s,p,o)$ and the IDB is a set of **Horn Rules**.
 
-- $f_p = |G_p|$ is the number of facts using $p$;
-- $d^{\mathrm{dom}}_p : \mathcal{E} \to \mathbb{N}$ maps each entity $e$ to the number of facts in which $e$ is the subject of $p$, that is $d^{\mathrm{dom}}_p(e) = |\{o : (e,o) \in G_p\}|$;
-- $d^{\mathrm{ran}}_p : \mathcal{E} \to \mathbb{N}$ is defined symmetrically for objects.
+We say a relation-type (predicate) is **intensional** if it can be produced by a rule, i.e., a triple pattern containing this relation appears in the head of a rule from the IDB, or **extensional** otherwise. Extensional relations can never be produced by the rules in the IDB, so we must populate the EDB with all necessary triples containing these extensional reltaions. We call these triples "facts", and we use them to derive the triples containing intensional relations. This split organises the method in two steps: Generate the EDB and complete the graph using the IDB.
 
-Both degree maps sum to the frequency: $$ \sum_{e} d^{\mathrm{dom}}_p(e) \;=\; \sum_{e} d^{\mathrm{ran}}_p(e) \;=\; f_p . $$ The profile also records how many facts are reflexive ($s = o$). The profile is exactly the degree sequence of the bipartite graph $G_p$. It fixes how many facts a relation has and how many facts each entity takes part in, but not which pairs are actually connected. Choosing the pairs is the job of the generator, and the rules constrain that choice.
+### 2.4 Relation profiles
 
-The profiles are extracted from $G$ as given, without first closing it under $\mathcal{R}$. The rule supports used as targets are likewise measured on $G$.
+We define a descriptor of a graph $\mathcal{G}$ as a profile $P = (\mathcal{G}, p, Ran, Dom)$, where $\mathcal{G}$ is a graph, $p$ is a relation-type, $Dom$ is a counter of each subject that appears with $p$ in $\mathcal{G}$ (describes the domain of $p$ in $\mathcal{G}$ and the frequency of each subject), and $Ran$ is a counter of each object that appears with $p$ in $\mathcal{G}$ (describes the range of $p$ in $\mathcal{G}$ and the frequency of each object).
 
-## 3. Realizability of a profile
+The profile fixes the amount of triples that contain the relation $p$ and how many times each entity takes part in them, but not which subject-object actually appear together.
 
-Given degree maps $a$ (over subjects) and $b$ (over objects) with equal total $f$, a set of pairs $S$ with exactly those degrees, and no repeated pair, may or may not exist. The classical **Gale–Ryser** condition characterises when it does. Sort the subject degrees as $a_1 \ge a_2 \ge \dots \ge a_m$. A simple bipartite graph with these degrees exists if and only if the totals agree and $$ \sum_{i=1}^{k} a_i \;\le\; \sum_{j} \min(b_j,\, k) \qquad \text{for all } k = 1,\dots,m . $$ Its first instance ($k=1$) says that no subject may need more distinct partners than there are objects with non-zero degree, and the symmetric statement holds for objects.
+The **frequency of a relation** $p$ in a graph $\mathcal{G}$ is the count of distinct triples in $\mathcal{G}$ that contain the relation $p$. $$\operatorname{frequency}(p, \mathcal{G}) = \bigl|\{t\in\mathcal{G}: p\in t\}\bigr|$$
 
-This matters because the generator commits to facts one at a time. A commitment consumes one unit of degree from a subject and one from an object. If commitments are made carelessly, a later state can arise in which some entity still requires more partners than exist. For example, take $d^{\mathrm{dom}} = \{X{:}2,\ Y{:}1\}$ and $d^{\mathrm{ran}} = \{W{:}2,\ Z{:}1\}$. Choosing the fact $(Y, W)$ first leaves subject $X$ needing two distinct objects, but $W$ has one unit left and $Z$ has one unit left, so the state $\{X{:}2\}$, $\{W{:}1, Z{:}1\}$ is still realizable. Choosing $(Y, Z)$ instead leaves $\{X{:}2\}$ against $\{W{:}2\}$, which is not, because $X$ cannot connect to $W$ twice.
+The profiles are computed over the target graph. We say a relation is closed when its frequency in the new graph is equal to its frequency on the target graph.
+#### 2.4.1 Profile constraints
 
-The generator therefore accepts a candidate fact $(s,o)$ for predicate $p$ only if the residual profile obtained by decrementing $d^{\mathrm{dom}}_p(s)$ and $d^{\mathrm{ran}}_p(o)$ (removing entities whose degree reaches zero) still satisfies
+Given degree maps $a$ (over subjects) and $b$ (over objects) with equal total $f$, a set of pairs $S$ with exactly those degrees, and no repeated pair, may or may not exist. For target maps $a_t$ and $b_t$ at least one set of pairs $S$ exists, since these maps are extracted from the target graph, which is assumed to contain only unique triples.
 
-$$ \max_e d^{\mathrm{dom}}_p(e) \le |\operatorname{supp} d^{\mathrm{ran}}_p| \qquad\text{and}\qquad \max_e d^{\mathrm{ran}}_p(e) \le |\operatorname{supp} d^{\mathrm{dom}}_p| . $$
+The classical **Gale–Ryser** condition characterises when $S$ exists. Sort the subject degrees as $a_1 \ge a_2 \ge \dots \ge a_m$. A simple bipartite graph with these degrees exists if and only if the totals agree and $$ \sum_{i=1}^{k} a_i \;\le\; \sum_{j} \min(b_j,\, k)\ \forall  k = 1,\dots,m . $$ Its first instance ($k=1$) says that no subject may need more distinct partners than there are objects with non-zero degree, and the symmetric statement holds for objects.
+
+The generator (described further...) commits to facts one at a time. A commitment consumes one unit of degree from a subject and one from an object. If commitments are made carelessly, a later state can arise in which some entity still requires more partners than exist. For example, for a relation $p$, take the domain $\{x{:}2,\ y{:}1\}$ and range $\{w{:}2,\ z{:}1\}$. If the fact $p(y, w)$ is chosen first, subject $x$ needs two distinct objects, and $w$ and $z$ have one unit left each. The state $p\{x{:}2\}$, $\{w{:}1, z{:}1\}$ can produce a set of pairs $S$. In the other hand, choosing $p(y, z)$ first leaves the domain as $\{x{:}2\}$ and the range as $\{w{:}2\}$, which cannot resolve without duplicated facts.
+
+The generator therefore accepts a candidate fact $p(s,o)$ for predicate $p$ only if the residual profile obtained by decrementing an unit of its subject in the domain and an unit of its object in the range (removing entities whose degree reaches zero) still satisfies that no subject has more frequency that the amount of unique objects and no object has more frequency that the amount of unique subjects.
+
+$$\operatorname{solvableProfile}(P) = (\max e \in Dom  \le |Ran|) \land (\max  e\in Ran \le |Dom|)$$
 
 This is the $k=1$ instance of Gale–Ryser applied to the residual profile after each tentative commitment. It is a **necessary** condition, cheap enough to check for every candidate, and it rules out the failures that occur in practice. It is not sufficient, so the method does not formally guarantee that every intermediate state is completable. Section 9 returns to this.
 
-## 4. Phase I: generating the base facts
+## 3. Extensional database (EDB)
 
-Let $\mathcal{P}_{\mathrm{ext}}$ be the extensional predicates. Predicates that occur in no rule at all are treated as extensional. Phase I builds a set of facts $F_0$ such that, for every $p \in \mathcal{P}_{\mathrm{ext}}$, the set $F_{0,p}$ has exactly the degree maps of $\pi_p$. It does so while also creating enough joint structure for the rules to fire later.
+We build a set of facts such that, for every extensional relation $p_{ext}$, their degree maps are exactly as the degree maps for this relation type in the target graph. We do so while also creating enough joint structure for the rules to fire later.
+### 3.1 The problem of independent sampling
 
-### 4.1 Why independent sampling is not enough
+If each predicate is filled independently to match its profile in the target graph, all relation frequencies would be closed, but the rules (the patterns arising in the interaction between relation-types) would be blind to it. Consider rule $$r_1: t(x,y) \Leftarrow p(z,x) \wedge q(z,y). $$ This rule is satisfied only by triples containing $p$ and $q$ that share entity $z$. Two independently generated relations would share such entities only by chance, and the support of $r_1$ in the generated graph could be far below its support in the target graph, or even 0. A rule as simple as (A hasMother B) <= (A hasFather X) and (X hasWife B), that has a confidence of 1 in the target graph may have a low confidence in the new graph, challenging the semantic meaning of the relations.
 
-If each predicate were filled independently to match its profile, the profiles would be satisfied but the rules would be blind to it. Consider $$ t(x,y) \Leftarrow p(z,x) \wedge q(z,y). $$ The rule fires only for entities $z$ that appear as the subject of both $p$ and $q$. Two independently generated relations would share such entities only by chance, and the rule's support in $G'$ could be far below its support in $G$. The generator must therefore create **correlated** facts across the predicates that co-occur in a rule body, while still never violating the individual profiles.
+Our aim is to generate **correlated** facts across the relations that co-occur in a rule body, while respecting the individual profiles.
 
-### 4.2 Working state
+### 3.2 Creating the EDB
 
-Throughout Phase I, each extensional predicate carries a *residual profile* $\tilde\pi_p = (\tilde f_p, \tilde d^{\mathrm{dom}}_p, \tilde d^{\mathrm{ran}}_p)$, initially equal to $\pi_p$. Committing a fact $(s,p,o)$ decrements $\tilde f_p$, $\tilde d^{\mathrm{dom}}_p(s)$ and $\tilde d^{\mathrm{ran}}_p(o)$. A predicate is **closed** when $\tilde f_p = 0$. Phase I ends when all extensional predicates are closed. Three mechanisms add facts, tried in a fixed priority.
+Committing a fact $(s,p,o)$ decrements the amount of triples to achieve the target frequency of relation $p$, and the remaining available entities in the range and domain counters of $P_p$. A relation $p$ is **closed** when the amount of triples needed to achieve its target frequency is 0. EDB generaation ends when all extensional relations are closed. To this end, three mechanisms add facts, apllied in a fixed priority.
 
-### 4.3 Mechanism 1: forced assignments
+#### 3.2.1 Mechanism 1: forced assignments
 
-Some commitments are forced by the degree sequences and involve no choice. Let $s$ be a subject of $p$ with residual demand $\tilde d^{\mathrm{dom}}_p(s) = k$, and let $$ O_s = \{\,o \in \operatorname{supp}\tilde d^{\mathrm{ran}}_p : o \neq s\,\} $$ be the objects it could still connect to. If $k = |O_s|$, then $s$ must be connected to *every* member of $O_s$: it needs $k$ distinct partners and exactly $k$ exist. All these facts can be committed at once. The symmetric rule applies to objects. Committing them may make other entities forced in turn, so the rule is applied repeatedly until nothing more is forced. This mechanism costs nothing in freedom. Every fact it adds is one that any completion of the profile would have to contain.
+Some commitments are forced by the degree sequences and involve no choice. Let $s$ be a subject in the domain of relation $p$ with residual demand $k$ ($Dom_p=\{\dots, s:k, \dots\})$. If $k = |Ran_p|$, then $s$ must be connected to *every* member of $Ran_p$, i.e., it needs $k$ distinct partners and exactly $k$ distinct objects exist. The symmetric rule applies to objects. 
 
-### 4.4 Mechanism 2: rule-driven grounding
+These facts can be directly deduced directly from each relation profile. Committing them may make other entities forced in turn, so the rule is applied repeatedly until nothing more is forced. This mechanism costs nothing in freedom, every fact it adds is one fact that any completion of the profile must contain.
 
-The second mechanism builds groundings of rule bodies so that the joins the rules need actually exist.
+#### 3.2.2. Mechanism 2: rule-driven grounding
 
-**Order of rules.** Rules whose bodies share an extensional predicate compete for the same degree budget. A rule with more extensional atoms in its body is *more restrictive*: it imposes more joins, so fewer facts can satisfy it. If a less restrictive rule were served first, it could consume the entities that were the only way to satisfy a more restrictive one. Ties in the number of atoms are broken by support, with the rule of lower support being more restrictive. The generator induces a dependency order from this: a rule is processed only after every more restrictive rule that shares an extensional predicate with it. Only rules with at least two extensional body atoms are processed this way, because with fewer there is no join to correlate. The facts of a rule with a single extensional atom are simply left to the other two mechanisms.
+This mechanism assigns triples by generating groundings for a rule body so that the joins needed by the rule actually exist in the generated graph. This mechanism is only used when no triples can be assigned using mechanism 1. The rules are first orfered by priority and each rule body is used only once. Whenever a set of triples is assigned using this mechanism, we check mechanism 1 again using the updated profiles. If all rules have been used with this mechanism, it is never applied again and skipped.
 
-**How many groundings are needed.** For a rule $r$ the target is its support $\operatorname{supp}(r)$ in the source. Base facts already committed may yield some head instantiations. Let $h_r$ be the number of distinct head instantiations that the rule's extensional body already produces. The generator needs $$ m_r = \operatorname{supp}(r) - h_r $$ additional groundings. If $m_r \le 0$, the rule needs nothing more.
+Rules whose bodies share an extensional relation compete for the same degree budget. A rule with more extensional atoms (triple patterns containing an extensional relation) in its body is *more restrictive*: it imposes more joins, so fewer facts can satisfy it. If a less restrictive rule were used first, it could consume the entities that were the only way to satisfy a more restrictive one. Ties in the number of atoms are broken by support, so the rule with lower needed joints to achieve its target support is more restrictive. 
 
-**Sampling.** Let $A_r$ be the extensional body atoms of $r$ whose predicates are not yet closed. Each variable $v$ of $A_r$ occupies subject or object positions of one or more atoms. Its *candidate pool* is the set of entities that appear in the residual profile of every position it occupies: $$ \mathcal{C}(v) = \bigcap_{(p,\,\mathrm{pos}) \ni v} \operatorname{supp} \tilde d^{\mathrm{pos}}_p , $$ where $\mathrm{pos} \in \{\mathrm{dom}, \mathrm{ran}\}$. The capacity of $e \in \mathcal{C}(v)$ is the minimum of its residual degrees across those positions. A candidate grounding draws one entity per variable, with probability proportional to capacity, and a variable is drawn **once** even if it occurs in several atoms. This sharing is what forces the atoms to join.
+The generator induces an order from this: a rule body is used only after every more restrictive rule that shares extensional relations with it. Only rules with at least two extensional body atoms are processed this way, because with fewer there is no join to correlate, the assignments for the extensional relation in this body is simply left to the other two mechanisms.
+
+We aim to have the minimum joints for a rule $r$ to achieve its target support. Base facts already committed may yield some head instantiations. Let $h_r$ be the number of distinct heads that the rule's extensional body already produces. The rule needs $$ m_r = \operatorname{support}(r, \mathcal{G}) - h_r $$ additional groundings. If $m_r \le 0$, the rule already has enough joints of extensional relations to achieve its support. This is an upper bound for the joints of extensional relations. 
+
+>Distinct heads are bound to the projection of body variables, and using all available budget for an extensional relation may not achieve enough groundings for the target support. Current state of this method does not guarantee that all rules will meet its target support.
+
+Let $\overrightarrow{B_{r}^{ext}}$ be the extensional body atoms of $r$ whose relations are not yet closed. Each variable $v\in \overrightarrow{B_{r}^{ext}}$ occupies subject or object positions of two or more atoms (because AMIE's closed rule restriction). Its *candidate pool* is the set of entities that appear in the residual profile of every position it occupies: $$ \mathcal{C}(v) = \bigcap_{\{R_p, D_p\} \ni v}$$. The capacity of $e \in \mathcal{C}(v)$ is the minimum of its residual degrees across those positions. A candidate grounding draws one entity per variable, with probability proportional to capacity (i.e., weighted by its available units), and a variable is drawn **once** even if it occurs in several atoms. This sharing forces the atoms to join.
 
 A candidate is **accepted** if
 
 1. its projection onto the head variables has not been produced already. Accepting duplicates would add no support, and body-only variables contribute nothing to it;
 2. at least one of its facts is new, meaning it is neither in the graph already nor produced earlier in the same round; and
-3. every new fact $(s,p,o)$ passes the realizability test of Section 3 against the current residual profile. If any fact fails, all tentative decrements made for this candidate are undone and it is rejected.
+3. every new fact $(s,p,o)$ passes the realizability test of Section 2.4.1 against the current residual profile. If any fact fails, all tentative decrements made for this candidate are undone and it is rejected.
 
 Accepted candidates commit their new facts and decrement the residual profiles. Sampling stops after $m_r$ acceptances, or when repeated batches of candidates yield none, because the residual profiles no longer allow it. In that case the shortfall is left to the third mechanism. Drawing by capacity favours entities that can still take many facts, so shared witnesses tend to be reused. Reusing witnesses conserves budget.
 
-### 4.5 Mechanism 3: random completion
+#### 3.2.3 Mechanism 3: random completion
 
-When neither forced assignments nor rule-driven grounding can make progress, the remaining budget of a predicate is spent without regard to rules. A still-open predicate $p$ is chosen at random, and then a subject $s$ from its residual domain, with residual demand $k = \tilde d^{\mathrm{dom}}_p(s)$. Since nothing will pick $s$ up later, it is closed in this single step. A set of $k$ distinct objects is drawn at random, and the whole set is committed only if the residual profile after removing $s$ passes the realizability test of Section 3. Otherwise a new set is drawn. If fewer than $k$ objects remain, the profile is unsatisfiable at this point, and generation fails.
+When neither forced assignments nor rule-driven grounding can make progress, the remaining budget of a raltion's domain and range is spent without regard to rules. A still-open relation $p$ is chosen at random, and then a subject $s$ from its residual domain, with residual demand $k$. Since nothing will pick $s$ up later, it is closed in this single step. A set of $k$ distinct objects is drawn at random$^{[1]}$, and the whole set is committed only if the residual profile after removing $s$ passes the realizability test of Section 3. Otherwise a new set is drawn. If fewer than $k$ objects remain, the profile is unsatisfiable at this point, and generation fails. This is deliberately a last resort. The first two mechanisms extract every fact that carries information about rule co-occurrence. Whatever remains has no such structure to preserve.
 
-This is deliberately a last resort. The first two mechanisms extract every fact that carries information about rule co-occurrence. Whatever remains has no such structure to preserve.
+>$^{[1]}$: Maybe using a weighted sampling here depending on availability is better for performance.
 
-### 4.6 Result of Phase I
+### 3.3 Resulting EDB
 
-If Phase I terminates, then for every extensional predicate the base facts reproduce the source degree maps exactly. The joint structure of rule bodies is approximated by the groundings of Mechanism 2. Intensional predicates are still empty.
+Whenever the EDB generation terminates, for every extensional relation the base facts reproduce the source degree maps exactly. The joint structure of rule bodies is approximated by the groundings of Mechanism 2. Intensional relations are still not present in the EDB$^{[2]}$.
 
-## 5. Phase II: derivation by forward chaining
+>$^{[2]}$: We considered it is more convenient to generate any triple containing intensional relations if the profiles describe direct assignments, applying mechanism 1 until no more direct assignments can be done.
 
-Given the base facts $F_0$, the synthetic graph is obtained by applying the rules until nothing new can be derived. The immediate-consequence operator of a rule set is $$ T_{\mathcal{R}}(F) \;=\; F \;\cup\; \bigl\{\, \sigma(H_r) \;:\; r \in \mathcal{R},\ \sigma \text{ grounds } r \text{ in } F \,\bigr\}, $$ and the iteration $$ F_{k+1} = T_{\mathcal{R}}(F_k) $$ is repeated until $F_{k+1} = F_k$. Because $T_{\mathcal{R}}$ is monotone and the entity and predicate sets are finite, the sequence stabilises at the least fixpoint $F^{*}$, the smallest set that contains $F_0$ and is closed under every rule. This is the standard semantics of Datalog. Once no rule adds a further fact, the graph is in a *stale state*.
+## 4. Graph completion: derivation by forward chaining
 
-After the fixpoint, rule and predicate **closure** is recorded. A rule is closed when its support in the graph has reached its target, and a predicate is closed when its frequency has reached its profile frequency $f_p$.
+Given the base facts $F_0$ in the EDB, the synthetic graph is obtained by applying the rules until nothing new can be derived. The immediate-consequence operator of a rule set $\mathcal{R}$ is $$T_{\mathcal{R}}(F)=F \cup \bigl\{\sigma(H_r): \sigma(\overrightarrow{B_r})\in F, r \in \mathcal{R}  \bigr\}$$ and the iteration $$ F_{k+1} = T_{\mathcal{R}}(F_k) $$ is repeated until $F_{k+1} = F_k$. 
 
-## 6. Phase III: breaking rule cycles
+Because $T_{\mathcal{R}}$ is monotone and the entity and predicate sets are finite, the sequence stabilises at the least fixpoint $F^{*}$, the smallest set that contains $F_0$ and is closed under every rule. Once no rule adds a further fact, the graph is in a *stale state*.
 
-### 6.1 The problem
+After the fixpoint, rule and relation **closure** is recorded. A rule is closed when its support in the graph has reached its target, and a predicate is closed when its frequency in the new graph is equal to its frequency on the target graph.
+## 5. WIP: breaking rule cycles
 
-Phase I generates only extensional predicates, and Phase II can only derive a fact from facts that already exist. A predicate may then be impossible to derive from anything. If every rule that produces $p$ needs $p$ itself or needs a predicate that in turn depends on $p$, no first fact can ever appear. Two typical patterns are
+Generating the EDB only closes extensional relations, and completing the graph can only derive a fact from facts that already exist. A predicate may then be impossible to derive from anything. If every rule that produces $p$ needs $p$ itself or needs a predicate that in turn depends on $p$, no first fact can ever appear. Two typical patterns are
 
-- a self-loop, such as $\text{spouse}(a,b) \Rightarrow \text{spouse}(b,a)$, or $p(x,y) \wedge q(y,z) \Rightarrow p(x,z)$;
-- a mutual dependency, $A \Rightarrow B$ together with $B \Rightarrow A$, or longer cycles of the same kind.
+- a self-loop, e.g.: $p(x,y) \Rightarrow p(y,x)$, or $p(x,y) \wedge q(y,z) \Rightarrow p(x,z)$;
+- a mutual dependency, $p(x,y) \Rightarrow q(y, x)$ together with $q(x, y) \Rightarrow p(y, x)$, or longer cycles of the same kind.
 
-Both are natural rule sets: symmetry and transitivity rules of this shape are among the most common. Yet they leave the involved predicates empty after Phase II, even though the source graph contained facts for them.
+Both are natural rule sets: symmetry and transitivity rules of this shape are among the most common. Yet they leave the involved predicates empty after graph completion, even though the source graph contained facts for them. The following section describe one approach to detect and "break" stale cycles, but it is memmory intensive and has been removed from the method.
 
-### 6.2 Detecting stale cycles
+### 5.1 Detecting stale cycles
 
-Define the **relation graph** $D_{\mathcal{R}}$ as a directed graph on predicates, with an edge $q \to p$ whenever some rule has $q$ in its body and $p$ as its head (self-loops included). Each edge remembers the rules that produce it. A directed cycle in $D_{\mathcal{R}}$ is **stale** with respect to a graph $F$ if none of its predicates has a single fact in $F$. A cyclic predicate that is already populated, through some other rule or through the base facts, is an ordinary recursive rule and needs no help.
+Define the **relation graph** $D_{\mathcal{R}}$ as a directed graph on relations, with an edge $q \to p$ whenever some rule has relation $q$ in its body and relation $p$ in its head (self-loops included). Each edge remembers the rules that produce it. A directed cycle in $D_{\mathcal{R}}$ is **stale** with respect to a graph $F$ if none of its predicates has a single fact in $F$. A cyclic predicate that is already populated, through some other rule or through the base facts, is an ordinary recursive rule and needs no help.
 
-### 6.3 Breaking a cycle
+### 5.2 Breaking a cycle
 
 For a stale cycle $\gamma$, the generator chooses one rule $r$ among the rules whose edges lie on $\gamma$, and treats the *empty* atoms of its body as if they were extensional: it creates facts for them, in the same way as Mechanism 2 of Phase I. Precisely, split the body of $r$ into
 
@@ -136,7 +148,7 @@ The number of seed groundings is $$ \min\bigl(\operatorname{supp}(r),\ \min_{B \
 
 The usual ordering between same-head rules, which makes recursive rules wait for non-recursive ones, is deliberately not applied here. Inside a stale cycle the non-recursive rules that a recursive rule would wait for can never fire, so waiting would deadlock exactly the rule that must go first.
 
-### 6.4 Iteration
+### 5.3 Iteration
 
 Cycles that share predicates are handled one at a time, because seeding one cycle populates predicates of the others. The overall procedure alternates
 
@@ -144,30 +156,32 @@ $$ \text{seed one stale cycle} \;\longrightarrow\; \text{forward chain to fixpoi
 
 until no stale cycle remains or no cycle can be seeded. A cycle is left unbroken, with a warning, if every candidate rule has a closed or exhausted predicate, or has no facts to join with. Seeds are added to the synthetic graph only. The base facts of Phase I are left unchanged.
 
-## 7. The complete procedure
+## 6. The complete procedure
 
-Putting the phases together, the method is:
+Putting the steps together, the method is:
 
-1. **Extract** the profiles $\pi_p$ of every predicate and the targets $\operatorname{supp}(r)$ of every rule from the source graph, and keep the rule set $\mathcal{R}$.
-2. **Generate** base facts for every extensional predicate that exactly match $\pi_p$ (Phase I), ordering rules from most to least restrictive, and combining forced assignments, rule-driven grounding and random completion, all guarded by the realizability test.
-3. **Derive** the least fixpoint of the rules over the base facts (Phase II).
-4. **Repair** stale cycles by seeding and re-deriving until none remain (Phase III).
+1. **Extract** the profiles $P$ of every relation-type and the targets $\operatorname{support}(r, \mathcal{G})$ of every rule from the IDB (the set of rules $\mathcal{R}$ mined from the target graph).
+2. **Generate** base facts for every extensional relation $p_{ext}$ that exactly match $P_{p_{ext}}$ (Section 3), ordering rules from most to least restrictive, and combining forced assignments, rule-driven grounding and random completion, all guarded by the realizability test.
+3. **Derive** the least fixpoint of the rules over the base facts (Section 4).
+4. (WIP)**Repair** stale cycles by seeding and re-deriving until none remain (Section 5).
 
-Only step 1 touches the source graph. Everything after it uses the profiles, the supports and the rules.
+Only step 1 reads statistical data from the source graph. Everything after it uses the profiles, the supports and the rules.
 
-## 8. Properties
+## 7. Properties
 
-- **Exactness for extensional predicates.** If Phase I terminates, each extensional predicate has exactly the frequency and degree distributions of the source. By the realizability test, no commitment made along the way knowingly makes this impossible.
-- **Rule consistency.** The result is closed under $\mathcal{R}$: every derivable fact is present. It has the same rules holding over it as the source, by construction.
-- **Rule evidence.** The support of a rule in the result is driven towards its source support by Mechanism 2 (for rules with extensional bodies) and by Phase III (for rules that only cycles can reach). It is not guaranteed to match exactly.
-- **Independence from the source.** Only aggregate statistics and rules are used, so individual source facts are not reproduced by design. Whether the aggregates themselves reveal anything about the source is a separate question that this method does not address.
-- **Randomness.** Every mechanism draws at random, so different runs give different graphs with the same profiles.
+- **Exactness for extensional predicates.** If the EDB is generated correctly, each extensional predicate has exactly the frequency and degree distributions of the source. By the realizability test, no commitment made along the way knowingly makes this impossible.
+- **Rule consistency.** The result is (WIP: as close as possible) closed under $\mathcal{R}$: every derivable fact is present. It has the same rules holding over it as the source, by construction.
+- **Rule evidence.** The support of a rule in the result is driven towards its source support by Mechanism 2 (for rules with extensional bodies). It is not guaranteed to match exactly.
+- **Independence from the source.** Only aggregate statistics and rules are used, so individual source facts are not reproduced by design (WIP: Except for those assigned directly looking at the profiles). Whether the aggregates themselves reveal anything about the source is a separate question that this method does not address (out of scope).
+- **Randomness.** Some mechanism draws at random, so different runs give different graphs with the same profiles.
 
-## 9. Limitations and open questions
+## 8. Limitations, future work and open questions
 
-1. **Intensional frequencies are not controlled.** Profiles are matched exactly for extensional predicates only. Intensional predicates are obtained by unrestricted derivation, so their frequencies and degree distributions can overshoot the source, or fall short if rules fail to fire. Making derivation respect the profile of the head predicate, that is, restricting derived facts by the same residual-profile and realizability logic, is a natural extension.
+1. **Intensional frequencies are not controlled.** Relations are matched exactly for extensional predicates only. Intensional predicates are obtained by unrestricted derivation, so their frequencies and degree distributions can overshoot the source, or fall short if rules fail to fire. Making derivation respect the profile of the head predicate, that is, restricting derived facts by the same residual-profile and realizability logic, is a natural extension.
 2. **The realizability test is only necessary.** Only the first inequality of Gale–Ryser is checked. A full check needs the sorted degree sequences and is more expensive. Phase I can in principle reach a state that passes every local test but cannot be completed. Such states are detected only when the last mechanism finds too few objects.
-3. **Competition between rules is handled greedily.** The restrictiveness order is a heuristic. It protects restrictive rules from being starved, but it does not solve the underlying assignment problem, which is a joint constraint satisfaction problem over all rules and profiles.
-4. **Upper bounds on support.** Support is treated as a target to reach. Because base-fact generation can lower or raise the frequency of predicates that occur in several rule bodies, a rule's final support can be lower than its target. Whether support should also be an upper bound is undecided.
-5. **Cycle seeding is local.** A cycle is broken by seeding a single rule with the smallest possible seed. This guarantees that derivation starts. It does not aim to make the cyclic predicates' final profiles match the source beyond respecting their frequency budget.
+3. **Competition between rules is handled greedily.** The restrictiveness order is a heuristic. It protects restrictive rules from being starved, but it does not solve the underlying assignment problem, which is a joint constraint satisfaction problem over all rules and profiles. CSP problem, my little brain cannot handle it.
+4. **Upper bounds on support.** Support is treated as a target to reach. Because base-fact generation can lower or raise the frequency of predicates that occur in several rule bodies, a rule's final support can be lower or equal to its target. Can it be greater? I think current implementation ensures enough extensional triples to complete support with intensional triples, but I would have to check if, e.g., 100 ext. conjunctions for a rule with support equal to 100 could generate 500 heads using different intensional triples.
+5. **Cycle seeding is local and expensive.** A cycle is broken by seeding a single rule with the smallest possible seed. This guarantees that derivation starts. It does not aim to make the cyclic predicates' final profiles match the source beyond respecting their frequency budget. Also, the method is memmory expensive and has been rejected until new notice. This makes some relations to never appear in the synthetic graph, as they are not extensional but also cannot be derived.
 6. **Entity identity.** The generator reuses the entity set of the profiles. Whether entities should be replaced by fresh identifiers, and how that interacts with the degree maps, is not treated here.
+7. The method assumes the source graph to be as correct and complete as possible. I added a "data preparation" step to "clean" the data, but it currently does not take into account schemas or semantic constraints. In the future we could add SHACL constraints to avoid invalid triples.
+8. Current approach does not support literals, so the source graph must be processed beforehand. This could impact the semantics or the rules, so target rule set is always mined from the processed final version of the input graph.

@@ -67,7 +67,7 @@ It only uploads: the pipeline reads its metrics from `graph.base_uri` as uploade
 Converting `.tsv` to `.nt` needs a term mapping: pass `-f` (only the config's `graph` section is read, for `namespace`/`term_namespaces`) or `--namespace`. A `/` inside a bare term is written as `%2F` in the `.nt`. For `.nt` input no mapping is needed: every IRI is cut to its last segment in the `.tsv` (`%2F` decoded back to `/`), and the script fails if two IRIs collide.
 
 ```bash
-python -m skgg.cli.prepare_data .data/source/french_royalty.tsv -f french_royalty_source.json  # -> french_royalty.no_literals.{tsv,nt}
+python -m skgg.cli.prepare_data .data/source/french_royalty.tsv -f french_royalty_source.json  # -> french_royalty.no-literals.{tsv,nt}
 python -m skgg.cli.prepare_data path/to/graph.nt -o path/to/out --log-level DEBUG              # -> out.{tsv,nt}; DEBUG lists every untyped subject
 ```
 
