@@ -64,7 +64,7 @@ class DatabaseAuthConfig:
 class GraphConfig:
     """Knowledge Graph settings: file locations and the named-graph URIs used to
     key each stage of the pipeline (see AGENTS.md's "Architecture" section for how
-    base/complete/EDB/synthetic relate).
+    base/EDB/synthetic relate).
 
     Attributes:
         name: Human-readable name for the graph/experiment.
@@ -72,9 +72,6 @@ class GraphConfig:
             N-Triples format, consumed by `cli/upload.py`.
         namespace: Default namespace URI used to resolve unprefixed terms.
         base_uri: Named-graph URI for the raw, uploaded base graph.
-        complete_uri: Named-graph URI for the base graph after rule-based
-            completion (`engine/completion.py`) — this is the source graph that
-            metrics are extracted from.
         edb_uri: Named-graph URI for the generated Extensional Database.
         synthetic_uri: Named-graph URI for the final synthetic graph (EDB + IDB).
         term_namespaces: Optional bare-term -> namespace-URI overrides, merged
@@ -87,7 +84,6 @@ class GraphConfig:
     triple_file: str
     namespace: str
     base_uri: str
-    complete_uri: str
     edb_uri: str
     synthetic_uri: str
     term_namespaces: dict[str, str] = field(default_factory=dict)

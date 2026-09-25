@@ -1,7 +1,5 @@
 """Uploads a graph from an .nt/.tsv file (by default `graph.triple_file` into
-`graph.base_uri`; override with `--triple-file`/`--graph-uri`). Optionally also
-runs rule-based completion to build the "complete" graph used as the source for
-metric extraction (see `--complete`)."""
+`graph.base_uri`; override with `--triple-file`/`--graph-uri`)."""
 
 import argparse
 import logging
@@ -11,8 +9,6 @@ from SPARQLWrapper import SPARQLWrapper
 
 from skgg.config import RunConfig
 from skgg.core.queries import get_triple_count, initialize_graph
-from skgg.core.rules import parse_rule_set
-from skgg.engine.completion import complete_graph
 from skgg.utils import (
     build_term_mapping,
     create_sparql_client,
@@ -49,8 +45,8 @@ def upload_graph(
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Upload a graph from a .nt/.tsv file and, optionally, run "
-        "rule-based graph completion."
+        description="Upload a graph from a .nt/.tsv file into graph.base_uri "
+        "(or --graph-uri)."
     )
     parser.add_argument(
         "-f",
@@ -75,18 +71,6 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Override the config file's logging level (e.g. DEBUG, INFO, WARNING).",
     )
-    parser.add_argument(
-        "--pca-threshold",
-        type=float,
-        default=None,
-        help="Override the config file's rules.pca_threshold for this run only.",
-    )
-    parser.add_argument(
-        "--complete",
-        action="store_true",
-        help="Also run rule-based graph completion after uploading the "
-        "graph, producing graph.complete_uri.",
-    )
     return parser.parse_args()
 
 
@@ -99,7 +83,6 @@ if __name__ == "__main__":
     )
 
     input_dir = config.data.input_dir
-    complete_uri = config.graph.complete_uri
 
     triple_file = args.triple_file or config.graph.triple_file
     source = Path(triple_file) if "/" in triple_file else input_dir / triple_file
@@ -114,34 +97,3 @@ if __name__ == "__main__":
     client = create_sparql_client(config)
 
     upload_graph(client, source, target_uri, term_mapping)
-
-    if args.complete:
-        logger.info("Starting Graph Completion")
-
-        rules = parse_rule_set(
-            rules_file=input_dir / config.rules.rules_file,
-            term_mapping=term_mapping,
-            pca_threshold=(
-                args.pca_threshold
-                if args.pca_threshold is not None
-                else config.rules.pca_threshold
-            ),
-        )
-
-        # Complete graph
-        complete_graph(
-            client=client,
-            rules=rules,
-            term_mapping=term_mapping,
-            source=target_uri,
-            target_uri=complete_uri,
-            chunk_size=config.db_config.chunk_size,
-        )
-
-        logger.info(
-            "Complete graph in <%s> has %d triples.",
-            complete_uri,
-            get_triple_count(client, complete_uri),
-        )
-    else:
-        logger.info("Skipping graph completion (pass --complete to run it).")

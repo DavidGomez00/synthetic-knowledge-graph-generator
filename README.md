@@ -42,7 +42,7 @@ from skgg.cli.main import run_synthetic_graph_experiment
 run_synthetic_graph_experiment(Path("configurations/french_royalty_source.json"))
 ```
 
-This loads the config, computes graph metrics over SPARQL, parses the ontology and Horn rule set, generates the EDB (facts satisfying rule bodies), then grows the IDB (rule-derived facts) until closure — producing the synthetic graph. `-f`/`--config-file` resolves a bare filename under `configurations/`; `--skip-edb` reuses the existing EDB graph instead of regenerating it; `--log-level` overrides the config's `logging.level` for that run. For a full walkthrough (including uploading a base graph and building the source graph first), see [`docs/getting-started.md`](docs/getting-started.md).
+This loads the config, computes graph metrics over SPARQL, parses the ontology and Horn rule set, generates the EDB (facts satisfying rule bodies), then grows the IDB (rule-derived facts) until closure — producing the synthetic graph. `-f`/`--config-file` resolves a bare filename under `configurations/`; `--skip-edb` reuses the existing EDB graph instead of regenerating it; `--log-level` overrides the config's `logging.level` for that run. For a full walkthrough (including uploading the base graph first), see [`docs/getting-started.md`](docs/getting-started.md).
 
 ## Project layout
 

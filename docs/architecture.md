@@ -4,7 +4,7 @@ This is the deep-dive version of the module map in [`AGENTS.md`](../AGENTS.md) �
 
 ## Data flow
 
-The pipeline turns a source graph into a synthetic copy in two stages: first it *completes* a base graph and profiles it, then it *regenerates* a graph from scratch using only those profiles and the rule set — never touching the original graph again once the profiles are extracted.
+The pipeline turns a source graph into a synthetic copy in two stages: first it profiles the uploaded base graph, then it *regenerates* a graph from scratch using only those profiles and the rule set — never touching the original graph again once the profiles are extracted.
 
 ```mermaid
 flowchart LR
@@ -12,10 +12,7 @@ flowchart LR
     ONTO["graph.term_namespaces<br/>(config)"] --> TERM["term mapping"]
     RULES["rules<br/>(.csv file)"] --> HORN["Horn rules"]
 
-    BASE -->|"engine/completion.py<br/>forward-chain rules"| COMPLETE[("complete_uri")]
-    HORN --> COMPLETE
-
-    COMPLETE -->|engine/metrics.py| METRICS["GraphMetrics<br/>(per-predicate profiles)"]
+    BASE -->|engine/metrics.py| METRICS["GraphMetrics<br/>(per-predicate profiles)"]
 
     METRICS --> EDBGEN
     HORN --> EDBGEN
@@ -27,7 +24,6 @@ flowchart LR
     METRICS --> SYN
 
     style BASE fill:#2563eb,color:#fff
-    style COMPLETE fill:#2563eb,color:#fff
     style EDB fill:#2563eb,color:#fff
     style SYN fill:#16a34a,color:#fff
 ```
@@ -35,10 +31,9 @@ flowchart LR
 Blue nodes are named graphs in the database (keyed by the URIs in each config's `graph` section); the green node is the final deliverable.
 
 1. **Upload** (`cli/upload.py`) loads a base `.nt` or `.tsv` file (`graph.triple_file`) into `base_uri`. `.tsv` rows are bare `subject\tpredicate\tobject` terms, resolved to full URIs via the term mapping before insertion.
-2. **Completion** (`engine/completion.py`) forward-chains the rule set over `base_uri` — assuming rule bodies are fully grounded — until no rule adds any more triples, producing `complete_uri`. This is a *real* graph, used only to extract metrics from; it never ships as output.
-3. **Metrics** (`engine/metrics.py`) profiles `complete_uri` over SPARQL: per-predicate frequency, domain/range distributions, reflexivity. This is the entire "topological description" the rest of the pipeline needs — from here on, the original graph is no longer touched.
-4. **EDB generation** (`engine/edb.py`) synthesizes ground triples for *extensional* predicates (ones no rule head ever produces) that satisfy both the profiles and the rule bodies that reference them, producing `edb_uri`. See [`edb-generation.md`](edb-generation.md) for the full algorithm.
-5. **Synthetic graph generation, as wired in `cli/main.py`.** The entry point logs five numbered phases: metrics/rules, EDB, completion, cycle-breaking, summary. Completion (`engine/completion.py`'s `complete_graph`, which returns the number of triples it added and takes a `label` for its log lines) forward-chains *every* rule over the EDB into `synthetic_uri` each pass, repeating until a pass adds nothing — there's no rule ordering and no profile budget applied during this loop (`apply_rule` is called without a `profile`, so a rule can in principle overshoot its head predicate's target frequency; only rule `support` and predicate `frequency` targets are checked afterward, via `engine/generator.py`'s `get_closed_rules`/`get_closed_preds`, to flip the `closed` fields used for reporting). Cycle-breaking then alternates `engine/cycles.py`'s `break_cycles` (seeds one [stale cycle](concepts.md#stale-cycle) per call) with another `complete_graph` pass until `break_cycles` seeds nothing more. (An earlier design, `engine/idb.py`'s `generate_idb`, forward-chained with explicit same-head rule ordering and an upfront inferrability check; it's no longer wired into the pipeline — see `docs/concepts.md`'s "Rule application order".)
+2. **Metrics** (`engine/metrics.py`) profiles `base_uri` over SPARQL: per-predicate frequency, domain/range distributions, reflexivity. This is the entire "topological description" the rest of the pipeline needs — from here on, the original graph is no longer touched.
+3. **EDB generation** (`engine/edb.py`) synthesizes ground triples for *extensional* predicates (ones no rule head ever produces) that satisfy both the profiles and the rule bodies that reference them, producing `edb_uri`. See [`edb-generation.md`](edb-generation.md) for the full algorithm.
+4. **Synthetic graph generation, as wired in `cli/main.py`.** The entry point logs five numbered phases: metrics/rules, EDB, completion, cycle-breaking, summary. Completion (`engine/completion.py`'s `complete_graph`, which returns the number of triples it added and takes a `label` for its log lines) forward-chains *every* rule over the EDB into `synthetic_uri` each pass, repeating until a pass adds nothing — there's no rule ordering and no profile budget applied during this loop (`apply_rule` is called without a `profile`, so a rule can in principle overshoot its head predicate's target frequency; only rule `support` and predicate `frequency` targets are checked afterward, via `engine/generator.py`'s `get_closed_rules`/`get_closed_preds`, to flip the `closed` fields used for reporting). Cycle-breaking then alternates `engine/cycles.py`'s `break_cycles` (seeds one [stale cycle](concepts.md#stale-cycle) per call) with another `complete_graph` pass until `break_cycles` seeds nothing more. (An earlier design, `engine/idb.py`'s `generate_idb`, forward-chained with explicit same-head rule ordering and an upfront inferrability check; it's no longer wired into the pipeline — see `docs/concepts.md`'s "Rule application order".)
 
 ## Components
 
@@ -67,7 +62,7 @@ flowchart TD
     DB[("Virtuoso /<br/>GraphDB")]
 
     MAIN --> CONFIG & METRICS & EDB & GEN & COMPLETION & CYCLES & RULES & UTILS
-    UPLOAD --> CONFIG & COMPLETION & RULES
+    UPLOAD --> CONFIG & QUERIES & UTILS
 
     EDB --> GEN & METRICS & RULES & QUERIES
     COMPLETION --> GEN & METRICS & QUERIES
@@ -89,7 +84,7 @@ flowchart TD
 - **`engine/completion.py`** — see "Data flow" above.
 - **`engine/cycles.py`** — `break_cycles` runs right after completion in `cli/main.py`. It finds *stale cycles* (`core/rules.find_stale_cycles`), seeds one rule of one cycle in the synthetic graph via `sample_groundings` and returns (`cli/main.py` completes the graph and calls it again until it returns 0); see "Stale cycle" in `docs/concepts.md`.
 - **`cli/main.py`** — the experiment entry point (`run_synthetic_graph_experiment`). After generation, `log_summary` logs one consolidated synthetic-vs-original report: total triples, one row per predicate (frequency original -> synthetic, `[OPEN]`/`[CLOSED]`, and `[EXTENSIONAL]`/`[INTENSIONAL]` — intensional means the predicate is the head of some rule) and one row per rule (support original -> synthetic, `[OPEN]`/`[CLOSED]`), with URIs shortened to their last segment and each rule printed as `body => head`.
-- **`cli/upload.py`** — standalone script (edit the `graph_config` path at the top and run it directly) that uploads a base graph and runs completion.
+- **`cli/upload.py`** — standalone script (`python -m skgg.cli.upload -f <config>`) that uploads a `.nt`/`.tsv` file into `base_uri`, or into `--graph-uri` if given. It runs no rule-based completion.
 
 ## Known rough edges
 

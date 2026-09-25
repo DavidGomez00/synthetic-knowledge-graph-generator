@@ -47,7 +47,7 @@ python -m skgg.cli.main -f french_royalty_source.json --pca-threshold 0.95
 
 Typical experiment flow (see `cli/main.py`):
 1. Load `RunConfig` from JSON and set up logging.
-2. Compute `GraphMetrics` (predicate profiles) from the source graph (`graph.complete_uri`) over SPARQL.
+2. Compute `GraphMetrics` (predicate profiles) from the source graph (`graph.base_uri`) over SPARQL.
 3. Build the term mapping (`graph.term_namespaces` overrides merged over `utils.DEFAULT_PREFIXES`, under the `graph.namespace` default) and parse the Horn rule set from a CSV (`rules.rules_file`), keeping only rules classified POSITIVE (PCA confidence >= `pca_threshold`) — NEGATIVE and UNKNOWN (missing PCA confidence) rules are dropped and excluded from every later step.
 4. Generate the EDB (extensional database) — `engine/edb.py` — inserting triples that satisfy rule bodies/profiles into `graph.edb_uri`.
 5. As currently wired, `cli/main.py` logs five numbered phases (`[n/5]`): metrics/rules, EDB, completion, cycle-breaking, summary. The completion phase forward-chains *every* rule over the EDB with `engine/completion.py`'s `complete_graph` (which returns the triples it added and takes a `label` for its log lines), repeating each pass until nothing more is added — no rule ordering and no profile budget applied during this loop (`apply_rule` is called without a `profile`, so a rule can in principle overshoot its head predicate's target frequency). The cycle-breaking phase then alternates `engine/cycles.py`'s `break_cycles` (seeds one stale cycle per call, returns the seeded triple count) with `complete_graph` until nothing is seeded — see "Stale cycle" in `docs/concepts.md`. Rule/predicate closure (`support`/`frequency` targets reached) is tracked via `engine/generator.py`'s `get_closed_rules`/`get_closed_preds`, called after each `complete_graph` pass — see "Rule application order" in `docs/concepts.md` for why this differs from `engine/idb.py`'s original (now-removed) `generate_idb`.
@@ -56,11 +56,11 @@ Typical experiment flow (see `cli/main.py`):
 
 ```bash
 python -m skgg.cli.upload -f french_royalty_source.json
-python -m skgg.cli.upload -f french_royalty_source.json --complete --log-level DEBUG --pca-threshold 0.95
+python -m skgg.cli.upload -f french_royalty_source.json --log-level DEBUG
 python -m skgg.cli.upload -f french_royalty.json --triple-file path/to/skgg.tsv --graph-uri http://FrenchRoyalty.org/normalized/skgg
 ```
 
-It takes the same `-f`/`--config-file`, `--log-level`, and `--pca-threshold` as `cli/main.py` (the latter only affects rule parsing when `--complete` is also passed), plus `--complete` (off by default): pass it to also run rule-based completion (`engine/completion.py`) right after the upload, building the "complete" graph used as the source for metric extraction; without it, the script only uploads the base graph. `--triple-file` overrides `graph.triple_file` (a bare filename resolves under `data.input_dir`; a path containing `/` is used as given) and `--graph-uri` overrides the target graph (default `graph.base_uri`) — e.g. to re-insert an already generated synthetic graph into `graph.synthetic_uri` without regenerating it. With `--complete`, completion runs over whichever graph was just uploaded.
+It only uploads: the pipeline reads its metrics from `graph.base_uri` as uploaded, with no rule-based completion beforehand. It takes the same `-f`/`--config-file` and `--log-level` as `cli/main.py`. `--triple-file` overrides `graph.triple_file` (a bare filename resolves under `data.input_dir`; a path containing `/` is used as given) and `--graph-uri` overrides the target graph (default `graph.base_uri`) — e.g. to re-insert an already generated synthetic graph into `graph.synthetic_uri` without regenerating it.
 
 `cli/prepare_data.py` is another standalone, local-only script (no SPARQL; importable as `prepare_data(input_file, output, term_mapping)`). It writes a cleaned copy of a `.nt`/`.tsv` file in **both** formats (`<output>.tsv` and `<output>.nt`), with two things removed: duplicate triples (the first occurrence is kept), and "literals", meaning every non-type triple whose object is never typed (never the subject of a `type`/`rdf:type` triple). Every triple whose predicate is in `--literal-predicates` (default `name`, whose objects are always literals, even when a person's name equals their entity ID and so looks typed) is dropped too. Type triples are always kept. It also logs a warning for every subject term that is never typed.
 
@@ -83,7 +83,7 @@ src/skgg/
   utils.py             # logging setup, SPARQL client factory, misc file helpers
   cli/
     main.py            # run_synthetic_graph_experiment: the end-to-end experiment pipeline
-    upload.py           # standalone script: upload a .nt/.tsv file to a graph URI (+ optional rule-based completion)
+    upload.py           # standalone script: upload a .nt/.tsv file to a graph URI
     prepare_data.py     # standalone script: copy a .nt/.tsv file without duplicates or untyped objects; report untyped subjects
   core/
     rules.py           # Atom / RuleSignature (Horn rule) dataclasses, rule-set CSV parsing
@@ -96,7 +96,7 @@ src/skgg/
     cycles.py              # break_cycles: seeds one stale rule cycle (p -> p, A -> B -> A) per call in the synthetic graph; the caller completes it again
 ```
 
-Data flow: **term mapping + rules CSV + source graph metrics → EDB (facts satisfying rule bodies) → IDB (rule-derived facts, grown until closure) → synthetic graph**, all mediated through SPARQL against the graph store, keyed by graph URIs defined per-experiment in the `graph` section of each config JSON (`base_uri`, `complete_uri`, `edb_uri`, `synthetic_uri`).
+Data flow: **term mapping + rules CSV + source graph metrics → EDB (facts satisfying rule bodies) → IDB (rule-derived facts, grown until closure) → synthetic graph**, all mediated through SPARQL against the graph store, keyed by graph URIs defined per-experiment in the `graph` section of each config JSON (`base_uri`, `edb_uri`, `synthetic_uri`).
 
 Rules are parsed from CSV into `RuleSignature`/`Atom` objects (`core/rules.py`); each rule has body atoms and a head atom over predicates/variables, plus confidence metrics (PCA/Std confidence). `parse_rule_set` expects lowercase snake_case columns (`body`, `head`, `std_confidence`, `pca_confidence`, `head_coverage`, `positive_examples`), matching AMIE-style mined-rule exports like `.data/french_royalty/source/french_royalty.csv` — a CSV with the older CamelCase columns (`Body`/`Head`/`PCA_Confidence`/...) will raise a `KeyError`. `rules.pca_threshold` in config (overridable per-run via `--pca-threshold`) classifies each rule's `HornRule.classification` as POSITIVE/NEGATIVE/UNKNOWN by comparing PCA confidence against the threshold; `parse_rule_set` then drops every non-POSITIVE rule, so only rules meeting the threshold are ever seen by EDB generation, IDB/completion, and cycle-breaking.
 

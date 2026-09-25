@@ -1,9 +1,8 @@
-"""Builds the "complete" graph used as the source for metric extraction.
+"""Forward-chains the rule set over a graph until no rule adds any more triples.
 
-Used by `cli/upload.py` after a base graph (`.nt` file) is uploaded: forward-chains
-every rule over the base graph, assuming rule bodies are fully grounded, until no
-rule can add any more triples. The result (`graph.complete_uri`) is what
-`engine.metrics.GraphMetrics.from_uri` later profiles for EDB/IDB generation.
+Used by `cli/main.py` to derive the synthetic graph (`graph.synthetic_uri`) from
+the EDB, and again after each cycle-breaking round. Assumes rule bodies are
+fully grounded.
 """
 
 import logging
@@ -41,10 +40,9 @@ def complete_graph(
         The total number of triples added.
 
     `profiles`, if given, carries the target frequency each predicate should
-    reach (e.g. extracted from the original source graph) -- when omitted
-    (as from `cli/upload.py`'s initial completion step, before any such
-    targets exist), predicate closure is simply skipped; rule closure always
-    runs, since a rule's `support` target is intrinsic to it.
+    reach (e.g. extracted from the original source graph) -- when omitted,
+    predicate closure is simply skipped; rule closure always runs, since a
+    rule's `support` target is intrinsic to it.
     """
 
     if source != target_uri:

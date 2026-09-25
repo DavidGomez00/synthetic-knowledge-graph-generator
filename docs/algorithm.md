@@ -37,7 +37,7 @@ The topological description of $G$ is a **profile** for each predicate $p$: $$ \
 
 Both degree maps sum to the frequency: $$ \sum_{e} d^{\mathrm{dom}}_p(e) \;=\; \sum_{e} d^{\mathrm{ran}}_p(e) \;=\; f_p . $$ The profile also records how many facts are reflexive ($s = o$). The profile is exactly the degree sequence of the bipartite graph $G_p$. It fixes how many facts a relation has and how many facts each entity takes part in, but not which pairs are actually connected. Choosing the pairs is the job of the generator, and the rules constrain that choice.
 
-The profiles are extracted from a *completed* version of the source: the closure of $G$ under $\mathcal{R}$ (Section 5), so that facts implied by the rules but absent from $G$ are counted. The rule supports used as targets are likewise measured on this completed graph.
+The profiles are extracted from $G$ as given, without first closing it under $\mathcal{R}$. The rule supports used as targets are likewise measured on $G$.
 
 ## 3. Realizability of a profile
 
@@ -73,7 +73,7 @@ The second mechanism builds groundings of rule bodies so that the joins the rule
 
 **Order of rules.** Rules whose bodies share an extensional predicate compete for the same degree budget. A rule with more extensional atoms in its body is *more restrictive*: it imposes more joins, so fewer facts can satisfy it. If a less restrictive rule were served first, it could consume the entities that were the only way to satisfy a more restrictive one. Ties in the number of atoms are broken by support, with the rule of lower support being more restrictive. The generator induces a dependency order from this: a rule is processed only after every more restrictive rule that shares an extensional predicate with it. Only rules with at least two extensional body atoms are processed this way, because with fewer there is no join to correlate. The facts of a rule with a single extensional atom are simply left to the other two mechanisms.
 
-**How many groundings are needed.** For a rule $r$ the target is its support $\operatorname{supp}(r)$ in the completed source. Base facts already committed may yield some head instantiations. Let $h_r$ be the number of distinct head instantiations that the rule's extensional body already produces. The generator needs $$ m_r = \operatorname{supp}(r) - h_r $$ additional groundings. If $m_r \le 0$, the rule needs nothing more.
+**How many groundings are needed.** For a rule $r$ the target is its support $\operatorname{supp}(r)$ in the source. Base facts already committed may yield some head instantiations. Let $h_r$ be the number of distinct head instantiations that the rule's extensional body already produces. The generator needs $$ m_r = \operatorname{supp}(r) - h_r $$ additional groundings. If $m_r \le 0$, the rule needs nothing more.
 
 **Sampling.** Let $A_r$ be the extensional body atoms of $r$ whose predicates are not yet closed. Each variable $v$ of $A_r$ occupies subject or object positions of one or more atoms. Its *candidate pool* is the set of entities that appear in the residual profile of every position it occupies: $$ \mathcal{C}(v) = \bigcap_{(p,\,\mathrm{pos}) \ni v} \operatorname{supp} \tilde d^{\mathrm{pos}}_p , $$ where $\mathrm{pos} \in \{\mathrm{dom}, \mathrm{ran}\}$. The capacity of $e \in \mathcal{C}(v)$ is the minimum of its residual degrees across those positions. A candidate grounding draws one entity per variable, with probability proportional to capacity, and a variable is drawn **once** even if it occurs in several atoms. This sharing is what forces the atoms to join.
 
@@ -97,7 +97,7 @@ If Phase I terminates, then for every extensional predicate the base facts repro
 
 ## 5. Phase II: derivation by forward chaining
 
-Given the base facts $F_0$, the synthetic graph is obtained by applying the rules until nothing new can be derived. The immediate-consequence operator of a rule set is $$ T_{\mathcal{R}}(F) \;=\; F \;\cup\; \bigl\{\, \sigma(H_r) \;:\; r \in \mathcal{R},\ \sigma \text{ grounds } r \text{ in } F \,\bigr\}, $$ and the iteration $$ F_{k+1} = T_{\mathcal{R}}(F_k) $$ is repeated until $F_{k+1} = F_k$. Because $T_{\mathcal{R}}$ is monotone and the entity and predicate sets are finite, the sequence stabilises at the least fixpoint $F^{*}$, the smallest set that contains $F_0$ and is closed under every rule. This is the standard semantics of Datalog. The same operator, applied to $G$ itself, gives the completed source graph of Section 2.4. Once no rule adds a further fact, the graph is in a *stale state*.
+Given the base facts $F_0$, the synthetic graph is obtained by applying the rules until nothing new can be derived. The immediate-consequence operator of a rule set is $$ T_{\mathcal{R}}(F) \;=\; F \;\cup\; \bigl\{\, \sigma(H_r) \;:\; r \in \mathcal{R},\ \sigma \text{ grounds } r \text{ in } F \,\bigr\}, $$ and the iteration $$ F_{k+1} = T_{\mathcal{R}}(F_k) $$ is repeated until $F_{k+1} = F_k$. Because $T_{\mathcal{R}}$ is monotone and the entity and predicate sets are finite, the sequence stabilises at the least fixpoint $F^{*}$, the smallest set that contains $F_0$ and is closed under every rule. This is the standard semantics of Datalog. Once no rule adds a further fact, the graph is in a *stale state*.
 
 After the fixpoint, rule and predicate **closure** is recorded. A rule is closed when its support in the graph has reached its target, and a predicate is closed when its frequency has reached its profile frequency $f_p$.
 
@@ -148,7 +148,7 @@ until no stale cycle remains or no cycle can be seeded. A cycle is left unbroken
 
 Putting the phases together, the method is:
 
-1. **Extract** the profiles $\pi_p$ of every predicate and the targets $\operatorname{supp}(r)$ of every rule from the completed source graph, and keep the rule set $\mathcal{R}$.
+1. **Extract** the profiles $\pi_p$ of every predicate and the targets $\operatorname{supp}(r)$ of every rule from the source graph, and keep the rule set $\mathcal{R}$.
 2. **Generate** base facts for every extensional predicate that exactly match $\pi_p$ (Phase I), ordering rules from most to least restrictive, and combining forced assignments, rule-driven grounding and random completion, all guarded by the realizability test.
 3. **Derive** the least fixpoint of the rules over the base facts (Phase II).
 4. **Repair** stale cycles by seeding and re-deriving until none remain (Phase III).
