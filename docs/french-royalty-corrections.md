@@ -1,5 +1,7 @@
 # French Royalty dataset corrections
 
+Note (2026-09-25): this log describes the earlier `.data` layout, when `.data` linked to `/home/master/Datasets/knowledge_graphs/`. `.data` now links to `/home/master/Datasets/knowledge_graphs/french_royalty/`, and the current source file, `.data/source/french_royalty.tsv` (12,230 rows), does not carry the corrections below: it still has `gender`, `hasSpouse` and `name` triples, and the pre-correction backup is gone. Literal triples are now removed by `cli/prepare_data.py`, which writes `.data/source/french_royalty.no-literals.{tsv,nt}`.
+
 Corrections log for `.data/french_royalty/french_royalty.tsv`. This file records changes that aren't visible in `git log`, because `.data` is a git-tracked **symlink** to `/home/master/Datasets/knowledge_graphs/`, a plain directory with no version control of its own — edits to the data leave no git diff. A one-time pre-correction backup was kept alongside the data at `.data/french_royalty/french_royalty.pre-correction.tsv` for the same reason.
 
 The issues below were found by a manual consistency review (predicate counts, entity-typing, inverse-relation checks, `type`-object audit, character-encoding check) run against the original 12,554-row file. See `BACKLOG.md` for the one deferred item.

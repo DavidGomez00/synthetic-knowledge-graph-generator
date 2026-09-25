@@ -26,14 +26,13 @@ docker compose --profile virtuoso up   # Virtuoso (8890) + YASGUI SPARQL UI (808
 docker compose --profile all up        # both
 ```
 
-
 ## Running an experiment
 
 Experiments are driven by JSON config files in `configurations/` (e.g. `french_royalty.source.json`).
 
 ### Prepare the data
-This method does not support literals yet, so `skgg.cli.prepare_data` handles the source graph to create a new version with no literals, creating a copy in `<output>.tsv` and `<output>.nt` formats. 
-This drops duplicate triples, every non-type triple whose object is never typed (literals), and every triple with a fixed predicate listed in `--literal-predicates` (default `name` for FrenchRoyalty), and logs a warning for every subject that is never typed.
+
+This method does not support literals yet, so `skgg.cli.prepare_data` handles the source graph to create a new version with no literals, creating a copy in `<output>.tsv` and `<output>.nt` formats. This drops duplicate triples, every non-type triple whose object is never typed (literals), and every triple with a fixed predicate listed in `--literal-predicates` (default `name` for FrenchRoyalty), and logs a warning for every subject that is never typed.
 
 ```bash
 python -m skgg.cli.prepare_data .data/source/french_royalty.tsv -f french_royalty.source.json  # -> .data/source/french_royalty.no-literals.{tsv,nt}
@@ -69,16 +68,14 @@ run_synthetic_graph_experiment(Path("configurations/french_royalty.source.json")
 
 This loads the config, computes graph metrics over SPARQL, parses the ontology and Horn rule set, generates the EDB, then grows the rule-derived facts until a fixed point, producing the synthetic graph.
 
-`-f`/`--config-file` resolves a bare filename under `configurations/`;
-`--skip-edb` reuses the existing EDB graph instead of regenerating it;
-`--log-level` overrides the config's `logging.level` for that run. For a full walkthrough, see [`docs/getting-started.md`](docs/getting-started.md).
+`-f`/`--config-file` resolves a bare filename under `configurations/`; `--skip-edb` reuses the existing EDB graph instead of regenerating it; `--log-level` overrides the config's `logging.level` for that run. For a full walkthrough, see [`docs/getting-started.md`](docs/getting-started.md).
 
 ## Project layout
 
 ```
 src/skgg/          # package source (see docs/architecture.md for the full module map)
 configurations/    # per-experiment JSON configs
-.data/<Dataset>/   # source graph data (.nt/.tsv/.ttl/.csv) referenced by configs
+.data/<variant>/   # source graph data (.nt/.tsv/.ttl/.csv) referenced by configs
 docs/              # architecture, concepts glossary, getting-started guide
 notebooks/         # exploratory/prototype work
 logs/              # per-run logs (gitignored)

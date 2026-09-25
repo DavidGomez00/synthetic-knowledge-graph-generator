@@ -52,7 +52,7 @@ def _parse_args() -> argparse.Namespace:
         "-f",
         "--config-file",
         required=True,
-        help="Config file under configurations/ (e.g. french_royalty.json), "
+        help="Config file under configurations/ (e.g. french_royalty.source.json), "
         "or a path to one.",
     )
     parser.add_argument(

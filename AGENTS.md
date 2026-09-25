@@ -26,7 +26,7 @@ Graphs are never loaded into memory-intensive libraries like RDFlib for bulk wor
 
 ## Running an experiment
 
-Experiments are driven by JSON config files in `configurations/` (e.g. `french_royalty_source.json`, `lung_cancer.json`), loaded via `RunConfig.from_json(...)`.
+Experiments are driven by JSON config files in `configurations/` (e.g. `french_royalty.source.json`, `lung_cancer.json`), loaded via `RunConfig.from_json(...)`.
 
 The main entry point is `run_synthetic_graph_experiment` in `src/skgg/cli/main.py`, runnable either as a library call or from the CLI:
 
@@ -34,13 +34,13 @@ The main entry point is `run_synthetic_graph_experiment` in `src/skgg/cli/main.p
 from pathlib import Path
 from skgg.cli.main import run_synthetic_graph_experiment
 
-run_synthetic_graph_experiment(Path("configurations/french_royalty_source.json"))
+run_synthetic_graph_experiment(Path("configurations/french_royalty.source.json"))
 ```
 
 ```bash
-python -m skgg.cli.main -f french_royalty_source.json
-python -m skgg.cli.main -f french_royalty_source.json --skip-edb --log-level DEBUG
-python -m skgg.cli.main -f french_royalty_source.json --pca-threshold 0.95
+python -m skgg.cli.main -f french_royalty.source.json
+python -m skgg.cli.main -f french_royalty.source.json --skip-edb --log-level DEBUG
+python -m skgg.cli.main -f french_royalty.source.json --pca-threshold 0.95
 ```
 
 `-f`/`--config-file` (required) accepts a bare filename resolved under `configurations/` (or a path, used as-is, if it contains a `/`); `--skip-edb` skips EDB generation and reuses whatever triples already sit at `graph.edb_uri`; `--log-level` overrides the config's `logging.level` for that run only, without editing the JSON file; `--pca-threshold` overrides the config's `rules.pca_threshold` for that run only.
@@ -55,9 +55,9 @@ Typical experiment flow (see `cli/main.py`):
 `cli/upload.py` is a separate, standalone script (CLI under an `if __name__ == "__main__":` guard; the upload step itself is the importable `upload_graph(client, triple_file, graph_uri, term_mapping)`) that uploads a base graph from a `.nt` or `.tsv` file (`graph.triple_file` in config; `.tsv` rows are bare `subject\tpredicate\tobject` terms, resolved to full URIs via the term mapping):
 
 ```bash
-python -m skgg.cli.upload -f french_royalty_source.json
-python -m skgg.cli.upload -f french_royalty_source.json --log-level DEBUG
-python -m skgg.cli.upload -f french_royalty.json --triple-file path/to/skgg.tsv --graph-uri http://FrenchRoyalty.org/normalized/skgg
+python -m skgg.cli.upload -f french_royalty.source.json
+python -m skgg.cli.upload -f french_royalty.source.json --log-level DEBUG
+python -m skgg.cli.upload -f french_royalty.normalized.json --triple-file path/to/skgg.tsv --graph-uri http://FrenchRoyalty.org/normalized/skgg
 ```
 
 It only uploads: the pipeline reads its metrics from `graph.base_uri` as uploaded, with no rule-based completion beforehand. It takes the same `-f`/`--config-file` and `--log-level` as `cli/main.py`. `--triple-file` overrides `graph.triple_file` (a bare filename resolves under `data.input_dir`; a path containing `/` is used as given) and `--graph-uri` overrides the target graph (default `graph.base_uri`) — e.g. to re-insert an already generated synthetic graph into `graph.synthetic_uri` without regenerating it.
@@ -67,11 +67,11 @@ It only uploads: the pipeline reads its metrics from `graph.base_uri` as uploade
 Converting `.tsv` to `.nt` needs a term mapping: pass `-f` (only the config's `graph` section is read, for `namespace`/`term_namespaces`) or `--namespace`. A `/` inside a bare term is written as `%2F` in the `.nt`. For `.nt` input no mapping is needed: every IRI is cut to its last segment in the `.tsv` (`%2F` decoded back to `/`), and the script fails if two IRIs collide.
 
 ```bash
-python -m skgg.cli.prepare_data .data/source/french_royalty.tsv -f french_royalty_source.json  # -> french_royalty.no-literals.{tsv,nt}
+python -m skgg.cli.prepare_data .data/source/french_royalty.tsv -f french_royalty.source.json  # -> french_royalty.no-literals.{tsv,nt}
 python -m skgg.cli.prepare_data path/to/graph.nt -o path/to/out --log-level DEBUG              # -> out.{tsv,nt}; DEBUG lists every untyped subject
 ```
 
-`cli/main.py`'s `__main__` block parses `-f`/`--config-file`, `--skip-edb`, `--log-level`, and `--pca-threshold` from the CLI (see the `bash` example above) and calls `run_synthetic_graph_experiment` end-to-end; confirmed working (verified via `python -m skgg.cli.main -f french_royalty_source.json`; see `BACKLOG.md`). Check `BACKLOG.md` for the current TODO list before assuming any other code path is exercised/working.
+`cli/main.py`'s `__main__` block parses `-f`/`--config-file`, `--skip-edb`, `--log-level`, and `--pca-threshold` from the CLI (see the `bash` example above) and calls `run_synthetic_graph_experiment` end-to-end; confirmed working (verified via `python -m skgg.cli.main -f french_royalty.source.json`; see `BACKLOG.md`). Check `BACKLOG.md` for the current TODO list before assuming any other code path is exercised/working.
 
 ## Architecture
 
@@ -98,7 +98,7 @@ src/skgg/
 
 Data flow: **term mapping + rules CSV + source graph metrics → EDB (facts satisfying rule bodies) → IDB (rule-derived facts, grown until closure) → synthetic graph**, all mediated through SPARQL against the graph store, keyed by graph URIs defined per-experiment in the `graph` section of each config JSON (`base_uri`, `edb_uri`, `synthetic_uri`).
 
-Rules are parsed from CSV into `RuleSignature`/`Atom` objects (`core/rules.py`); each rule has body atoms and a head atom over predicates/variables, plus confidence metrics (PCA/Std confidence). `parse_rule_set` expects lowercase snake_case columns (`body`, `head`, `std_confidence`, `pca_confidence`, `head_coverage`, `positive_examples`), matching AMIE-style mined-rule exports like `.data/french_royalty/source/french_royalty.csv` — a CSV with the older CamelCase columns (`Body`/`Head`/`PCA_Confidence`/...) will raise a `KeyError`. `rules.pca_threshold` in config (overridable per-run via `--pca-threshold`) classifies each rule's `HornRule.classification` as POSITIVE/NEGATIVE/UNKNOWN by comparing PCA confidence against the threshold; `parse_rule_set` then drops every non-POSITIVE rule, so only rules meeting the threshold are ever seen by EDB generation, IDB/completion, and cycle-breaking.
+Rules are parsed from CSV into `RuleSignature`/`Atom` objects (`core/rules.py`); each rule has body atoms and a head atom over predicates/variables, plus confidence metrics (PCA/Std confidence). `parse_rule_set` expects lowercase snake_case columns (`body`, `head`, `std_confidence`, `pca_confidence`, `head_coverage`, `positive_examples`), matching AMIE-style mined-rule exports like `.data/source/french_royalty.no-literals.csv` — a CSV with the older CamelCase columns (`Body`/`Head`/`PCA_Confidence`/...) will raise a `KeyError`. `rules.pca_threshold` in config (overridable per-run via `--pca-threshold`) classifies each rule's `HornRule.classification` as POSITIVE/NEGATIVE/UNKNOWN by comparing PCA confidence against the threshold; `parse_rule_set` then drops every non-POSITIVE rule, so only rules meeting the threshold are ever seen by EDB generation, IDB/completion, and cycle-breaking.
 
 LoRA fine-tuning of LLMs and Chain-of-Thought dataset generation from KGs are not implemented under `src/` yet — check `notebooks/` (`notebooks/Disha/`, `notebooks/Mine/`) for exploratory/prototype work in that direction. `config.py` previously carried placeholder `FineTuningConfig`/`CoTGenerationConfig` dataclasses for this; they were removed as dead code (nothing read them) and should be reintroduced once that pipeline is actually built.
 
@@ -106,7 +106,7 @@ LoRA fine-tuning of LLMs and Chain-of-Thought dataset generation from KGs are no
 
 - No test suite, linting/CI pipeline, or Makefile currently exists in this repo — `ruff` and `mypy` are configured in `pyproject.toml` (strict mypy, ruff rule sets E/F/I/UP/B/N) but are not wired into any automated command; run them manually (`ruff check .`, `mypy .`) if validating changes. See `BACKLOG.md` for the open question of whether/how to add a `tests/` + CI setup.
 - Per-experiment outputs (logs) are written under `logs/`. This folder is gitignored.
-- Input graph data (`.nt`/`.tsv`, `.ttl`, rule CSVs) per dataset lives under `.data/<dataset>/` (e.g. `.data/french_royalty/`, `.data/lung_cancer/`) and is referenced by `data.input_dir` in each experiment config.
+- Input graph data (`.nt`/`.tsv`, `.ttl`, rule CSVs) lives under `.data/`, a git-tracked symlink to a local, unversioned folder that currently holds the French Royalty data, one subfolder per variant: `source/`, `normalized/`, `pygraft/` and `skgg/` (synthetic graphs). Each config's `data.input_dir` picks the subfolder (`configurations/french_royalty.{source,normalized,pygraft}.json`). `configurations/lung_cancer.json` still expects `.data/lung_cancer/`, which this layout does not provide.
 
 ## Writing documentation
 
