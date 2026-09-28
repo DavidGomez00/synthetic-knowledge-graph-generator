@@ -1,0 +1,67 @@
+# SHACL-SPARQL shapes template for `cli/normalization.py`.
+# 
+# - Only "conflict" constraints are supported: ones broken by triples that are
+#   present (irreflexive, asymmetric, maximum count, disjoint relations).
+#   "Missing" constraints (minimum count, required type) are not, because the
+#   graph grows step by step and a triple could be rejected for lacking something
+#   a later rule adds.
+
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix ex:   <http://example.org/> .
+
+# Irreflexive relation: nobody is their own father.
+
+ex:FatherIrreflexive a sh:NodeShape ;
+    sh:targetSubjectsOf ex:father ;
+    sh:sparql [
+        sh:message "Nobody is their own father" ;
+        sh:select """
+            SELECT $this ?path ?value
+            WHERE {
+                $this ex:father ?value .
+                FILTER ($this = ?value)
+                BIND (ex:father AS ?path)
+            }
+        """ ;
+    ] .
+
+# Disjoint relations: nobody is both the parent and the child of the same person.
+
+ex:ParentChildDisjoint a sh:NodeShape ;
+    sh:targetSubjectsOf ex:parent ;
+    sh:sparql [
+        sh:message "Nobody is both parent and child of the same person" ;
+        sh:select """
+            SELECT $this ?path ?value ?this2 ?path2 ?value2
+            WHERE {
+                $this ex:parent ?value .
+                $this ex:child ?value .
+                BIND (ex:parent AS ?path)
+                BIND ($this AS ?this2)
+                BIND (ex:child AS ?path2)
+                BIND (?value AS ?value2)
+            }
+        """ ;
+    ] .
+
+
+# Disjoint relations: nobody is both the father and the mother of the same person.
+
+ex:FatherMotherDisjoint a sh:NodeShape ;
+    sh:targetSubjectsOf ex:father ;
+    sh:sparql [
+        sh:message "Nobody is both father and mother of the same person" ;
+        sh:select """
+            SELECT $this ?path ?value ?this2 ?path2 ?value2
+            WHERE {
+                $this ex:father ?value .
+                $this ex:mother ?value .
+                BIND (ex:father AS ?path)
+                BIND ($this AS ?this2)
+                BIND (ex:mother AS ?path2)
+                BIND (?value AS ?value2)
+            }
+        """ ;
+    ] .
