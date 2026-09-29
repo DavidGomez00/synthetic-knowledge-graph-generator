@@ -26,7 +26,7 @@ Graphs are never loaded into memory-intensive libraries like RDFlib for bulk wor
 
 ## Running an experiment
 
-Experiments are driven by JSON config files in `configurations/` (e.g. `french_royalty_source.json`, `lung_cancer.json`), loaded via `RunConfig.from_json(...)`.
+Experiments are driven by JSON config files in `configurations/` (e.g. `french_royalty.source.json`, `lung_cancer.json`), loaded via `RunConfig.from_json(...)`.
 
 The main entry point is `run_synthetic_graph_experiment` in `src/skgg/cli/main.py`, runnable either as a library call or from the CLI:
 
@@ -34,44 +34,51 @@ The main entry point is `run_synthetic_graph_experiment` in `src/skgg/cli/main.p
 from pathlib import Path
 from skgg.cli.main import run_synthetic_graph_experiment
 
-run_synthetic_graph_experiment(Path("configurations/french_royalty_source.json"))
+run_synthetic_graph_experiment(Path("configurations/french_royalty.source.json"))
 ```
 
 ```bash
-python -m skgg.cli.main -f french_royalty_source.json
-python -m skgg.cli.main -f french_royalty_source.json --skip-edb --log-level DEBUG
-python -m skgg.cli.main -f french_royalty_source.json --pca-threshold 0.95
+python -m skgg.cli.main -f french_royalty.source.json
+python -m skgg.cli.main -f french_royalty.source.json --skip-edb --log-level DEBUG
+python -m skgg.cli.main -f french_royalty.source.json --pca-threshold 0.95
 ```
 
 `-f`/`--config-file` (required) accepts a bare filename resolved under `configurations/` (or a path, used as-is, if it contains a `/`); `--skip-edb` skips EDB generation and reuses whatever triples already sit at `graph.edb_uri`; `--log-level` overrides the config's `logging.level` for that run only, without editing the JSON file; `--pca-threshold` overrides the config's `rules.pca_threshold` for that run only.
 
 Typical experiment flow (see `cli/main.py`):
 1. Load `RunConfig` from JSON and set up logging.
-2. Compute `GraphMetrics` (predicate profiles) from the source graph (`graph.complete_uri`) over SPARQL.
+2. Compute `GraphMetrics` (predicate profiles) from the source graph (`graph.base_uri`) over SPARQL.
 3. Build the term mapping (`graph.term_namespaces` overrides merged over `utils.DEFAULT_PREFIXES`, under the `graph.namespace` default) and parse the Horn rule set from a CSV (`rules.rules_file`), keeping only rules classified POSITIVE (PCA confidence >= `pca_threshold`) — NEGATIVE and UNKNOWN (missing PCA confidence) rules are dropped and excluded from every later step.
 4. Generate the EDB (extensional database) — `engine/edb.py` — inserting triples that satisfy rule bodies/profiles into `graph.edb_uri`.
-5. As currently wired, `cli/main.py` logs five numbered phases (`[n/5]`): metrics/rules, EDB, completion, cycle-breaking, summary. The completion phase forward-chains *every* rule over the EDB with `engine/completion.py`'s `complete_graph` (which returns the triples it added and takes a `label` for its log lines), repeating each pass until nothing more is added — no rule ordering and no profile budget applied during this loop (`apply_rule` is called without a `profile`, so a rule can in principle overshoot its head predicate's target frequency). The cycle-breaking phase then alternates `engine/cycles.py`'s `break_cycles` (seeds one stale cycle per call, returns the seeded triple count) with `complete_graph` until nothing is seeded — see "Stale cycle" in `docs/concepts.md`. Rule/predicate closure (`support`/`frequency` targets reached) is tracked via `engine/generator.py`'s `get_closed_rules`/`get_closed_preds`, called after each `complete_graph` pass — see "Rule application order" in `docs/concepts.md` for why this differs from `engine/idb.py`'s original (now-removed) `generate_idb`.
+5. As currently wired, `cli/main.py` logs five numbered phases (`[n/5]`): metrics/rules, EDB, completion, cycle-breaking, summary. The completion phase forward-chains *every* rule over the EDB with `engine/completion.py`'s `complete_graph` (which returns the triples it added and takes a `label` for its log lines), repeating each pass until nothing more is added — no rule ordering and no profile budget applied during this loop (`apply_rule` is called without a `profile`, so a rule can in principle overshoot its head predicate's target frequency). The cycle-breaking phase then alternates `engine/cycles.py`'s `break_cycles` (seeds one stale cycle per call, returns the seeded triple count) with `complete_graph` until nothing is seeded — see "Stale cycle" in `docs/concepts.md`. Rule/predicate closure (`support`/`frequency` targets reached) is tracked via `engine/generator.py`'s `get_closed_rules`/`get_closed_preds`, called after each `complete_graph` pass — see "Rule application order" in `docs/concepts.md` for why this differs from `engine/idb.py`'s original (now-removed) `generate_idb`. After the EDB step, the initial completion and every cycle-breaking round, `cli/main.py`'s `_ClosureProgress.log` logs how many predicates and rules are closed, which ones closed since the previous check, and each open predicate's current frequency against its target (copied from the profiles before EDB generation spends `PredicateProfile.frequency` as a budget); the open rule IDs are logged at DEBUG.
 
 `cli/upload.py` is a separate, standalone script (CLI under an `if __name__ == "__main__":` guard; the upload step itself is the importable `upload_graph(client, triple_file, graph_uri, term_mapping)`) that uploads a base graph from a `.nt` or `.tsv` file (`graph.triple_file` in config; `.tsv` rows are bare `subject\tpredicate\tobject` terms, resolved to full URIs via the term mapping):
 
 ```bash
-python -m skgg.cli.upload -f french_royalty_source.json
-python -m skgg.cli.upload -f french_royalty_source.json --complete --log-level DEBUG --pca-threshold 0.95
-python -m skgg.cli.upload -f french_royalty.json --triple-file path/to/skgg.tsv --graph-uri http://FrenchRoyalty.org/normalized/skgg
+python -m skgg.cli.upload -f french_royalty.source.json
+python -m skgg.cli.upload -f french_royalty.source.json --log-level DEBUG
+python -m skgg.cli.upload -f french_royalty.normalized.json --triple-file path/to/skgg.tsv --graph-uri http://FrenchRoyalty.org/normalized/skgg
 ```
 
-It takes the same `-f`/`--config-file`, `--log-level`, and `--pca-threshold` as `cli/main.py` (the latter only affects rule parsing when `--complete` is also passed), plus `--complete` (off by default): pass it to also run rule-based completion (`engine/completion.py`) right after the upload, building the "complete" graph used as the source for metric extraction; without it, the script only uploads the base graph. `--triple-file` overrides `graph.triple_file` (a bare filename resolves under `data.input_dir`; a path containing `/` is used as given) and `--graph-uri` overrides the target graph (default `graph.base_uri`) — e.g. to re-insert an already generated synthetic graph into `graph.synthetic_uri` without regenerating it. With `--complete`, completion runs over whichever graph was just uploaded.
+It only uploads: the pipeline reads its metrics from `graph.base_uri` as uploaded, with no rule-based completion beforehand. It takes the same `-f`/`--config-file` and `--log-level` as `cli/main.py`. `--triple-file` overrides `graph.triple_file` (a bare filename resolves under `data.input_dir`; a path containing `/` is used as given) and `--graph-uri` overrides the target graph (default `graph.base_uri`) — e.g. to re-insert an already generated synthetic graph into `graph.synthetic_uri` without regenerating it.
 
-`cli/prepare_data.py` is another standalone, local-only script (no SPARQL; importable as `prepare_data(input_file, output, term_mapping)`). It writes a cleaned copy of a `.nt`/`.tsv` file in **both** formats (`<output>.tsv` and `<output>.nt`), with two things removed: duplicate triples (the first occurrence is kept), and "literals", meaning every non-type triple whose object is never typed (never the subject of a `type`/`rdf:type` triple). Every triple whose predicate is in `--literal-predicates` (default `name`, whose objects are always literals, even when a person's name equals their entity ID and so looks typed) is dropped too. Type triples are always kept. It also logs a warning for every subject term that is never typed.
+`cli/prepare_data.py` is another standalone, local-only script (no SPARQL; importable as `prepare_data(input_file, output, term_mapping)`). It writes a cleaned copy of a `.nt`/`.tsv` file in **both** formats (`<output>.tsv` and `<output>.nt`). Every `/` in a term's own name becomes `_` (e.g. `Matilda_of_Saxony_1172_1209/10` → `Matilda_of_Saxony_1172_1209_10`, which would otherwise shorten to `10`): for a bare `.tsv` term that is the whole term, and for an IRI only its last segment, where the `/` is written as `%2F`. The `/` between an IRI's path segments are left alone, and the script fails if two terms clean to the same name. Two things are removed: duplicate triples (the first occurrence is kept), and "literals", meaning every non-type triple whose object is never typed (never the subject of a `type`/`rdf:type` triple). Every triple whose predicate is in `--literal-predicates` (default `name`, whose objects are always literals, even when a person's name equals their entity ID and so looks typed) is dropped too. Type triples are always kept. It also logs a warning for every subject term that is never typed.
 
-Converting `.tsv` to `.nt` needs a term mapping: pass `-f` (only the config's `graph` section is read, for `namespace`/`term_namespaces`) or `--namespace`. A `/` inside a bare term is written as `%2F` in the `.nt`. For `.nt` input no mapping is needed: every IRI is cut to its last segment in the `.tsv` (`%2F` decoded back to `/`), and the script fails if two IRIs collide.
+Converting `.tsv` to `.nt` needs a term mapping: pass `-f` (only the config's `graph` section is read, for `namespace`/`term_namespaces`) or `--namespace`. For `.nt` input no mapping is needed: every IRI is cut to its last segment in the `.tsv`, and the script fails if two IRIs collide.
 
 ```bash
-python -m skgg.cli.prepare_data .data/source/french_royalty.tsv -f french_royalty_source.json  # -> french_royalty.no_literals.{tsv,nt}
+python -m skgg.cli.prepare_data data/french_royalty/source/french_royalty.tsv -f french_royalty.source.json  # -> french_royalty.no-literals.{tsv,nt}
 python -m skgg.cli.prepare_data path/to/graph.nt -o path/to/out --log-level DEBUG              # -> out.{tsv,nt}; DEBUG lists every untyped subject
 ```
 
-`cli/main.py`'s `__main__` block parses `-f`/`--config-file`, `--skip-edb`, `--log-level`, and `--pca-threshold` from the CLI (see the `bash` example above) and calls `run_synthetic_graph_experiment` end-to-end; confirmed working (verified via `python -m skgg.cli.main -f french_royalty_source.json`; see `BACKLOG.md`). Check `BACKLOG.md` for the current TODO list before assuming any other code path is exercised/working.
+`cli/convert.py` is a third local-only script (importable as `convert(input_file, output_file, term_mapping)`). It converts a triples file from `.nt` to `.tsv` or from `.tsv` to `.nt`, picking the direction from the input's suffix, and writes it to `-o` or else to the input path with the other suffix. It only drops duplicate triples and lines that are not a triple (each logged as a warning), so literals are kept: in the `.tsv` a literal becomes its text, without quotes, language tag or datatype, with tabs and line breaks turned into spaces. The term mapping comes from `-f`/`--namespace` as in `prepare_data`, and `.tsv` input requires it. For `.nt` input it is optional: with a mapping, an IRI is shortened only when that bare term maps back to the same IRI, and other IRIs are written in full; without one, every IRI is cut to its last segment and the script fails if two IRIs collide. When a bare `.tsv` term becomes an IRI, the characters N-Triples forbids in IRIs plus `%`, `/` and `#` are percent-encoded, and converting to `.tsv` decodes them. `.tsv` terms starting with `http` are kept as full IRIs and those starting with `_:` as blank nodes, and `type` maps to `rdf:type` through `utils.DEFAULT_PREFIXES`. `utils.load_term_mapping` builds the mapping from `-f`/`--namespace` for both `convert.py` and `prepare_data.py`.
+
+```bash
+python -m skgg.cli.convert path/to/graph.tsv --namespace http://example.org/  # -> path/to/graph.nt
+python -m skgg.cli.convert path/to/graph.nt -o path/to/out.tsv                # every IRI cut to its last segment
+```
+
+`cli/main.py`'s `__main__` block parses `-f`/`--config-file`, `--skip-edb`, `--log-level`, and `--pca-threshold` from the CLI (see the `bash` example above) and calls `run_synthetic_graph_experiment` end-to-end; confirmed working (verified via `python -m skgg.cli.main -f french_royalty.source.json`; see `BACKLOG.md`). Check `BACKLOG.md` for the current TODO list before assuming any other code path is exercised/working.
 
 ## Architecture
 
@@ -83,8 +90,9 @@ src/skgg/
   utils.py             # logging setup, SPARQL client factory, misc file helpers
   cli/
     main.py            # run_synthetic_graph_experiment: the end-to-end experiment pipeline
-    upload.py           # standalone script: upload a .nt/.tsv file to a graph URI (+ optional rule-based completion)
+    upload.py           # standalone script: upload a .nt/.tsv file to a graph URI
     prepare_data.py     # standalone script: copy a .nt/.tsv file without duplicates or untyped objects; report untyped subjects
+    convert.py          # standalone script: convert a triples file from .nt to .tsv or back
   core/
     rules.py           # Atom / RuleSignature (Horn rule) dataclasses, rule-set CSV parsing
     queries.py          # All SPARQL query construction + execution against the graph DB (insert/select/ask/clear/count)
@@ -96,9 +104,9 @@ src/skgg/
     cycles.py              # break_cycles: seeds one stale rule cycle (p -> p, A -> B -> A) per call in the synthetic graph; the caller completes it again
 ```
 
-Data flow: **term mapping + rules CSV + source graph metrics → EDB (facts satisfying rule bodies) → IDB (rule-derived facts, grown until closure) → synthetic graph**, all mediated through SPARQL against the graph store, keyed by graph URIs defined per-experiment in the `graph` section of each config JSON (`base_uri`, `complete_uri`, `edb_uri`, `synthetic_uri`).
+Data flow: **term mapping + rules CSV + source graph metrics → EDB (facts satisfying rule bodies) → IDB (rule-derived facts, grown until closure) → synthetic graph**, all mediated through SPARQL against the graph store, keyed by graph URIs defined per-experiment in the `graph` section of each config JSON (`base_uri`, `edb_uri`, `synthetic_uri`).
 
-Rules are parsed from CSV into `RuleSignature`/`Atom` objects (`core/rules.py`); each rule has body atoms and a head atom over predicates/variables, plus confidence metrics (PCA/Std confidence). `parse_rule_set` expects lowercase snake_case columns (`body`, `head`, `std_confidence`, `pca_confidence`, `head_coverage`, `positive_examples`), matching AMIE-style mined-rule exports like `.data/french_royalty/source/french_royalty.csv` — a CSV with the older CamelCase columns (`Body`/`Head`/`PCA_Confidence`/...) will raise a `KeyError`. `rules.pca_threshold` in config (overridable per-run via `--pca-threshold`) classifies each rule's `HornRule.classification` as POSITIVE/NEGATIVE/UNKNOWN by comparing PCA confidence against the threshold; `parse_rule_set` then drops every non-POSITIVE rule, so only rules meeting the threshold are ever seen by EDB generation, IDB/completion, and cycle-breaking.
+Rules are parsed from CSV into `RuleSignature`/`Atom` objects (`core/rules.py`); each rule has body atoms and a head atom over predicates/variables, plus confidence metrics (PCA/Std confidence). `parse_rule_set` expects lowercase snake_case columns (`body`, `head`, `std_confidence`, `pca_confidence`, `head_coverage`, `positive_examples`), matching AMIE-style mined-rule exports like `data/french_royalty/source/french_royalty.no-literals.csv` — a CSV with the older CamelCase columns (`Body`/`Head`/`PCA_Confidence`/...) will raise a `KeyError`. `rules.pca_threshold` in config (overridable per-run via `--pca-threshold`) classifies each rule's `HornRule.classification` as POSITIVE/NEGATIVE/UNKNOWN by comparing PCA confidence against the threshold; `parse_rule_set` then drops every non-POSITIVE rule, so only rules meeting the threshold are ever seen by EDB generation, IDB/completion, and cycle-breaking.
 
 LoRA fine-tuning of LLMs and Chain-of-Thought dataset generation from KGs are not implemented under `src/` yet — check `notebooks/` (`notebooks/Disha/`, `notebooks/Mine/`) for exploratory/prototype work in that direction. `config.py` previously carried placeholder `FineTuningConfig`/`CoTGenerationConfig` dataclasses for this; they were removed as dead code (nothing read them) and should be reintroduced once that pipeline is actually built.
 
@@ -106,8 +114,8 @@ LoRA fine-tuning of LLMs and Chain-of-Thought dataset generation from KGs are no
 
 - No test suite, linting/CI pipeline, or Makefile currently exists in this repo — `ruff` and `mypy` are configured in `pyproject.toml` (strict mypy, ruff rule sets E/F/I/UP/B/N) but are not wired into any automated command; run them manually (`ruff check .`, `mypy .`) if validating changes. See `BACKLOG.md` for the open question of whether/how to add a `tests/` + CI setup.
 - Per-experiment outputs (logs) are written under `logs/`. This folder is gitignored.
-- Input graph data (`.nt`/`.tsv`, `.ttl`, rule CSVs) per dataset lives under `.data/<dataset>/` (e.g. `.data/french_royalty/`, `.data/lung_cancer/`) and is referenced by `data.input_dir` in each experiment config.
-- A dataset's schema is a `.ttl` file next to its data (e.g. `.data/source/french_royalty.ttl`) that declares its classes (`owl:Class`) and entity-to-entity relations (`owl:ObjectProperty` with `rdfs:domain`/`rdfs:range`). Start new schemas from `schemas/template.ttl`. The pipeline does not read schemas yet (see `BACKLOG.md`).
+- Input graph data (`.nt`/`.tsv`, `.ttl`, rule CSVs) lives under `data/`, a plain local folder with one subfolder per dataset (e.g. `data/family/`, `data/french_royalty/`, `data/lung_cancer/`). Each config's `data.input_dir` picks the folder that its `graph.triple_file` and `rules.rules_file` are read from: `configurations/french_royalty.source.json` reads `data/french_royalty/source/`, `configurations/french_royalty.pygraft.json` reads `data/french_royalty/`, and `configurations/lung_cancer.json` reads `data/lung_cancer/`. Loading a config raises `FileNotFoundError` if that folder does not exist.
+- A dataset's schema is a `.ttl` file next to its data (e.g. `data/french_royalty/source/french_royalty.ttl`) that declares its classes (`owl:Class`) and entity-to-entity relations (`owl:ObjectProperty` with `rdfs:domain`/`rdfs:range`). Start new schemas from `schemas/template.ttl`. The pipeline does not read schemas yet (see `BACKLOG.md`).
 
 ## Writing documentation
 

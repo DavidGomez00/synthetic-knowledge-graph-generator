@@ -39,7 +39,7 @@ Rule quality metrics carried alongside each rule (from the CSV, used to filter w
 - **Std(ard) confidence** — support divided by the number of bindings that satisfy the body (closed-world: body-satisfying bindings that *don't* also satisfy the head count against the rule).
 - **PCA confidence** — like standard confidence, but under the *Partial Completeness Assumption*: only counts a body-satisfying binding as contradicting evidence if some other object is already known for the same subject/predicate. More forgiving of open-world incompleteness, so PCA confidence is normally ≥ standard confidence, and is what `rules.pca_threshold` filters on (`RulesConfig` in `config.py`).
 
-## Extensional vs. Intensional (EDB / IDB)
+## Extensional database (EDB) and Intensional database (IDB)
 
 Standard Datalog terminology, used directly as named-graph URIs in each config (`graph.edb_uri`, `graph.synthetic_uri`):
 

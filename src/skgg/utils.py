@@ -2,12 +2,13 @@
 RDF terms (short names) to their fully-qualified namespace URIs.
 """
 
+import json
 import logging
 from pathlib import Path
 
 from SPARQLWrapper import BASIC, DIGEST, SPARQLWrapper
 
-from skgg.config import RunConfig
+from skgg.config import GraphConfig, RunConfig
 
 logger = logging.getLogger(__name__)
 
@@ -138,3 +139,23 @@ def build_term_mapping(
     term_mapping.update(term_namespaces)
     term_mapping["default"] = default_namespace
     return term_mapping
+
+
+def load_term_mapping(
+    config_file: str | None, namespace: str | None
+) -> dict[str, str] | None:
+    """Builds the term mapping for the `-f`/`--config-file` and `--namespace`
+    options of the local-file scripts (`cli/prepare_data.py`, `cli/convert.py`):
+    the config file's `graph.term_namespaces`, under `namespace` or else the
+    config's `graph.namespace`. Only the config's graph section is read, so its
+    other sections (e.g. `data.input_dir`, which must exist) aren't checked.
+    Returns None when neither option is given."""
+    term_namespaces: dict[str, str] = {}
+    if config_file is not None:
+        with resolve_config_path(config_file).open(encoding="utf-8") as f:
+            graph = GraphConfig(**json.load(f)["graph"])
+        term_namespaces = graph.term_namespaces
+        namespace = namespace or graph.namespace
+    if namespace is None:
+        return None
+    return build_term_mapping(term_namespaces, namespace)

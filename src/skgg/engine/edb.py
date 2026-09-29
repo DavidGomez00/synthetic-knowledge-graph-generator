@@ -10,10 +10,12 @@ order, until every extensional predicate's target frequency is reached
      constructed directly from the profiles (`generator.sample_groundings`) so a
      chosen triple never violates another predicate's remaining domain/range budget.
   3. `insert_random_triples`: random assignment for whatever isn't pinned down
-     by the first two steps, still respecting the Gale-Ryser/Havel-Hakimi
+     by the first two steps, with subjects and objects drawn weighted by their
+     remaining budget, still respecting the Gale-Ryser/Havel-Hakimi
      solvability check (`generator.is_assignment_solvable`).
 """
 
+import heapq
 import logging
 import random
 from collections.abc import Iterator
@@ -36,6 +38,9 @@ from skgg.engine.metrics import PredicateProfile
 from skgg.utils import format_triple
 
 logger = logging.getLogger(__name__)
+
+# Draws of an object set that `insert_random_triples` tries before giving up.
+MAX_RANDOM_DRAWS = 1000
 
 
 # ---------------------------------------------------------------------------
@@ -176,6 +181,14 @@ def check_triples_from_rule(
 # ---------------------------------------------------------------------------
 # Step 3: Produce triples from a random subject.
 # ---------------------------------------------------------------------------
+def _weighted_sample(weights: dict[str, int], k: int) -> list[str]:
+    """Draws `k` distinct keys of `weights` without replacement, each with
+    probability proportional to its (positive) weight (Efraimidis-Spirakis)."""
+    return heapq.nlargest(
+        k, weights, key=lambda key: random.random() ** (1 / weights[key])
+    )
+
+
 def insert_random_triples(
     client: SPARQLWrapper,
     edb_uri: str,
@@ -184,10 +197,16 @@ def insert_random_triples(
     term_mapping: dict[str, str],
     chunk_size: int,
     buffer: TripleBuffer,
-):
+) -> int:
     """Generates random triples from a single predicate's profile and buffers them
     for insertion (see `TripleBuffer`) — the random assignment never requires a DB
     read, so the triples don't need to land immediately.
+
+    The subject is drawn with probability proportional to its remaining domain
+    count and gets all of its triples at once. Its objects are drawn without
+    replacement, with probability proportional to their remaining range count,
+    until a set passes the solvability check. Serving large demands while the
+    most partners remain means fewer sets fail that check.
 
     Args:
         client: Wrapper for SPARQL queries.
@@ -202,7 +221,9 @@ def insert_random_triples(
         The number of buffered triples.
 
     Raises:
-        ValueError: If there are not enough available objects to satisfy the domain.
+        ValueError: If there are not enough available objects to satisfy the domain,
+            or no object set passes the solvability check in `MAX_RANDOM_DRAWS`
+            draws.
     """
 
     available_subjects = list(profile.domain.keys())
@@ -210,7 +231,9 @@ def insert_random_triples(
         logger.warning("Empty domain for predicate %s.", predicate)
         return 0
 
-    subject = random.choice(available_subjects)
+    subject = random.choices(
+        available_subjects, weights=[profile.domain[s] for s in available_subjects]
+    )[0]
     required_count = profile.domain[subject]
 
     # TODO: I am not excluding the subject from the profile, ponder this.
@@ -227,8 +250,8 @@ def insert_random_triples(
     max_domain = max((v for k, v in profile.domain.items() if k != subject), default=0)
     chosen_objects: list[str] = []
 
-    while True:
-        chosen_objects = random.sample(available_objects, required_count)
+    for draw in range(1, MAX_RANDOM_DRAWS + 1):
+        chosen_objects = _weighted_sample(profile.range, required_count)
         chosen_set = set(chosen_objects)
 
         # Simulate the range length: Count the objects that won't drop to 0
@@ -247,9 +270,15 @@ def insert_random_triples(
         )
 
         if max_domain <= sim_range_len and max_range <= sim_domain_len:
+            if draw > 1:
+                logger.debug("Rejected %d object sets for %s.", draw - 1, subject)
             break
-
-        logger.debug("Selected random assignments invalid, trying again.")
+    else:
+        raise ValueError(
+            f"Error assigning triples for {predicate}. No set of {required_count} "
+            f"objects for {subject} passed the solvability check in "
+            f"{MAX_RANDOM_DRAWS} draws."
+        )
 
     def random_matches() -> Iterator[str]:
         """Yield random triples generated for a predicate using its profile."""

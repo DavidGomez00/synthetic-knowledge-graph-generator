@@ -19,7 +19,7 @@ Its plain-text stdout table is parsed and written out as CSV with columns:
 Example (see docs/Getting_started.md and README.md for this repo's own
 worked examples):
 
-    python run_amie.py data/french_royalty/normalized/french_royalty.tsv \\
+    python mine_rules/run_amie.py data/french_royalty/source/french_royalty.no-literals.tsv \\
         -o output/french_royalty/normalized_rules.csv \\
         --mins 1 --minis 1 --minhc 0
 
