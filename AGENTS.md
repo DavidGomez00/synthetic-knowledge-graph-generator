@@ -71,6 +71,13 @@ python -m skgg.cli.prepare_data .data/source/french_royalty.tsv -f french_royalt
 python -m skgg.cli.prepare_data path/to/graph.nt -o path/to/out --log-level DEBUG              # -> out.{tsv,nt}; DEBUG lists every untyped subject
 ```
 
+`cli/convert.py` is a third local-only script (importable as `convert(input_file, output_file, term_mapping)`). It converts a triples file from `.nt` to `.tsv` or from `.tsv` to `.nt`, picking the direction from the input's suffix, and writes it to `-o` or else to the input path with the other suffix. It only drops duplicate triples and lines that are not a triple (each logged as a warning), so literals are kept: in the `.tsv` a literal becomes its text, without quotes, language tag or datatype, with tabs and line breaks turned into spaces. The term mapping comes from `-f`/`--namespace` as in `prepare_data`, and `.tsv` input requires it. For `.nt` input it is optional: with a mapping, an IRI is shortened only when that bare term maps back to the same IRI, and other IRIs are written in full; without one, every IRI is cut to its last segment and the script fails if two IRIs collide. When a bare `.tsv` term becomes an IRI, the characters N-Triples forbids in IRIs plus `%`, `/` and `#` are percent-encoded, and converting to `.tsv` decodes them. `.tsv` terms starting with `http` are kept as full IRIs and those starting with `_:` as blank nodes, and `type` maps to `rdf:type` through `utils.DEFAULT_PREFIXES`. `utils.load_term_mapping` builds the mapping from `-f`/`--namespace` for both `convert.py` and `prepare_data.py`.
+
+```bash
+python -m skgg.cli.convert path/to/graph.tsv --namespace http://example.org/  # -> path/to/graph.nt
+python -m skgg.cli.convert path/to/graph.nt -o path/to/out.tsv                # every IRI cut to its last segment
+```
+
 `cli/main.py`'s `__main__` block parses `-f`/`--config-file`, `--skip-edb`, `--log-level`, and `--pca-threshold` from the CLI (see the `bash` example above) and calls `run_synthetic_graph_experiment` end-to-end; confirmed working (verified via `python -m skgg.cli.main -f french_royalty.source.json`; see `BACKLOG.md`). Check `BACKLOG.md` for the current TODO list before assuming any other code path is exercised/working.
 
 ## Architecture
@@ -85,6 +92,7 @@ src/skgg/
     main.py            # run_synthetic_graph_experiment: the end-to-end experiment pipeline
     upload.py           # standalone script: upload a .nt/.tsv file to a graph URI
     prepare_data.py     # standalone script: copy a .nt/.tsv file without duplicates or untyped objects; report untyped subjects
+    convert.py          # standalone script: convert a triples file from .nt to .tsv or back
   core/
     rules.py           # Atom / RuleSignature (Horn rule) dataclasses, rule-set CSV parsing
     queries.py          # All SPARQL query construction + execution against the graph DB (insert/select/ask/clear/count)

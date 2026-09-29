@@ -7,21 +7,13 @@ whose objects are always literals (e.g. `name`). Type triples themselves are
 always kept. Also reports every term used as a subject that is never typed."""
 
 import argparse
-import json
 import logging
 import re
 from collections.abc import Collection, Iterator
 from pathlib import Path
 from urllib.parse import unquote
 
-from skgg.config import GraphConfig
-from skgg.utils import (
-    build_term_mapping,
-    format_term,
-    resolve_config_path,
-    setup_logging,
-    short_term,
-)
+from skgg.utils import format_term, load_term_mapping, setup_logging, short_term
 
 logger = logging.getLogger(__name__)
 
@@ -295,24 +287,10 @@ if __name__ == "__main__":
     args = _parse_args()
     setup_logging(level=args.log_level)
 
-    term_namespaces: dict[str, str] = {}
-    namespace: str | None = args.namespace
-    if args.config_file is not None:
-        # Only the graph section is needed, so skip RunConfig's other sections
-        # (e.g. data.input_dir, which must exist).
-        with resolve_config_path(args.config_file).open(encoding="utf-8") as f:
-            graph = GraphConfig(**json.load(f)["graph"])
-        term_namespaces = graph.term_namespaces
-        namespace = namespace or graph.namespace
-
     input_file: Path = args.input_file
     prepare_data(
         input_file,
         args.output or input_file.with_name(f"{input_file.stem}.no-literals"),
-        term_mapping=(
-            build_term_mapping(term_namespaces, namespace)
-            if namespace is not None
-            else None
-        ),
+        term_mapping=load_term_mapping(args.config_file, args.namespace),
         literal_predicates=set(args.literal_predicates),
     )

@@ -33,6 +33,8 @@ python -m skgg.cli.prepare_data .data/source/french_royalty.tsv -f french_royalt
 
 This writes `.data/source/french_royalty.no-literals.tsv` and `.data/source/french_royalty.no-literals.nt`: the same triples without duplicates, without triples whose object is never typed, and without `name` triples (the `--literal-predicates` default). The config passed with `-f` supplies the term mapping needed to write the `.nt` copy. `-o` sets a different output path.
 
+If a dataset only needs the other format, without any cleaning, `cli/convert.py` converts a `.nt` file to `.tsv` or back; see [Convert between .nt and .tsv](../README.md#convert-between-nt-and-tsv) in the README.
+
 ## 4. Upload the source graph
 
 `cli/upload.py` is a standalone script (the upload step itself is importable as `upload_graph`):

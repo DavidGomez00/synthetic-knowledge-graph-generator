@@ -41,6 +41,26 @@ python -m skgg.cli.prepare_data path/to/graph.nt -o path/to/out --log-level DEBU
 
 Without `-o`, the output goes next to the input as `<stem>.no-literals.{tsv,nt}`. A `.tsv` input needs a term mapping to write its `.nt` copy: pass a config with `-f` or a default namespace with `--namespace`. An `.nt` input needs neither.
 
+### Convert between .nt and .tsv
+
+`skgg.cli.convert` converts a triples file from `.nt` to `.tsv` or from `.tsv` to `.nt`, depending on the input's suffix. Without `-o`, the output goes next to the input with the other suffix. It removes only duplicate triples and lines that are not a triple, and logs a warning for each skipped line.
+
+```bash
+python -m skgg.cli.convert path/to/graph.tsv --namespace http://example.org/  # -> path/to/graph.nt
+python -m skgg.cli.convert path/to/graph.tsv -f french_royalty.source.json    # namespaces from the config's graph section
+python -m skgg.cli.convert path/to/graph.nt -o path/to/out.tsv                # every IRI cut to its last segment
+```
+
+A `.tsv` input needs a term mapping, from `--namespace` or from a config passed with `-f` (as for `prepare_data`). Each row must hold three tab-separated values, which become N-Triples terms as follows:
+
+- `type` in the predicate column becomes `rdf:type`.
+- A value starting with `http` is kept as a full IRI, and one starting with `_:` as a blank node.
+- Any other value is appended to its namespace. Spaces, `%`, `/`, `#` and the other characters N-Triples forbids in IRIs are percent-encoded.
+
+For example, the row `143<TAB>niece<TAB>340` with `--namespace http://Family.org/` becomes `<http://Family.org/143> <http://Family.org/niece> <http://Family.org/340> .`. Objects always become IRIs, so a `.tsv` file cannot hold literals.
+
+For an `.nt` input the term mapping is optional. With one, an IRI is shortened to a bare value only when that value maps back to the same IRI, and other IRIs are kept in full. Without one, every IRI is cut to its last segment, and the script fails if two IRIs share a last segment. Percent-encoded characters are decoded, and a literal becomes its text without quotes, language tag or datatype.
+
 ### Upload the source graph
 
 `skgg.cli.upload` inserts a `.nt`/`.tsv` triple file into the graph database, in the named graph `graph.base_uri`. Terms in a `.tsv` file are resolved to full URIs through the config's `graph.namespace` and `graph.term_namespaces`.
