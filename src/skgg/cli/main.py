@@ -201,14 +201,13 @@ def run_synthetic_graph_experiment(
     input_dir = config.data.input_dir
     rules_file = input_dir / config.rules.rules_file
 
-    # SPARQL client
     client = create_sparql_client(config)
 
     run_start = time.time()
 
     ## ------ Extraction of predicate profiles from original graph -------
     _log_phase(1, "Extracting metrics and rules")
-    # Graph metrics
+
     graph_metrics = GraphMetrics.from_uri(client, config.graph.base_uri)
 
     ## ------ Previous evaluation of rules ------

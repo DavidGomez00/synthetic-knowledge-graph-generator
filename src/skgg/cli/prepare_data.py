@@ -1,13 +1,15 @@
 """Writes a cleaned copy of an .nt/.tsv file, in both .tsv and .nt formats:
-duplicate triples are dropped (keeping the first occurrence), and so are its
-"literals": triples whose object is never typed (never the subject of a type
-triple), plus every triple of a predicate whose objects are always literals
-(e.g. `name`). Type triples themselves are always kept. Also reports every term
-used as a subject that is never typed."""
+every '/' in a term's own name becomes '_' (e.g. `Matilda_of_Saxony_1172_1209/10`,
+which would otherwise shorten to `10`), duplicate triples are dropped (keeping
+the first occurrence), and so are its "literals": triples whose object is never
+typed (never the subject of a type triple), plus every triple of a predicate
+whose objects are always literals (e.g. `name`). Type triples themselves are
+always kept. Also reports every term used as a subject that is never typed."""
 
 import argparse
 import json
 import logging
+import re
 from collections.abc import Collection, Iterator
 from pathlib import Path
 from urllib.parse import unquote
@@ -29,6 +31,34 @@ NT_TYPE = "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>"
 # Predicates whose objects are always literals, even when an object happens to
 # equal a typed term (e.g. a person whose name is their entity ID).
 LITERAL_PREDICATES = frozenset({"name"})
+
+# A '/' inside an IRI's last segment, which only appears percent-encoded.
+ENCODED_SLASH = re.compile("%2F", re.IGNORECASE)
+
+
+def _clean_iri(iri: str) -> str:
+    """Replaces every '%2F' in an IRI's last path/fragment segment (the one
+    `utils.short_term` keeps) with '_', leaving the '/' between its segments."""
+    stem = iri.rstrip("/#")
+    cut = max(stem.rfind("/"), stem.rfind("#")) + 1
+    return iri[:cut] + ENCODED_SLASH.sub("_", iri[cut:])
+
+
+def _clean_term(term: str) -> str:
+    """Replaces every '/' in a term's own name with '_'.
+
+    A bare .tsv term is all name, so each of its '/' is replaced. In an IRI
+    (`<...>`, or a .tsv term starting with 'http') only the last segment is
+    the name, where a '/' is written as '%2F'. Literals and blank nodes are
+    returned unchanged.
+    """
+    if term.startswith("<") and term.endswith(">"):
+        return f"<{_clean_iri(term[1:-1])}>"
+    if term.startswith("http"):
+        return _clean_iri(term)
+    if term.startswith(('"', "_:")):
+        return term
+    return term.replace("/", "_")
 
 
 def _iter_triples(path: Path) -> Iterator[tuple[str, str, str]]:
@@ -68,18 +98,18 @@ def prepare_data(
     term_mapping: dict[str, str] | None = None,
     literal_predicates: Collection[str] = LITERAL_PREDICATES,
 ) -> tuple[int, int, int, int, set[str]]:
-    """Writes `input_file` to `<output>.tsv` and `<output>.nt`, dropping duplicate
-    triples, every triple of a `literal_predicates` predicate, and every
-    non-type triple whose object is never typed.
+    """Writes `input_file` to `<output>.tsv` and `<output>.nt`, replacing '/'
+    with '_' in every term's own name (see `_clean_term`), then dropping
+    duplicate triples, every triple of a `literal_predicates` predicate, and
+    every non-type triple whose object is never typed.
 
     Args:
         input_file: The .nt/.tsv file to clean.
         output: Output path without extension (a .tsv/.nt suffix is ignored).
         term_mapping: Bare-term -> namespace mapping (see `utils.format_term`).
             Required when `input_file` is a .tsv file, to expand its terms into
-            the .nt output ('/' in a bare term is written as '%2F'). Ignored
-            for .nt files, whose IRIs become their last segment in the .tsv
-            output (`utils.short_term`).
+            the .nt output. Ignored for .nt files, whose IRIs become their last
+            segment in the .tsv output (`utils.short_term`).
         literal_predicates: Predicates (bare terms, matched against each
             predicate's `utils.short_term`) whose triples are always dropped.
 
@@ -91,8 +121,9 @@ def prepare_data(
 
     Raises:
         ValueError: If an output path is the input file, a .tsv input comes
-            without a `term_mapping`, or two distinct .nt IRIs share a short
-            term, which the .tsv output would merge.
+            without a `term_mapping`, two distinct terms differ only in '/' vs
+            '_' (or '%2F' vs '_'), which cleaning would merge, or two distinct
+            .nt IRIs share a short term, which the .tsv output would merge.
     """
     input_file = Path(input_file)
     tsv_file, nt_file = _output_paths(Path(output))
@@ -105,9 +136,23 @@ def prepare_data(
 
     type_predicates = {TSV_TYPE, NT_TYPE}
 
+    # Cleaned term -> the term it came from, to catch two terms cleaned into one.
+    originals: dict[str, str] = {}
+
+    def _clean_triples() -> Iterator[tuple[str, str, str]]:
+        """The input triples, with '/' in their terms' names replaced."""
+        for raw in _iter_triples(input_file):
+            subject, predicate, obj = map(_clean_term, raw)
+            for term, cleaned in zip(raw, (subject, predicate, obj), strict=True):
+                if originals.setdefault(cleaned, term) != term:
+                    raise ValueError(
+                        f"{term} and {originals[cleaned]} both clean to '{cleaned}'."
+                    )
+            yield subject, predicate, obj
+
     typed: set[str] = set()
     subjects: set[str] = set()
-    for subject, predicate, _ in _iter_triples(input_file):
+    for subject, predicate, _ in _clean_triples():
         subjects.add(subject)
         if predicate in type_predicates:
             typed.add(subject)
@@ -120,8 +165,6 @@ def prepare_data(
 
     def _expand(term: str) -> str:
         """A .tsv term as an .nt term."""
-        if not term.startswith("http"):
-            term = term.replace("/", "%2F")
         return format_term(term, term_mapping)
 
     def _shorten(term: str) -> str:
@@ -137,7 +180,7 @@ def prepare_data(
         tsv_file.open("w", encoding="utf-8") as tsv_out,
         nt_file.open("w", encoding="utf-8") as nt_out,
     ):
-        for triple in _iter_triples(input_file):
+        for triple in _clean_triples():
             if triple in seen:
                 duplicates += 1
                 continue
@@ -157,6 +200,16 @@ def prepare_data(
             tsv_out.write("\t".join(tsv_triple) + "\n")
             nt_out.write(" ".join(nt_triple) + " .\n")
             kept += 1
+
+    renamed = sorted(
+        f"{term} -> {cleaned}"
+        for cleaned, term in originals.items()
+        if cleaned != term
+    )
+    if renamed:
+        logger.info(
+            "Replaced '/' with '_' in %d terms: %s", len(renamed), ", ".join(renamed)
+        )
 
     logger.info(
         "Wrote %s and %s: kept %d triples, removed %d duplicate triples, %d "
@@ -189,9 +242,9 @@ def prepare_data(
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Write a .nt/.tsv file as both .tsv and .nt, without duplicate "
-        "triples or literals (objects that are never typed), and report subjects "
-        "that are never typed."
+        description="Write a .nt/.tsv file as both .tsv and .nt, with '/' in term "
+        "names replaced by '_', without duplicate triples or literals (objects "
+        "that are never typed), and report subjects that are never typed."
     )
     parser.add_argument("input_file", type=Path, help="Path to the .nt/.tsv file.")
     parser.add_argument(
