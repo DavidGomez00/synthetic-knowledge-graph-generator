@@ -16,7 +16,7 @@ T = TypeVar("T")
 class DataConfig:
     """Configuration for input and output directories."""
 
-    input_dir: Path = Path(".data/")
+    input_dir: Path = Path("data/")
 
     # Base URL of the database instance
     database_url: URL = URL("http://localhost:8890/")

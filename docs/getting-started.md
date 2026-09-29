@@ -28,10 +28,10 @@ If you'd rather use Virtuoso instead, `docker compose --profile virtuoso up` bri
 The pipeline does not handle literals yet, so the source graph is first cleaned with `cli/prepare_data.py`, which works on local files only (no graph database needed):
 
 ```bash
-python -m skgg.cli.prepare_data .data/source/french_royalty.tsv -f french_royalty.source.json
+python -m skgg.cli.prepare_data data/french_royalty/source/french_royalty.tsv -f french_royalty.source.json
 ```
 
-This writes `.data/source/french_royalty.no-literals.tsv` and `.data/source/french_royalty.no-literals.nt`: the same triples without duplicates, without triples whose object is never typed, and without `name` triples (the `--literal-predicates` default). The config passed with `-f` supplies the term mapping needed to write the `.nt` copy. `-o` sets a different output path.
+This writes `data/french_royalty/source/french_royalty.no-literals.tsv` and `data/french_royalty/source/french_royalty.no-literals.nt`: the same triples without duplicates, without triples whose object is never typed, and without `name` triples (the `--literal-predicates` default). The config passed with `-f` supplies the term mapping needed to write the `.nt` copy. `-o` sets a different output path.
 
 If a dataset only needs the other format, without any cleaning, `cli/convert.py` converts a `.nt` file to `.tsv` or back; see [Convert between .nt and .tsv](../README.md#convert-between-nt-and-tsv) in the README.
 
@@ -43,7 +43,7 @@ If a dataset only needs the other format, without any cleaning, `cli/convert.py`
 python -m skgg.cli.upload -f french_royalty.source.json
 ```
 
-This uploads `.data/source/french_royalty.no-literals.tsv` (`graph.triple_file` in the config, resolved under `data.input_dir`) into `base_uri`, the graph that metrics get extracted from in step 5. The script only uploads; it runs no rule-based completion. `-f`/`--config-file` resolves a bare filename under `configurations/` (same as step 5 below), `--triple-file` and `--graph-uri` override the input file and the target graph, and `--log-level` overrides the config's `logging.level` for the run.
+This uploads `data/french_royalty/source/french_royalty.no-literals.tsv` (`graph.triple_file` in the config, resolved under `data.input_dir`) into `base_uri`, the graph that metrics get extracted from in step 5. The script only uploads; it runs no rule-based completion. `-f`/`--config-file` resolves a bare filename under `configurations/` (same as step 5 below), `--triple-file` and `--graph-uri` override the input file and the target graph, and `--log-level` overrides the config's `logging.level` for the run.
 
 `graph.triple_file` accepts a `.tsv` file of bare `subject<TAB>predicate<TAB>object` terms — `french_royalty.source.json` uses this format; terms are resolved to full URIs via the term mapping before insertion, the same way rule bodies are. An `.nt` file works too.
 
@@ -77,7 +77,7 @@ python -m skgg.cli.main -f french_royalty.source.json --skip-edb --log-level DEB
 
 | What | Where |
 |---|---|
-| Source data (`.nt`/`.tsv`/`.ttl`/rules `.csv`) | `.data/<variant>/` (e.g. `.data/source/`), referenced by `data.input_dir` in the matching config |
+| Source data (`.nt`/`.tsv`/`.ttl`/rules `.csv`) | `data/<dataset>/` or a subfolder of it (e.g. `data/french_royalty/source/`), referenced by `data.input_dir` in the matching config |
 | Experiment configs | `configurations/*.json` |
 | Named graphs (base/EDB/synthetic) | in the running Virtuoso/GraphDB instance, keyed by the URIs in each config's `graph` section — nothing is written to disk by `cli/main.py` |
 | Run logs | `logs/` (gitignored) |

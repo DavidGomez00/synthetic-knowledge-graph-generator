@@ -35,7 +35,7 @@ Experiments are driven by JSON config files in `configurations/` (e.g. `french_r
 This method does not support literals yet, so `skgg.cli.prepare_data` handles the source graph to create a new version with no literals, creating a copy in `<output>.tsv` and `<output>.nt` formats. This drops duplicate triples, every non-type triple whose object is never typed (literals), and every triple with a fixed predicate listed in `--literal-predicates` (default `name` for FrenchRoyalty), and logs a warning for every subject that is never typed.
 
 ```bash
-python -m skgg.cli.prepare_data .data/source/french_royalty.tsv -f french_royalty.source.json  # -> .data/source/french_royalty.no-literals.{tsv,nt}
+python -m skgg.cli.prepare_data data/french_royalty/source/french_royalty.tsv -f french_royalty.source.json  # -> data/french_royalty/source/french_royalty.no-literals.{tsv,nt}
 python -m skgg.cli.prepare_data path/to/graph.nt -o path/to/out --log-level DEBUG              # -> path/to/out.{tsv,nt}; DEBUG lists every untyped subject
 ```
 
@@ -66,7 +66,7 @@ For an `.nt` input the term mapping is optional. With one, an IRI is shortened t
 `skgg.cli.upload` inserts a `.nt`/`.tsv` triple file into the graph database, in the named graph `graph.base_uri`. Terms in a `.tsv` file are resolved to full URIs through the config's `graph.namespace` and `graph.term_namespaces`.
 
 ```bash
-python -m skgg.cli.upload -f french_royalty.source.json --triple-file .data/source/french_royalty.no-literals.tsv
+python -m skgg.cli.upload -f french_royalty.source.json --triple-file data/french_royalty/source/french_royalty.no-literals.tsv
 python -m skgg.cli.upload -f french_royalty.source.json   # uploads graph.triple_file
 ```
 
@@ -95,7 +95,7 @@ This loads the config, computes graph metrics over SPARQL, parses the ontology a
 ```
 src/skgg/          # package source (see docs/architecture.md for the full module map)
 configurations/    # per-experiment JSON configs
-.data/<variant>/   # source graph data (.nt/.tsv/.ttl/.csv) referenced by configs
+data/<dataset>/    # source graph data (.nt/.tsv/.ttl/.csv) referenced by configs, e.g. data/french_royalty/source/
 docs/              # architecture, concepts glossary, getting-started guide
 notebooks/         # exploratory/prototype work
 logs/              # per-run logs (gitignored)
