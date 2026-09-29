@@ -10,7 +10,6 @@ Known issues and pending refactors, organized by module. Resolved items are arch
   - [ ] Generated seeds live only in the synthetic graph, so a `--skip-edb` rerun repeats the cycle-breaking.
   - [ ] `apply_rule` in completion is not profile-capped, so a seeded cycle can overshoot its target frequency.
 - [ ] **`metrics.py`** *(low priority)*: `GraphMetrics.from_uri` dumps its result to `logs/metrics/<uri>.json` for debugging. There's still no path to make the pipeline consume that JSON instead of re-querying the graph over SPARQL.
-- [ ] **`edb.py`** *(low priority)*: `insert_random_triples`'s Step 3 fallback picks the subject uniformly at random, then resamples random objects until the solvability check passes. Choosing the subject with the *greatest* remaining domain count first instead of at random, while keeping object selection random, should need fewer resampling retries and be faster overall.
 
 ## Graph layout (`config.py`, `cli/`, `engine/`)
 - [ ] **Graph storage layout** *(low priority)*: Give the named graphs a good, standard naming across the pipeline stages, keeping one GraphDB repository per dataset (already the case).
