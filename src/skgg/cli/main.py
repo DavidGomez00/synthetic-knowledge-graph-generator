@@ -7,6 +7,7 @@ section for the full pipeline description.
 import argparse
 import logging
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from SPARQLWrapper import SPARQLWrapper
@@ -51,6 +52,62 @@ def _format_rule(rule: HornRule) -> str:
 
     body = " & ".join(atom(a) for a in sorted(rule.body))
     return f"{body} => {atom(rule.head)}"
+
+
+@dataclass
+class _ClosureProgress:
+    """Logs the closure state between pipeline steps: how many predicates and
+    rules are closed, which ones closed since the previous call, and each open
+    predicate's current frequency against its target."""
+
+    client: SPARQLWrapper
+    profiles: dict[str, PredicateProfile]
+    rules: dict[str, HornRule]
+    # Target frequency per predicate, copied on creation: EDB generation later
+    # spends `PredicateProfile.frequency` as a remaining budget.
+    targets: dict[str, int] = field(init=False)
+    closed_preds: set[str] = field(default_factory=set)
+    closed_rules: set[str] = field(default_factory=set)
+
+    def __post_init__(self) -> None:
+        self.targets = {p: pr.frequency for p, pr in self.profiles.items()}
+
+    def log(self, stage: str, graph_uri: str) -> None:
+        """Logs the closure state after `stage`, measuring open predicates'
+        frequencies in `graph_uri`."""
+        closed_preds = {p for p, pr in self.profiles.items() if pr.closed}
+        closed_rules = {r_id for r_id, rule in self.rules.items() if rule.closed}
+        new_preds = sorted(short_term(p) for p in closed_preds - self.closed_preds)
+        new_rules = sorted(closed_rules - self.closed_rules)
+        self.closed_preds, self.closed_rules = closed_preds, closed_rules
+
+        logger.info(
+            "[%s] Closed predicates: %d/%d, closed rules: %d/%d.",
+            stage,
+            len(closed_preds),
+            len(self.profiles),
+            len(closed_rules),
+            len(self.rules),
+        )
+        if new_preds:
+            logger.info("[%s] Newly closed predicates: %s", stage, ", ".join(new_preds))
+        if new_rules:
+            logger.info("[%s] Newly closed rules: %s", stage, ", ".join(new_rules))
+
+        open_preds = sorted(self.profiles.keys() - closed_preds, key=short_term)
+        if open_preds:
+            # Profiles are keyed by the bracketed URI, frequencies by the bare one.
+            freqs = get_predicate_frequencies(self.client, graph_uri)
+            logger.info(
+                "[%s] Open predicates (current/target): %s",
+                stage,
+                ", ".join(
+                    f"{short_term(p)} {freqs.get(p[1:-1], 0)}/{self.targets[p]}"
+                    for p in open_preds
+                ),
+            )
+        if open_rules := sorted(self.rules.keys() - closed_rules):
+            logger.debug("[%s] Open rules: %s", stage, ", ".join(open_rules))
 
 
 def _format_summary_block(
@@ -230,6 +287,9 @@ def run_synthetic_graph_experiment(
         title=f"{config.graph.name} — relation graph",
     )
 
+    # Created before EDB generation, which spends the profiles' frequencies.
+    progress = _ClosureProgress(client, graph_metrics.profiles, rules)
+
     ## ------ Initialization -------
     chunk_size = config.db_config.chunk_size
     edb_uri = config.graph.edb_uri
@@ -268,6 +328,7 @@ def run_synthetic_graph_experiment(
             edb_uri,
             get_triple_count(client, edb_uri),
         )
+    progress.log("EDB", edb_uri)
 
     _log_phase(3, "Completing graph")
     complete_graph(
@@ -280,6 +341,7 @@ def run_synthetic_graph_experiment(
         profiles=graph_metrics.profiles,
         label="initial",
     )
+    progress.log("initial", synthetic_uri)
 
     _log_phase(4, "Breaking rule cycles")
     round_no = 0
@@ -304,6 +366,7 @@ def run_synthetic_graph_experiment(
             profiles=graph_metrics.profiles,
             label=f"cycle round {round_no}",
         )
+        progress.log(f"cycle round {round_no}", synthetic_uri)
 
     logger.info("No cycles to break or rules to complete.")
 
