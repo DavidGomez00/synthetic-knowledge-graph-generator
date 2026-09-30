@@ -78,7 +78,7 @@ To upload the file written by `prepare_data`, pass it with `--triple-file` or se
 
 ```bash
 python -m skgg.cli.complete -f family.source.json --complete-uri http://Family.org/complete                                  # graph.base_uri -> complete
-python -m skgg.cli.complete -f family.source.json --source data/family/family.tsv --complete-uri http://Family.org/complete  # a file instead of base_uri
+python -m skgg.cli.complete -f family.source.json --source data/family/family.nt  --complete-uri http://Family.org/complete  # a file instead of base_uri
 python -m skgg.cli.complete --source http://Family.org/source --complete-uri http://Family.org/complete --rules-file data/family/family.csv --pca-threshold 1 --namespace http://Family.org/ --database-url http://localhost:7200/ --sparql-endpoint repositories/Family --auth-type BASIC --user admin --password rootpassword
 ```
 
