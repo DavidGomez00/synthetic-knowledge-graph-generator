@@ -79,6 +79,18 @@ EDB generation only seeds extensional predicates (never a rule head). If every r
 
 `engine/cycles.break_cycles` picks one rule of one stale cycle (fewest ungrounded body atoms, non-recursive first, most restrictive first), instantiates its ungrounded body atoms with `sample_groundings` as if they were extensional (joined via `fixed_bindings` with any body atoms already grounded), inserts them into the synthetic graph only, and returns; the pipeline then re-runs completion and calls it again until nothing more is seeded. Intensional dependencies do not gate the choice: the non-recursive rules a recursive rule would wait for can never fire inside a stale cycle.
 
+## Inverse rule pair
+
+Two single-atom rules that derive each predicate from the other with the variables swapped, R1 = `?x p ?y => ?y q ?x` and R2 = `?x q ?y => ?y p ?x` with p ≠ q, e.g. `parent`/`child`. Both p and q are rule heads, so both are intensional, and the pair forms a `p -> q -> p` cycle that is stale when no other rule derives either predicate. `core/rules.find_inverse_pairs` finds these pairs. Symmetric rules (p = q) are not pairs.
+
+`core/rules.removable_inverse_rule` allows deleting R2 only when doing so loses nothing:
+
+1. p and q are exact inverses in the source: R1 has standard confidence 1 (every p fact has its q fact) and head coverage 1 (every q fact has its p fact). For such a pair, R1's standard confidence is R2's head coverage and the other way round. PCA confidence 1 is not enough, because it ignores subjects that have no head fact at all.
+2. R2 is the only rule with head p, so p becomes extensional and the EDB generates it to its profile.
+3. R1 is the only rule with head q, so every q fact is derived from p and R2 still holds on the output.
+
+Under these conditions completion derives q = p⁻¹, which matches q's profile, and both rules keep their source support. Conditions 2 and 3 describe the isolated pair, which is exactly the case that forms a stale cycle. When both rules qualify, the predicate used in more bodies of the other rules becomes extensional, because EDB Step 2 can then ground those bodies directly. `core/rules.remove_inverse_rules` applies this in `cli/main.py` right after the rule set is parsed, before EDB generation, and the summary lists the removed rules with their support, original -> synthetic, which should not change.
+
 ## Solvability check
 
 While selecting which groundings to commit to the EDB (`generator.sample_groundings`), each candidate grounding is checked: it is accepted only if committing it would still leave every affected predicate's remaining domain/range degree sequence realizable as a graph (`generator.is_assignment_solvable`, a Gale-Ryser/Havel-Hakimi style check) before accepting it — so early choices don't paint later predicates into an impossible corner.

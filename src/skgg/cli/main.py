@@ -19,6 +19,7 @@ from skgg.core.rules import (
     HornRule,
     get_relation_graph,
     parse_rule_set,
+    remove_inverse_rules,
 )
 from skgg.core.visualization import plot_relation_graph
 from skgg.engine.completion import complete_graph
@@ -117,6 +118,7 @@ def _format_summary_block(
     syn_freqs: dict[str, int],
     profiles: dict[str, PredicateProfile],
     rules: dict[str, HornRule],
+    removed_rules: dict[str, HornRule],
     og_supports: dict[str, int],
     syn_supports: dict[str, int],
 ) -> str:
@@ -124,7 +126,9 @@ def _format_summary_block(
     then one row per predicate and one row per rule showing original ->
     synthetic (delta) and open/closed status (read directly off
     PredicateProfile.closed / HornRule.closed, the authoritative closure
-    state maintained throughout generation -- not re-derived here)."""
+    state maintained throughout generation -- not re-derived here). Rules
+    removed by `remove_inverse_rules` follow in their own section, without a
+    status: their synthetic support should equal the original."""
     triple_delta = syn_triple_count - og_triple_count
     pct = f", {triple_delta / og_triple_count:+.1%}" if og_triple_count else ""
     lines = [
@@ -170,26 +174,39 @@ def _format_summary_block(
             ),
         ]
 
-    rule_ids = sorted(rules)
-    rule_texts = {rid: _format_rule(rules[rid]) for rid in rule_ids}
-    rule_id_width = max((len(rid) for rid in rule_ids), default=0)
+    # Kept and removed rules share column widths, so both sections line up.
+    all_rules = rules | removed_rules
+    rule_texts = {rid: _format_rule(rule) for rid, rule in all_rules.items()}
+    rule_id_width = max((len(rid) for rid in all_rules), default=0)
     rule_width = max((len(r) for r in rule_texts.values()), default=0)
-    og_sup_width = max((len(str(og_supports[rid])) for rid in rule_ids), default=1)
-    syn_sup_width = max((len(str(syn_supports[rid])) for rid in rule_ids), default=1)
+    og_sup_width = max((len(str(og_supports[rid])) for rid in all_rules), default=1)
+    syn_sup_width = max((len(str(syn_supports[rid])) for rid in all_rules), default=1)
     sup_delta_width = max(
-        (len(f"{syn_supports[rid] - og_supports[rid]:+d}") for rid in rule_ids),
+        (len(f"{syn_supports[rid] - og_supports[rid]:+d}") for rid in all_rules),
         default=1,
     )
 
-    lines += ["", f"Rules ({len(rule_ids)}):"]
-    for rid in rule_ids:
+    def rule_row(rid: str) -> str:
+        """Formats a rule's id, text and support original -> synthetic (delta)."""
         og_sup, syn_sup = og_supports[rid], syn_supports[rid]
-        status = "CLOSED" if rules[rid].closed else "OPEN"
-        lines.append(
+        return (
             f"  {rid.ljust(rule_id_width)}  {rule_texts[rid].ljust(rule_width)}  "
             f"{og_sup:>{og_sup_width}} -> {syn_sup:<{syn_sup_width}}"
-            f"  ({syn_sup - og_sup:+{sup_delta_width}d})  [{status}]"
+            f"  ({syn_sup - og_sup:+{sup_delta_width}d})"
         )
+
+    rule_ids = sorted(rules)
+    lines += ["", f"Rules ({len(rule_ids)}):"]
+    for rid in rule_ids:
+        status = "CLOSED" if rules[rid].closed else "OPEN"
+        lines.append(f"{rule_row(rid)}  [{status}]")
+
+    if removed_rules:
+        lines += [
+            "",
+            f"Removed inverse rules ({len(removed_rules)}):",
+            *(rule_row(rid) for rid in sorted(removed_rules)),
+        ]
 
     return "\n".join(lines)
 
@@ -200,10 +217,12 @@ def log_summary(
     synthetic_uri: str,
     rules: dict[str, HornRule],
     profiles: dict[str, PredicateProfile],
+    removed_rules: dict[str, HornRule],
 ) -> None:
     """Logs one consolidated report comparing the synthetic graph against the
     original: total triples, per-predicate frequency, and per-rule support,
-    each as original -> synthetic (delta) plus open/closed status. Replaces
+    each as original -> synthetic (delta) plus open/closed status, then the
+    support of each rule in `removed_rules` (see `remove_inverse_rules`). Replaces
     the previous summarize_progress()/summary() pair, which queried
     overlapping data twice and logged two separate, overlapping reports.
     """
@@ -211,11 +230,13 @@ def log_summary(
     syn_triple_count = get_triple_count(client, synthetic_uri)
     og_freqs = get_predicate_frequencies(client, original_uri)
     syn_freqs = get_predicate_frequencies(client, synthetic_uri)
+    all_rules = rules | removed_rules
     og_supports = {
-        rid: get_support(client, rule, original_uri) for rid, rule in rules.items()
+        rid: get_support(client, rule, original_uri) for rid, rule in all_rules.items()
     }
     syn_supports = {
-        rid: get_support(client, rule, synthetic_uri) for rid, rule in rules.items()
+        rid: get_support(client, rule, synthetic_uri)
+        for rid, rule in all_rules.items()
     }
 
     logger.info(
@@ -227,6 +248,7 @@ def log_summary(
             syn_freqs,
             profiles,
             rules,
+            removed_rules,
             og_supports,
             syn_supports,
         ),
@@ -280,6 +302,8 @@ def run_synthetic_graph_experiment(
             pca_threshold if pca_threshold is not None else config.rules.pca_threshold
         ),
     )
+    # Before EDB generation, so a removed rule's head predicate is extensional.
+    removed_rules = remove_inverse_rules(rules)
 
     plot_relation_graph(
         get_relation_graph(rules),
@@ -372,7 +396,12 @@ def run_synthetic_graph_experiment(
 
     _log_phase(5, "Summary")
     log_summary(
-        client, config.graph.base_uri, synthetic_uri, rules, graph_metrics.profiles
+        client,
+        config.graph.base_uri,
+        synthetic_uri,
+        rules,
+        graph_metrics.profiles,
+        removed_rules,
     )
 
     logger.info("Execution finished after %.1fs.", time.time() - run_start)

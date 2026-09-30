@@ -68,13 +68,22 @@ def setup_logging(level: int | str = logging.INFO) -> None:
 # Database connection
 # ---------------------------------------------------------------------------
 def create_sparql_client(config: RunConfig) -> SPARQLWrapper:
-    """Instantiates a SPARQLWrapper client."""
-    endpoint_url = config.data.get_full_sparql_url()
-    client = SPARQLWrapper(endpoint_url)
+    """Instantiates a SPARQLWrapper client from a run configuration."""
+    return build_sparql_client(
+        config.data.get_full_sparql_url(),
+        config.db_config.auth_type,
+        config.db_config.user,
+        config.db_config.password,
+    )
 
-    auth_type = config.db_config.auth_type.upper()
-    user = config.db_config.user
-    password = config.db_config.password
+
+def build_sparql_client(
+    endpoint_url: str, auth_type: str, user: str | None, password: str | None
+) -> SPARQLWrapper:
+    """Instantiates a SPARQLWrapper client for `endpoint_url`, with DIGEST or
+    BASIC authentication when `auth_type` names one and credentials are given."""
+    client = SPARQLWrapper(endpoint_url)
+    auth_type = auth_type.upper()
 
     if auth_type == "DIGEST" and user and password:
         client.setHTTPAuth(DIGEST)

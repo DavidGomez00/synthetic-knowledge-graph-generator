@@ -32,6 +32,10 @@ def complete_graph(
 ) -> int:
     """Completes a graph by applying rules if able.
 
+    `source` (a graph URI, or a .nt/.tsv file whose .tsv terms are resolved via
+    `term_mapping`) is first copied into `target_uri`, unless it is `target_uri`
+    itself; the rules are then applied to `target_uri` until a pass adds nothing.
+
     `label` prefixes this call's log lines, so the several completions of one
     pipeline run can be told apart. Per-pass detail is logged at DEBUG; one INFO
     line summarizes the whole call.
@@ -51,6 +55,7 @@ def complete_graph(
             source=source,
             new_graph_uri=target_uri,
             chunk_size=chunk_size,
+            term_mapping=term_mapping,
         )
 
     grounded_preds = set(get_predicate_frequencies(client, target_uri).keys())

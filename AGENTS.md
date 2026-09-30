@@ -48,7 +48,7 @@ python -m skgg.cli.main -f french_royalty.source.json --pca-threshold 0.95
 Typical experiment flow (see `cli/main.py`):
 1. Load `RunConfig` from JSON and set up logging.
 2. Compute `GraphMetrics` (predicate profiles) from the source graph (`graph.base_uri`) over SPARQL.
-3. Build the term mapping (`graph.term_namespaces` overrides merged over `utils.DEFAULT_PREFIXES`, under the `graph.namespace` default) and parse the Horn rule set from a CSV (`rules.rules_file`), keeping only rules classified POSITIVE (PCA confidence >= `pca_threshold`) — NEGATIVE and UNKNOWN (missing PCA confidence) rules are dropped and excluded from every later step.
+3. Build the term mapping (`graph.term_namespaces` overrides merged over `utils.DEFAULT_PREFIXES`, under the `graph.namespace` default) and parse the Horn rule set from a CSV (`rules.rules_file`), keeping only rules classified POSITIVE (PCA confidence >= `pca_threshold`) — NEGATIVE and UNKNOWN (missing PCA confidence) rules are dropped and excluded from every later step. `core/rules.remove_inverse_rules` then deletes the redundant rule of each inverse pair (`?x p ?y => ?y q ?x` and `?x q ?y => ?y p ?x`) whose predicates are exact inverses and derived by no other rule, so that the deleted rule's head predicate becomes extensional and the EDB generates it instead of leaving a stale cycle to seed; see "Inverse rule pair" in `docs/concepts.md`. The summary lists the removed rules with their support, original -> synthetic, after the other rules.
 4. Generate the EDB (extensional database) — `engine/edb.py` — inserting triples that satisfy rule bodies/profiles into `graph.edb_uri`.
 5. As currently wired, `cli/main.py` logs five numbered phases (`[n/5]`): metrics/rules, EDB, completion, cycle-breaking, summary. The completion phase forward-chains *every* rule over the EDB with `engine/completion.py`'s `complete_graph` (which returns the triples it added and takes a `label` for its log lines), repeating each pass until nothing more is added — no rule ordering and no profile budget applied during this loop (`apply_rule` is called without a `profile`, so a rule can in principle overshoot its head predicate's target frequency). The cycle-breaking phase then alternates `engine/cycles.py`'s `break_cycles` (seeds one stale cycle per call, returns the seeded triple count) with `complete_graph` until nothing is seeded — see "Stale cycle" in `docs/concepts.md`. Rule/predicate closure (`support`/`frequency` targets reached) is tracked via `engine/generator.py`'s `get_closed_rules`/`get_closed_preds`, called after each `complete_graph` pass — see "Rule application order" in `docs/concepts.md` for why this differs from `engine/idb.py`'s original (now-removed) `generate_idb`. After the EDB step, the initial completion and every cycle-breaking round, `cli/main.py`'s `_ClosureProgress.log` logs how many predicates and rules are closed, which ones closed since the previous check, and each open predicate's current frequency against its target (copied from the profiles before EDB generation spends `PredicateProfile.frequency` as a budget); the open rule IDs are logged at DEBUG.
 
@@ -78,6 +78,14 @@ python -m skgg.cli.convert path/to/graph.tsv --namespace http://example.org/  # 
 python -m skgg.cli.convert path/to/graph.nt -o path/to/out.tsv                # every IRI cut to its last segment
 ```
 
+`cli/complete.py` completes a real graph with a rule set (importable as `complete(client, rules, term_mapping, source, complete_uri, chunk_size)`). It copies the source into `--complete-uri`, replacing that graph's contents, and runs `engine/completion.complete_graph` on it until a pass adds nothing. The source is a graph URI, or a `.nt`/`.tsv` file that `core/queries.initialize_graph` loads directly into `--complete-uri`. Every setting can come from `-f` (source `graph.base_uri`, rules `data.input_dir / rules.rules_file`, `rules.pca_threshold`, the namespace, and the database connection from `data`/`db_config`), and flags override it: `--source`, `--rules-file`, `--pca-threshold`, `--namespace`, `--database-url`, `--sparql-endpoint`, `--auth-type`, `--user`, `--password`, `--log-level`. Without `-f`, `--source`, `--rules-file`, `--pca-threshold` and `--namespace` are required, and the connection falls back to the `DataConfig`/`DatabaseAuthConfig` defaults (Virtuoso on port 8890). `--complete-uri` is always required and must differ from the source. No profiles are used and `remove_inverse_rules` is not applied. On Family at PCA threshold 1, completing `family.tsv` adds 49 triples in 3 passes.
+
+```bash
+python -m skgg.cli.complete -f family.source.json --complete-uri http://Family.org/complete                                  # graph.base_uri -> complete
+python -m skgg.cli.complete -f family.source.json --source data/family/family.tsv --complete-uri http://Family.org/complete  # a file instead of base_uri
+python -m skgg.cli.complete --source http://Family.org/source --complete-uri http://Family.org/complete --rules-file data/family/family.csv --pca-threshold 1 --namespace http://Family.org/ --database-url http://localhost:7200/ --sparql-endpoint repositories/Family --auth-type BASIC --user admin --password rootpassword
+```
+
 `cli/main.py`'s `__main__` block parses `-f`/`--config-file`, `--skip-edb`, `--log-level`, and `--pca-threshold` from the CLI (see the `bash` example above) and calls `run_synthetic_graph_experiment` end-to-end; confirmed working (verified via `python -m skgg.cli.main -f french_royalty.source.json`; see `BACKLOG.md`). Check `BACKLOG.md` for the current TODO list before assuming any other code path is exercised/working.
 
 ## Architecture
@@ -93,8 +101,9 @@ src/skgg/
     upload.py           # standalone script: upload a .nt/.tsv file to a graph URI
     prepare_data.py     # standalone script: copy a .nt/.tsv file without duplicates or untyped objects; report untyped subjects
     convert.py          # standalone script: convert a triples file from .nt to .tsv or back
+    complete.py         # standalone script: complete a graph URI or .nt/.tsv file with a rule set into a separate graph
   core/
-    rules.py           # Atom / RuleSignature (Horn rule) dataclasses, rule-set CSV parsing
+    rules.py           # Atom / RuleSignature (Horn rule) dataclasses, rule-set CSV parsing, relation graph and stale cycles, inverse rule pairs
     queries.py          # All SPARQL query construction + execution against the graph DB (insert/select/ask/clear/count)
   engine/
     metrics.py          # GraphMetrics / PredicateProfile: topological descriptors (domain/range frequency per predicate)
