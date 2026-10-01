@@ -1,0 +1,76 @@
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix ex:   <http://Family.org/> .
+
+# Classes
+
+ex:Person a owl:Class .
+
+ex:PlaceholderClass a owl:Class .
+
+# Properties
+
+ex:niece a owl:ObjectProperty ,
+    owl:IrreflexiveProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Person .
+
+ex:nephew a owl:ObjectProperty ,
+    owl:IrreflexiveProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Person .
+
+ex:father a owl:ObjectProperty ,
+    owl:IrreflexiveProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Person .
+
+ex:mother a owl:ObjectProperty ,
+    owl:IrreflexiveProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Person .
+
+ex:aunt a owl:ObjectProperty ,
+    owl:IrreflexiveProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Person .
+
+ex:uncle a owl:ObjectProperty ,
+    owl:IrreflexiveProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Person .
+
+ex:daughter a owl:ObjectProperty ,
+    owl:IrreflexiveProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Person .
+
+ex:son a owl:ObjectProperty ,
+    owl:IrreflexiveProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Person .
+    
+ex:brother a owl:ObjectProperty ,
+    owl:IrreflexiveProperty ,
+    owl:TransitiveProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Person .
+
+ex:sister a owl:ObjectProperty ,
+    owl:IrreflexiveProperty ,
+    owl:TransitiveProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Person .
+
+ex:wife a owl:ObjectProperty ,
+    owl:IrreflexiveProperty ;
+    owl:inverseOf ex:husband ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Person .
+
+ex:husband a owl:ObjectProperty ,
+    owl:IrreflexiveProperty ;
+    owl:inverseOf ex:wife ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Person .
