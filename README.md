@@ -2,9 +2,9 @@
 
 A tool for generating a **synthetic Knowledge Graph (KG)** from the topological metrics of a source graph (node/relation counts, domain/range frequencies per relation) and a set of Horn Rules.
 
-Graphs are never loaded into memory-intensive libraries like RDFlib for bulk work. They live in a graph database (Virtuoso or GraphDB) and are manipulated via SPARQL through `SPARQLWrapper`.
-
 ## Requirements
+
+Graphs live in a graph database (Virtuoso or GraphDB) and are manipulated via SPARQL through `SPARQLWrapper`. We recommend using Docker containers to manage the graph databases.
 
 - Python >= 3.10
 - Docker (for the graph database)
@@ -18,10 +18,10 @@ pip install -e .          # installs the `skgg` package from src/ in editable mo
 
 ## Graph database
 
-`docker-compose.yml` defines two alternative stacks, selected via Compose profiles — bring up one at a time:
+`docker-compose.yml` defines two alternative stacks, selected via Compose profiles:
 
 ```bash
-docker compose --profile graphdb up    # GraphDB 10.7 (7200), RECOMMENDED
+docker compose --profile graphdb up    # GraphDB 10.7 (7200)
 docker compose --profile virtuoso up   # Virtuoso (8890) + YASGUI SPARQL UI (8080)
 docker compose --profile all up        # both
 ```
@@ -32,7 +32,7 @@ Experiments are driven by JSON config files in `configurations/` (e.g. `french_r
 
 ### Prepare the data
 
-This method does not support literals yet, so `skgg.cli.prepare_data` handles the source graph to create a new version with no literals, creating a copy in `<output>.tsv` and `<output>.nt` formats. This drops duplicate triples, every non-type triple whose object is never typed (literals), and every triple with a fixed predicate listed in `--literal-predicates` (default `name` for FrenchRoyalty), and logs a warning for every subject that is never typed.
+This method does not support literals yet, so `skgg.cli.prepare_data` handles the source graph to create a new version with no literals, creating a copy in both `<output>.tsv` and `<output>.nt` formats. This script performs basic data preparation like dropping duplicate triples. For more details, see the preparation step in [`docs/architecture.md`](docs/architecture.md#data-flow).
 
 ```bash
 python -m skgg.cli.prepare_data data/french_royalty/source/french_royalty.tsv -f french_royalty.source.json  # -> data/french_royalty/source/french_royalty.no-literals.{tsv,nt}

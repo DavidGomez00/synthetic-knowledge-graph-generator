@@ -37,7 +37,7 @@ Rule quality metrics carried alongside each rule (from the CSV, used to filter w
 - **Support** — count of distinct bindings of the *head atom's* variables for which the head fact holds in the source graph and the body holds for at least one binding of its own extra variables (if any). Those extra body-only variables aren't projected over, so each one only needs a single witness — matching AMIE3's definition. How much evidence the rule has.
 - **Head coverage** — support divided by the total number of head-predicate triples in the graph. What fraction of the target relation this rule explains.
 - **Std(ard) confidence** — support divided by the number of bindings that satisfy the body (closed-world: body-satisfying bindings that *don't* also satisfy the head count against the rule).
-- **PCA confidence** — like standard confidence, but under the *Partial Completeness Assumption*: only counts a body-satisfying binding as contradicting evidence if some other object is already known for the same subject/predicate. More forgiving of open-world incompleteness, so PCA confidence is normally ≥ standard confidence, and is what `rules.pca_threshold` filters on (`RulesConfig` in `config.py`).
+- **PCA confidence** — like standard confidence, but under the *Partial Completeness Assumption*: only counts a body-satisfying binding as contradicting evidence if some other object is already known for the same subject/predicate. More forgiving of open-world incompleteness, so PCA confidence is normally ≥ standard confidence, and is what `rules.pca_threshold` filters on (`RulesConfig` in `core/config.py`).
 
 ## Extensional database (EDB) and Intensional database (IDB)
 
@@ -61,13 +61,13 @@ Both EDB generation and synthetic-graph completion loop until everything relevan
 
 `complete_graph` also calls `apply_rule` without a `profile`, so this loop is not budget-constrained by a predicate's target `frequency` either — it runs to full saturation (every triple every rule can derive) each time it's invoked, and target `support`/`frequency` are only checked *afterward* (see [Closure](#closure)) to report what's closed, not to cap generation.
 
-Only EDB generation still orders work explicitly: `core/rules.get_extensional_dependencies` makes a less restrictive rule wait for a more restrictive one that shares an extensional predicate, so satisfying the looser rule first can't consume bindings the stricter rule still needs — see [`edb-generation.md`](edb-generation.md). That ordering exists only because EDB generation is profile-budget-constrained in a way completion isn't, so it has no equivalent here.
+Only EDB generation still orders work explicitly: `core/rules.get_extensional_dependencies` makes a less restrictive rule wait for a more restrictive one that shares an extensional predicate, so satisfying the looser rule first can't consume bindings the stricter rule still needs — see [`algorithm.md` §3.2.2](algorithm.md#322-mechanism-2-rule-driven-grounding). That ordering exists only because EDB generation is profile-budget-constrained in a way completion isn't, so it has no equivalent here.
 
 **Note**: an earlier version of this pipeline (`engine/idb.py`'s `generate_idb`, since removed) took a different approach — a same-head "more restrictive first" dependency order (`get_intensional_dependencies`) gating which rule could fire, plus an upfront `check_uninferrable_preds` check that every intensional predicate has some derivation path back to extensional ones. Neither is wired into the pipeline today: `complete_graph` is a plain brute-force fixpoint instead, so a rule set that can't actually be fully derived currently surfaces late, as a stale/under-target result, rather than failing upfront.
 
 ## Term mapping / namespace
 
-RDF terms are written as bare short names in rules/data (`hasAge`) but need a full URI (`<http://example.org/hasAge>`) for SPARQL. `utils.build_term_mapping` builds a `{short name → namespace}` dict from `utils.DEFAULT_PREFIXES`, overridden by the experiment's own `graph.term_namespaces` config entries, plus a `"default"` fallback set to `graph.namespace` for any term without an explicit override — `utils.format_term`/`format_triple` use that mapping to resolve terms wherever a query or triple is built.
+RDF terms are written as bare short names in rules/data (`hasAge`) but need a full URI (`<http://example.org/hasAge>`) for SPARQL. `core/utils.build_term_mapping` builds a `{short name → namespace}` dict from `core/utils.DEFAULT_PREFIXES`, overridden by the experiment's own `graph.term_namespaces` config entries, plus a `"default"` fallback set to `graph.namespace` for any term without an explicit override — `core/utils.format_term`/`format_triple` use that mapping to resolve terms wherever a query or triple is built.
 
 ## Grounding sampler
 
