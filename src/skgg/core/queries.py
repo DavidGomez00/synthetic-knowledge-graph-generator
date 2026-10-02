@@ -18,7 +18,7 @@ from SPARQLWrapper import JSON, POST, URLENCODED, SPARQLWrapper
 from yarl import URL
 
 from skgg.core.rules import Atom, HornRule, RuleSignature
-from skgg.utils import format_term, format_triple
+from skgg.core.utils import format_term, format_triple
 
 logger = logging.getLogger(__name__)
 

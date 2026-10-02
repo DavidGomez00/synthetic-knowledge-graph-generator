@@ -21,8 +21,8 @@ from skgg.core.queries import (
     insert_triples_sparql,
 )
 from skgg.core.rules import Atom, HornRule
+from skgg.core.utils import format_triple
 from skgg.engine.metrics import PredicateProfile
-from skgg.utils import format_triple
 
 logger = logging.getLogger(__name__)
 

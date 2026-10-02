@@ -21,9 +21,9 @@ from skgg.core.queries import (
     insert_triples_sparql,
 )
 from skgg.core.rules import Atom, HornRule, find_stale_cycles, get_relation_graph
+from skgg.core.utils import short_term
 from skgg.engine.generator import sample_groundings
 from skgg.engine.metrics import PredicateProfile
-from skgg.utils import short_term
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +153,10 @@ def _seed_rule(
     fixed_bindings: list[dict[str, str]] | None = None
     if candidate.grounded_atoms:
         seed_vars = {
-            t for a in candidate.seed_atoms for t in (a.subject, a.obj) if t.startswith("?")
+            t
+            for a in candidate.seed_atoms
+            for t in (a.subject, a.obj)
+            if t.startswith("?")
         }
         grounded_vars = {
             t

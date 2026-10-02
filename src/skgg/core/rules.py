@@ -16,7 +16,7 @@ from typing import Protocol
 import networkx as nx
 import pandas as pd
 
-from skgg.utils import format_term, short_term
+from skgg.core.utils import format_term, short_term
 
 logger = logging.getLogger(__name__)
 
@@ -414,9 +414,7 @@ def find_stale_cycles(
     """
     graph = get_relation_graph(rules)
     cycles = [
-        cycle
-        for cycle in nx.simple_cycles(graph)
-        if grounded_preds.isdisjoint(cycle)
+        cycle for cycle in nx.simple_cycles(graph) if grounded_preds.isdisjoint(cycle)
     ]
     return sorted(cycles, key=lambda cycle: (len(cycle), cycle))
 

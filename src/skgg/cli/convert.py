@@ -10,7 +10,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import unquote
 
-from skgg.utils import format_term, load_term_mapping, setup_logging, short_term
+from skgg.core.utils import format_term, load_term_mapping, setup_logging, short_term
 
 logger = logging.getLogger(__name__)
 

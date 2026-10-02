@@ -12,7 +12,7 @@ from pathlib import Path
 
 from SPARQLWrapper import SPARQLWrapper
 
-from skgg.config import RunConfig
+from skgg.core.config import RunConfig
 from skgg.core.queries import get_predicate_frequencies, get_support, get_triple_count
 from skgg.core.rules import (
     Atom,
@@ -21,19 +21,19 @@ from skgg.core.rules import (
     parse_rule_set,
     remove_inverse_rules,
 )
-from skgg.core.visualization import plot_relation_graph
-from skgg.engine.completion import complete_graph
-from skgg.engine.cycles import break_cycles
-from skgg.engine.edb import generate_extensional_predicates
-from skgg.engine.generator import get_closed_preds, get_closed_rules
-from skgg.engine.metrics import GraphMetrics, PredicateProfile
-from skgg.utils import (
+from skgg.core.utils import (
     build_term_mapping,
     create_sparql_client,
     resolve_config_path,
     setup_logging,
     short_term,
 )
+from skgg.core.visualization import plot_relation_graph
+from skgg.engine.completion import complete_graph
+from skgg.engine.cycles import break_cycles
+from skgg.engine.edb import generate_extensional_predicates
+from skgg.engine.generator import get_closed_preds, get_closed_rules
+from skgg.engine.metrics import GraphMetrics, PredicateProfile
 
 logger = logging.getLogger(__name__)
 
@@ -235,8 +235,7 @@ def log_summary(
         rid: get_support(client, rule, original_uri) for rid, rule in all_rules.items()
     }
     syn_supports = {
-        rid: get_support(client, rule, synthetic_uri)
-        for rid, rule in all_rules.items()
+        rid: get_support(client, rule, synthetic_uri) for rid, rule in all_rules.items()
     }
 
     logger.info(

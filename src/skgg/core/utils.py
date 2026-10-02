@@ -8,7 +8,7 @@ from pathlib import Path
 
 from SPARQLWrapper import BASIC, DIGEST, SPARQLWrapper
 
-from skgg.config import GraphConfig, RunConfig
+from skgg.core.config import GraphConfig, RunConfig
 
 logger = logging.getLogger(__name__)
 

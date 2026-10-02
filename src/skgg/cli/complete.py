@@ -14,16 +14,16 @@ from pathlib import Path
 from SPARQLWrapper import SPARQLWrapper
 from yarl import URL
 
-from skgg.config import DatabaseAuthConfig, DataConfig, RunConfig
+from skgg.core.config import DatabaseAuthConfig, DataConfig, RunConfig
 from skgg.core.queries import get_triple_count
 from skgg.core.rules import HornRule, parse_rule_set
-from skgg.engine.completion import complete_graph
-from skgg.utils import (
+from skgg.core.utils import (
     build_sparql_client,
     load_term_mapping,
     resolve_config_path,
     setup_logging,
 )
+from skgg.engine.completion import complete_graph
 
 logger = logging.getLogger(__name__)
 

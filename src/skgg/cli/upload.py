@@ -7,9 +7,9 @@ from pathlib import Path
 
 from SPARQLWrapper import SPARQLWrapper
 
-from skgg.config import RunConfig
+from skgg.core.config import RunConfig
 from skgg.core.queries import get_triple_count, initialize_graph
-from skgg.utils import (
+from skgg.core.utils import (
     build_term_mapping,
     create_sparql_client,
     resolve_config_path,
@@ -37,9 +37,7 @@ def upload_graph(
         term_mapping=term_mapping,
     )
     count = get_triple_count(client, graph_uri)
-    logger.info(
-        "Inserted %s into <%s> with %d triples.", triple_file, graph_uri, count
-    )
+    logger.info("Inserted %s into <%s> with %d triples.", triple_file, graph_uri, count)
     return count
 
 

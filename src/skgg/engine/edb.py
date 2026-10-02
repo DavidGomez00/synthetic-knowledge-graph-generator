@@ -29,13 +29,13 @@ from skgg.core.queries import (
     insert_triples_sparql,
 )
 from skgg.core.rules import HornRule, get_extensional_dependencies
+from skgg.core.utils import format_triple
 from skgg.engine.generator import (
     decrement_counts,
     sample_groundings,
     update_closed_preds,
 )
 from skgg.engine.metrics import PredicateProfile
-from skgg.utils import format_triple
 
 logger = logging.getLogger(__name__)
 

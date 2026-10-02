@@ -13,7 +13,7 @@ from collections.abc import Collection, Iterator
 from pathlib import Path
 from urllib.parse import unquote
 
-from skgg.utils import format_term, load_term_mapping, setup_logging, short_term
+from skgg.core.utils import format_term, load_term_mapping, setup_logging, short_term
 
 logger = logging.getLogger(__name__)
 
@@ -79,9 +79,7 @@ def _output_paths(output: Path) -> tuple[Path, Path]:
     .tsv/.nt suffix it already has."""
     if output.suffix.lower() in (".tsv", ".nt"):
         output = output.with_suffix("")
-    return output.with_name(f"{output.name}.tsv"), output.with_name(
-        f"{output.name}.nt"
-    )
+    return output.with_name(f"{output.name}.tsv"), output.with_name(f"{output.name}.nt")
 
 
 def prepare_data(
@@ -194,9 +192,7 @@ def prepare_data(
             kept += 1
 
     renamed = sorted(
-        f"{term} -> {cleaned}"
-        for cleaned, term in originals.items()
-        if cleaned != term
+        f"{term} -> {cleaned}" for cleaned, term in originals.items() if cleaned != term
     )
     if renamed:
         logger.info(
