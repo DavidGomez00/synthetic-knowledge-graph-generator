@@ -236,7 +236,6 @@ def insert_random_triples(
     )[0]
     required_count = profile.domain[subject]
 
-    # TODO: I am not excluding the subject from the profile, ponder this.
     available_objects = list(profile.range.keys())
     if len(available_objects) < required_count:
         raise ValueError(
