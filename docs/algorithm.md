@@ -30,7 +30,7 @@ Deductive databases ....
 
 The extensional database (EDB) is a set of triples from which we can produce the rest of the graph applying the rules defined in the intensional database (IDB). In this case, the EDB is composed of triples $(s,p,o)$ and the IDB is a set of **Horn Rules**.
 
-We say a relation-type (predicate) is **intensional** if it can be produced by a rule, i.e., a triple pattern containing this relation appears in the head of a rule from the IDB, or **extensional** otherwise. Extensional relations can never be produced by the rules in the IDB, so we must populate the EDB with all necessary triples containing these extensional reltaions. We call these triples "facts", and we use them to derive the triples containing intensional relations. This split organises the method in two steps: Generate the EDB and complete the graph using the IDB.
+We say a relation-type (predicate) is **intensional** if it can be produced by a rule, i.e., a triple pattern containing this relation appears in the head of a rule from the IDB, or **extensional** otherwise. Extensional relations can never be produced by the rules in the IDB, so we must populate the EDB with all necessary triples containing these extensional relations. We call these triples "facts", and we use them to derive the triples containing intensional relations. This split organises the method in two steps: Generate the EDB and complete the graph using the IDB.
 
 ### 2.4 Relation profiles
 
