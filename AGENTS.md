@@ -62,6 +62,13 @@ python -m skgg.cli.upload -f french_royalty.normalized.json --triple-file path/t
 
 It only uploads: the pipeline reads its metrics from `graph.base_uri` as uploaded, with no rule-based completion beforehand. It takes the same `-f`/`--config-file` and `--log-level` as `cli/main.py`. `--triple-file` overrides `graph.triple_file` (a bare filename resolves under `data.input_dir`; a path containing `/` is used as given) and `--graph-uri` overrides the target graph (default `graph.base_uri`) — e.g. to re-insert an already generated synthetic graph into `graph.synthetic_uri` without regenerating it.
 
+`cli/download.py` is the reverse of `cli/upload.py` (importable as `download_graph(client, graph_uri, output, term_mapping, page_size)`). It writes a named graph to `<output>.nt` and `<output>.tsv`, using the database connection and term mapping of the config passed with `-f` (required). `--graph-uri` picks the graph (default `graph.base_uri`), `-o`/`--output` the output path without suffix (default `data.input_dir` / the graph URI's last segment), and `--log-level` overrides `logging.level`. The `.nt` comes from `core/queries.export_graph_nt`. On GraphDB that is one `GET` on the repository's `/statements` endpoint with `infer=false`. On Virtuoso it is a series of sorted CONSTRUCT queries of `db_config.chunk_size` triples each, because Virtuoso's Graph Store endpoint stops at `ResultSetMaxRows` (10,001 of Family's 31,414 triples in the default container). Terms are written separated by single spaces whatever the store used. The script fails, deleting the partial `.nt`, if its triple count differs from `get_triple_count`. The `.tsv` is converted from the `.nt` with `cli/convert.convert` and the config's term mapping.
+
+```bash
+python -m skgg.cli.download -f family.source.json --graph-uri http://Family.org/skgg   # -> data/family/skgg.{nt,tsv}
+python -m skgg.cli.download -f family.source.json -o path/to/family                   # graph.base_uri -> path/to/family.{nt,tsv}
+```
+
 `cli/prepare_data.py` is another standalone, local-only script (no SPARQL; importable as `prepare_data(input_file, output, term_mapping)`). It writes a cleaned copy of a `.nt`/`.tsv` file in **both** formats (`<output>.tsv` and `<output>.nt`). Every `/` in a term's own name becomes `_` (e.g. `Matilda_of_Saxony_1172_1209/10` → `Matilda_of_Saxony_1172_1209_10`, which would otherwise shorten to `10`): for a bare `.tsv` term that is the whole term, and for an IRI only its last segment, where the `/` is written as `%2F`. The `/` between an IRI's path segments are left alone, and the script fails if two terms clean to the same name. Two things are removed: duplicate triples (the first occurrence is kept), and "literals", meaning every non-type triple whose object is never typed (never the subject of a `type`/`rdf:type` triple). Every triple whose predicate is in `--literal-predicates` (default `name`, whose objects are always literals, even when a person's name equals their entity ID and so looks typed) is dropped too. Type triples are always kept. It also logs a warning for every subject term that is never typed.
 
 Converting `.tsv` to `.nt` needs a term mapping: pass `-f` (only the config's `graph` section is read, for `namespace`/`term_namespaces`) or `--namespace`. For `.nt` input no mapping is needed: every IRI is cut to its last segment in the `.tsv`, and the script fails if two IRIs collide.
@@ -97,6 +104,7 @@ src/skgg/
   cli/
     main.py            # run_synthetic_graph_experiment: the end-to-end experiment pipeline
     upload.py           # standalone script: upload a .nt/.tsv file to a graph URI
+    download.py         # standalone script: download a graph URI to .nt and .tsv files
     prepare_data.py     # standalone script: copy a .nt/.tsv file without duplicates or untyped objects; report untyped subjects
     convert.py          # standalone script: convert a triples file from .nt to .tsv or back
     complete.py         # standalone script: complete a graph URI or .nt/.tsv file with a rule set into a separate graph

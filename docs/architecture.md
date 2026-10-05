@@ -41,6 +41,7 @@ flowchart TD
     subgraph cli ["cli/"]
         MAIN["main.py<br/>run_synthetic_graph_experiment"]
         UPLOAD["upload.py"]
+        DOWNLOAD["download.py"]
         COMPLETE["complete.py"]
         PREPARE["prepare_data.py"]
         CONVERT["convert.py"]
@@ -66,6 +67,7 @@ flowchart TD
 
     MAIN --> CONFIG & METRICS & EDB & GEN & COMPLETION & CYCLES & RULES & QUERIES & VIS & UTILS
     UPLOAD --> CONFIG & QUERIES & UTILS
+    DOWNLOAD --> CONFIG & CONVERT & QUERIES & UTILS
     COMPLETE --> CONFIG & COMPLETION & RULES & QUERIES & UTILS
     PREPARE & CONVERT --> UTILS
 
@@ -88,7 +90,7 @@ flowchart TD
 - `config.py`: `RunConfig` and its sub-configs (dataclasses), loaded from `configurations/*.json`. Loading a config raises `FileNotFoundError` if `data.input_dir` does not exist. LoRA fine-tuning and Chain-of-Thought dataset generation are not implemented under `src/` yet (see `notebooks/` for prototypes); their placeholder `FineTuningConfig`/`CoTGenerationConfig` dataclasses were removed as dead code.
 - `utils.py`: logging setup (`setup_logging`), config lookup under `configurations/` (`resolve_config_path`), SPARQL client construction from a `RunConfig` (`create_sparql_client`) or from explicit connection settings (`build_sparql_client`, used by `cli/complete.py`), and term handling. `build_term_mapping` merges `graph.term_namespaces` over `DEFAULT_PREFIXES` under the `graph.namespace` default, `load_term_mapping` builds the same mapping from `-f`/`--namespace` for the local-file scripts, `format_term`/`format_triple` turn bare terms into N-Triples, and `short_term` cuts a URI to its last segment.
 - `rules.py`: the `Atom`/`RuleSignature`/`HornRule` dataclasses and CSV parsing into a rule set (`parse_rule_set`). `get_extensional_dependencies` gives the "more restrictive rule first" order that EDB generation uses ([`algorithm.md` §3.2.2](algorithm.md#322-mechanism-2-rule-driven-grounding)). `get_relation_graph`/`find_stale_cycles` build the predicate dependency graph and find the stale cycles in it for `engine/cycles.py`. `find_inverse_pairs`/`removable_inverse_rule`/`remove_inverse_rules` find inverse rule pairs and delete the rule of each pair that can go (see [Inverse rule pair](concepts.md#inverse-rule-pair)).
-- `queries.py`: builds and runs every SPARQL query. No other module calls `SPARQLWrapper` directly to read or write. SELECTs are sent as URL-encoded POST requests, because `get_existing_triples` builds queries with large `VALUES` clauses that can exceed the store's maximum URL or header size for GET. `initialize_graph` clears a graph and fills it from another graph URI or a `.nt`/`.tsv` file. `TripleBuffer` wraps `insert_triples_sparql` to collect triples that were decided without a database read (`engine/edb.py`'s direct matches and random assignment) and insert them in fewer, larger batches.
+- `queries.py`: builds and runs every SPARQL query. No other module calls `SPARQLWrapper` directly to read or write. SELECTs are sent as URL-encoded POST requests, because `get_existing_triples` builds queries with large `VALUES` clauses that can exceed the store's maximum URL or header size for GET. `initialize_graph` clears a graph and fills it from another graph URI or a `.nt`/`.tsv` file. `insert_triples_bulk` and `export_graph_nt` move whole graphs in and out as N-Triples: on GraphDB through the repository's `/statements` REST endpoint, and on Virtuoso through its Graph Store endpoint for uploads and through sorted, paged CONSTRUCT queries for downloads, because Virtuoso's Graph Store endpoint returns at most `ResultSetMaxRows` triples. `TripleBuffer` wraps `insert_triples_sparql` to collect triples that were decided without a database read (`engine/edb.py`'s direct matches and random assignment) and insert them in fewer, larger batches.
 - `visualization.py`: `plot_relation_graph` renders a predicate dependency graph to a PNG with `matplotlib` (`Agg` backend, so it runs without a display), coloring predicates on a cycle red and labeling each edge with its rule IDs.
 
 ### `engine/`
@@ -103,6 +105,7 @@ flowchart TD
 
 - `main.py`: the experiment entry point (`run_synthetic_graph_experiment`, or `python -m skgg.cli.main -f <config>`). After the EDB step, the initial completion and every cycle-breaking round, `_ClosureProgress.log` logs the number of closed predicates and rules, the ones that closed since the previous check, and each open predicate's current frequency against its target. Phase 5, `log_summary`, logs one report comparing the synthetic graph with the original: total triples, one row per predicate (frequency original -> synthetic, `[OPEN]`/`[CLOSED]`, and `[EXTENSIONAL]`/`[INTENSIONAL]`, where intensional means some rule has the predicate as its head), one row per rule (support original -> synthetic, `[OPEN]`/`[CLOSED]`), and then the rules `remove_inverse_rules` removed, with their support only. URIs are shortened to their last segment and each rule is printed as `body => head`.
 - `upload.py`: uploads a `.nt`/`.tsv` file into `base_uri`, or into `--graph-uri` if given (`python -m skgg.cli.upload -f <config>`). It runs no rule-based completion.
+- `download.py`: writes a named graph to `<output>.nt` and `<output>.tsv` (`python -m skgg.cli.download -f <config> [--graph-uri <uri>] [-o <output>]`), with `core/queries.export_graph_nt` for the `.nt` and `cli/convert.convert` for the `.tsv`. It fails if the `.nt` has a different number of triples than the graph.
 - `complete.py`: completes a real graph with a rule set (`python -m skgg.cli.complete [-f <config>] --complete-uri <uri>`). It copies a graph URI or a `.nt`/`.tsv` file into `--complete-uri` and runs `complete_graph` on it until a pass adds nothing. Settings come from a config, from flags (including the database connection), or both. It uses no profiles and does not apply `remove_inverse_rules`.
 - `prepare_data.py`: writes a cleaned copy of a `.nt`/`.tsv` file, step 1 of "Data flow" above.
 - `convert.py`: converts a triples file from `.nt` to `.tsv` or back, dropping only duplicate triples and lines that are not a triple. Literals are kept; in the `.tsv` a literal becomes its bare text.

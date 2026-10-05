@@ -10,7 +10,7 @@ import itertools
 import logging
 from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import cast
+from typing import BinaryIO, cast
 
 import requests
 from requests.auth import HTTPDigestAuth
@@ -48,6 +48,18 @@ def _get_update_client(client: SPARQLWrapper) -> SPARQLWrapper:
         return update_client
 
     return client
+
+
+def _rest_auth(client: SPARQLWrapper) -> HTTPDigestAuth | tuple[str, str] | None:
+    """Returns `requests` credentials matching the client's: digest auth when
+    the client uses DIGEST, basic auth otherwise, or None without credentials.
+    Used by the calls that bypass SPARQL for the store's REST endpoints."""
+    user, passwd = getattr(client, "user", None), getattr(client, "passwd", None)
+    if not (user and passwd):
+        return None
+    if getattr(client, "http_auth", None) == "DIGEST":
+        return HTTPDigestAuth(user, passwd)
+    return (user, passwd)
 
 
 def _execute_update_query(client: SPARQLWrapper, query: str) -> None:
@@ -289,19 +301,10 @@ def insert_triples_bulk(
 
     headers = {"Content-Type": "application/n-triples"}
 
-    user, passwd = getattr(client, "user", None), getattr(client, "passwd", None)
-    auth: HTTPDigestAuth | tuple[str, str] | None = None
-    if user and passwd:
-        auth = (
-            HTTPDigestAuth(user, passwd)
-            if getattr(client, "http_auth", None) == "DIGEST"
-            else (user, passwd)
-        )
-
     total_inserted = 0
 
     with requests.Session() as session:
-        session.auth = auth
+        session.auth = _rest_auth(client)
 
         for batch in _chunk_iter(triples, chunk_size):
             payload = "\n".join(batch) + "\n"
@@ -310,6 +313,100 @@ def insert_triples_bulk(
             total_inserted += len(batch)
 
     return total_inserted
+
+
+NT_CONTENT_TYPES = ("application/n-triples", "text/plain")
+NT_ACCEPT = "application/n-triples, text/plain;q=0.9"
+
+
+def _write_nt_response(response: requests.Response, f: BinaryIO) -> int:
+    """Streams an N-Triples response into `f`, one triple per line, skipping
+    blank and comment lines. Terms are separated by single spaces whatever the
+    store used (Virtuoso uses tabs). Returns the number of triples written.
+
+    Raises:
+        requests.HTTPError: If the store rejected the request.
+        ValueError: If the store answered in a format other than N-Triples.
+    """
+    response.raise_for_status()
+    content_type = response.headers.get("Content-Type", "").split(";")[0].strip()
+    if content_type not in NT_CONTENT_TYPES:
+        raise ValueError(
+            f"Expected N-Triples from {response.url}, got '{content_type}'."
+        )
+    written = 0
+    for line in response.iter_lines(chunk_size=1 << 16):
+        stripped = line.strip()
+        if stripped and not stripped.startswith(b"#"):
+            # Subjects and predicates hold no whitespace; a literal object may.
+            subject, predicate, rest = stripped.split(None, 2)
+            obj = rest.removesuffix(b".").rstrip()
+            f.write(b" ".join((subject, predicate, obj)) + b" .\n")
+            written += 1
+    return written
+
+
+def export_graph_nt(
+    client: SPARQLWrapper, graph_uri: str, nt_path: Path, page_size: int = 5000
+) -> int:
+    """Writes a named graph to an N-Triples file, the read counterpart of
+    `insert_triples_bulk`. Dispatches on the client's endpoint:
+
+    - GraphDB (RDF4J): one `GET` on the repository's `/statements` endpoint
+      with `context=<graph_uri>` and `infer=false` (explicit statements only),
+      which returns the whole graph.
+    - Virtuoso: its Graph Store endpoint (`sparql-graph-crud-auth`) stops at
+      `ResultSetMaxRows` triples, so the graph is read with CONSTRUCT queries
+      of `page_size` triples each, sorted in a sub-select so that deep
+      offsets stay valid, until a page comes back short.
+
+    A store cap below `page_size` also ends the Virtuoso loop early, so
+    callers should compare the result with `get_triple_count`.
+
+    Args:
+        client: An instantiated and configured SPARQLWrapper client.
+        graph_uri: The named graph to export.
+        nt_path: The .nt file to write. Its parent folder must exist.
+        page_size: Triples per CONSTRUCT query (Virtuoso only).
+
+    Returns:
+        The number of triples written.
+
+    Raises:
+        requests.HTTPError: If the store rejects a request.
+        ValueError: If the store answers in a format other than N-Triples.
+    """
+    headers = {"Accept": NT_ACCEPT}
+
+    with requests.Session() as session, nt_path.open("wb") as f:
+        session.auth = _rest_auth(client)
+
+        if "/repositories/" in client.endpoint:
+            params = {"context": f"<{graph_uri}>", "infer": "false"}
+            url = _get_update_client(client).endpoint
+            with session.get(url, params=params, headers=headers, stream=True) as r:
+                return _write_nt_response(r, f)
+
+        written = 0
+        while True:
+            query = f"""
+            CONSTRUCT {{ ?s ?p ?o }}
+            WHERE {{
+              {{
+                SELECT ?s ?p ?o
+                WHERE {{ GRAPH <{graph_uri}> {{ ?s ?p ?o }} }}
+                ORDER BY ?s ?p ?o
+              }}
+            }}
+            LIMIT {page_size} OFFSET {written}"""
+            with session.post(
+                client.endpoint, data={"query": query}, headers=headers, stream=True
+            ) as r:
+                page = _write_nt_response(r, f)
+            written += page
+            logger.debug("Exported %d triples from <%s>.", written, graph_uri)
+            if page < page_size:
+                return written
 
 
 def insert_graph(

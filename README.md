@@ -72,6 +72,17 @@ python -m skgg.cli.upload -f french_royalty.source.json   # uploads graph.triple
 
 To upload the file written by `prepare_data`, pass it with `--triple-file` or set `graph.triple_file` to it. A bare filename resolves under `data.input_dir`, and a path containing `/` is used as given. `--graph-uri` uploads to a different named graph, e.g. to re-insert an already generated synthetic graph into `graph.synthetic_uri`. `--log-level` overrides the config's `logging.level` for the run.
 
+### Download a graph
+
+`skgg.cli.download` writes a named graph from the database to `<output>.nt` and `<output>.tsv`, using the connection in the config passed with `-f`. It downloads `graph.base_uri` unless `--graph-uri` names another graph. `-o` sets the output path without suffix and defaults to `data.input_dir` plus the graph URI's last segment.
+
+```bash
+python -m skgg.cli.download -f family.source.json --graph-uri http://Family.org/skgg   # -> data/family/skgg.{nt,tsv}
+python -m skgg.cli.download -f family.source.json -o path/to/family                   # graph.base_uri -> path/to/family.{nt,tsv}
+```
+
+On GraphDB the whole graph comes from one request to the repository's `/statements` endpoint, with inferred triples excluded. Virtuoso's Graph Store endpoint returns at most `ResultSetMaxRows` triples, so on Virtuoso the script sends sorted CONSTRUCT queries of `db_config.chunk_size` triples each. Either way, the script fails if it wrote a different number of triples than the graph holds. The `.tsv` is converted from the `.nt` as `skgg.cli.convert` does with the config's term mapping, so it can be uploaded again with the same config.
+
 ### Complete a graph with its rules
 
 `skgg.cli.complete` applies a rule set to a real graph until a pass adds nothing, and writes the result to `--complete-uri`, replacing that graph's contents. The source is a graph URI or a `.nt`/`.tsv` file, which is loaded directly into `--complete-uri`. A config passed with `-f` supplies the source (`graph.base_uri`), rules file, PCA threshold, namespace and database connection, and flags override any of them. Without `-f`, pass `--source`, `--rules-file`, `--pca-threshold`, `--namespace` and the connection flags (`--database-url`, `--sparql-endpoint`, `--auth-type`, `--user`, `--password`).
