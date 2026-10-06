@@ -113,46 +113,52 @@ Given the base facts $F_0$ in the EDB, the synthetic graph is obtained by applyi
 Because $T_{\mathcal{R}}$ is monotone and the entity and predicate sets are finite, the sequence stabilises at the least fixpoint $F^{*}$, the smallest set that contains $F_0$ and is closed under every rule. Once no rule adds a further fact, the graph is in a *stale state*.
 
 After the fixpoint, rule and relation **closure** is recorded. A rule is closed when its support in the graph has reached its target, and a predicate is closed when its frequency in the new graph is equal to its frequency on the target graph.
-## 5. WIP: breaking rule cycles
+## 5. Rule cycles
 
 Generating the EDB only closes extensional relations, and completing the graph can only derive a fact from facts that already exist. A predicate may then be impossible to derive from anything. If every rule that produces $p$ needs $p$ itself or needs a predicate that in turn depends on $p$, no first fact can ever appear. Two typical patterns are
 
 - a self-loop, e.g.: $p(x,y) \Rightarrow p(y,x)$, or $p(x,y) \wedge q(y,z) \Rightarrow p(x,z)$;
 - a mutual dependency, $p(x,y) \Rightarrow q(y, x)$ together with $q(x, y) \Rightarrow p(y, x)$, or longer cycles of the same kind.
 
-Both are natural rule sets: symmetry and transitivity rules of this shape are among the most common. Yet they leave the involved predicates empty after graph completion, even though the source graph contained facts for them. The following sections describe one approach to detect and "break" stale cycles, but it is memory intensive and has been removed from the method. Instead, every rule with an edge on a cycle of the relation graph $D_{\mathcal{R}}$ (Section 5.1) is removed from $\mathcal{R}$ before the EDB is generated. A predicate that only those rules derived becomes extensional, so the EDB generates it to its profile, and a predicate that some remaining rule derives stays intensional.
+Both are natural rule sets: symmetry and transitivity rules of this shape are among the most common. Yet they leave the involved predicates empty after graph completion, even though the source graph contained facts for them.
 
-### 5.1 Detecting stale cycles
+### 5.1 The relation graph
 
-Define the **relation graph** $D_{\mathcal{R}}$ as a directed graph on relations, with an edge $q \to p$ whenever some rule has relation $q$ in its body and relation $p$ in its head (self-loops included). Each edge remembers the rules that produce it. A directed cycle in $D_{\mathcal{R}}$ is **stale** with respect to a graph $F$ if none of its predicates has a single fact in $F$. A cyclic predicate that is already populated, through some other rule or through the base facts, is an ordinary recursive rule and needs no help.
+Define the **relation graph** $D_{\mathcal{R}}$ as a directed graph on relations, with an edge $q \to p$ whenever some rule has relation $q$ in its body and relation $p$ in its head (self-loops included). Each edge remembers the rules that produce it. The method removes rules from $\mathcal{R}$ before the EDB is generated until $D_{\mathcal{R}}$ has no cycle. A predicate that only the removed rules derived becomes extensional, so the EDB generates it to its profile, and a predicate that some remaining rule derives stays intensional.
 
-### 5.2 Breaking a cycle
+A first version removed every rule with an edge on a cycle, that is, every rule whose body and head relations lie in the same strongly connected component of $D_{\mathcal{R}}$. Most mined rules are on some cycle, so few survive: on the French Royalty rules with PCA confidence at least 0.9, it keeps 1 rule of 23, and at 0.7 or below it keeps none. Section 5.2 removes only the rules needed to break every cycle.
 
-For a stale cycle $\gamma$, the generator chooses one rule $r$ among the rules whose edges lie on $\gamma$, and treats the *empty* atoms of its body as if they were extensional: it creates facts for them, in the same way as Mechanism 2 of Phase I. Precisely, split the body of $r$ into
+### 5.2 Removing the fewest rules
 
-- $S_r$, the atoms whose predicates are empty in $F$ (the atoms to seed), and
-- $J_r$, the remaining atoms, whose predicates are populated and can be joined against existing facts.
+**The problem.** Find the largest subset of $\mathcal{R}$ whose relation graph has no cycle. Removing a rule removes all of its edges at once, so this is a feedback arc set problem in which edges come in groups.
 
-If $J_r$ is non-empty, the seed must join with the facts already present. The generator first retrieves bindings of the variables of $J_r$ that also occur in $S_r$ or in the head. Each candidate grounding then copies one such binding, and only the remaining variables are drawn from the residual profiles as in Section 4.4. The head projection of a grounding includes the bound variables, so distinct heads are counted correctly. For $p(x,y) \wedge q(y,z) \Rightarrow p(x,z)$ with $q$ populated, the atom $p(x,y)$ is seeded, $y$ and $z$ are taken from existing $q$ facts, and $x$ is drawn from the profile of $p$.
+**Rules and orders.** A directed graph has no cycle exactly when its nodes can be put in an order where every edge goes forward (a topological order). For a rule set this means: the relations can be ordered so that, for every rule, all its body relations come before its head relation. So choosing the rules to keep is the same as choosing an order of the relations and keeping every rule that goes forward in it. A recursive rule, whose head relation also appears in its body, goes forward in no order and is always removed.
 
-The number of seed groundings is $$ \min\bigl(\operatorname{supp}(r),\ \min_{B \in S_r} \tilde f_{\mathrm{pred}(B)}\bigr). $$ The first term is the support target of $r$, since all of it is still missing when the body is empty. The second term reflects that each grounding consumes one unit of frequency budget per seeded atom.
+**Why not remove one rule at a time.** A natural idea is to repeat "remove the rule that looks worst" until no cycle is left, for example the rule with the lowest confidence, or the rule on the most cycles. Such a rule only looks at one rule, while a cycle is broken by removing every rule behind one of its edges. Take a single cycle $A \to B \to A$ made by three rules: $r_1$ gives the edge $A \to B$ (confidence 0.99), and $r_2$ and $r_3$ both give the edge $B \to A$ (confidences 0.98 and 0.90). Removing the lowest confidence first deletes $r_3$, which leaves the cycle, then $r_2$: two rules gone. All three rules lie on the one cycle, so "most cycles first" falls back to the same choice. Removing $r_1$ alone was enough. In the order view, $B$ before $A$ keeps $r_2$ and $r_3$, while $A$ before $B$ keeps only $r_1$. On the French Royalty rule files, the two heuristics keep far fewer rules than the exact selection:
 
-**Choosing the rule.** A rule is *eligible* if it is not closed and every predicate it would seed is open, profiled and has budget left. Among eligible rules, the preference is
+| rules file, PCA threshold | rules | every cyclic rule removed | lowest confidence first | most cycles first | exact |
+|---|---|---|---|---|---|
+| `fr.no-literals.csv`, 0.9 | 23 | 1 | 4 | 9 | 12 |
+| `fr.no-literals.csv`, 0.8 | 33 | 1 | 4 | 14 | 17 |
+| `fr.no-literals.csv`, 0.5 | 60 | 0 | 4 | - | 33 |
+| `fr.fixed.csv`, 0.9 | 23 | 1 | 6 | 9 | 13 |
+| `fr.no-literals.fixed.csv`, 0.9 | 36 | 1 | 4 | 9 | 11 |
 
-1. fewest atoms to seed, which creates the least new material;
-2. non-recursive before recursive;
-3. the more restrictive rule first, meaning the one with the larger body, because a restrictive rule's seeded body also satisfies the more general rules that share its head;
-4. an arbitrary but fixed tie-break, for reproducibility.
+**Finding the best order.** Build the order one relation at a time. When a relation $v$ is placed after the set $S$ of relations placed so far, the rules with head $v$ whose body relations are all in $S$ go forward, whatever comes later. How many rules the placed relations keep depends on which relations were placed, not on the order they were placed in. So it is enough to know the best result for each set $S$:
+$$ \operatorname{best}(\emptyset) = 0, \qquad \operatorname{best}(S) = \max_{v \in S} \Bigl( \operatorname{best}(S \setminus \{v\}) + \operatorname{gain}(v, S \setminus \{v\}) \Bigr), $$
+where $\operatorname{gain}(v, T)$ counts the non-recursive rules with head $v$ whose body relations all lie in $T$. The best order for all relations is read back from the choices that reached $\operatorname{best}$ of the full set, and the kept rules are the ones that go forward in it.
 
-The usual ordering between same-head rules, which makes recursive rules wait for non-recursive ones, is deliberately not applied here. Inside a stale cycle the non-recursive rules that a recursive rule would wait for can never fire, so waiting would deadlock exactly the rule that must go first.
+**One component at a time.** Two relations in different strongly connected components of $D_{\mathcal{R}}$ are never on a common cycle, so an edge between components never needs to go. The selection runs on each strongly connected component separately, with only that component's relations and only the rules whose head is in it; body relations outside the component are ignored.
 
-### 5.3 Iteration
+**Which best.** Several orders can keep the same number of rules. The selection prefers the most rules, then the largest total support of the kept rules, and then a fixed order of the relations. The same rules therefore always give the same kept set.
 
-Cycles that share predicates are handled one at a time, because seeding one cycle populates predicates of the others. The overall procedure alternates
+**Example.** On `fr.no-literals.csv` with PCA confidence at least 0.9, the relations `father`, `parent`, `predecessor`, `spouse` and `successor` form one component with 22 rules on its cycles. The best order is `successor < father < parent < predecessor < spouse`, which keeps 11 of them, plus the rule outside the cycle: 12 of 23. The 11 removed rules are the recursive `spouse => spouse` (rule 11), the rules that derive `successor` from `predecessor`, `parent` or `father` (2, 6, 9, 16, 17), the rules that derive `parent` or `father` from a relation placed after them (8, 21, 22, 36), and the rule that derives `father` from `spouse` (14). `successor` becomes extensional, while `father`, `parent`, `predecessor` and `spouse` stay intensional.
 
-$$ \text{seed one stale cycle} \;\longrightarrow\; \text{forward chain to fixpoint} \;\longrightarrow\; \text{re-detect stale cycles} $$
+**Cost.** A component with $n$ relations has $2^n$ sets, and each set tries $n$ relations, so the work grows as $2^n \cdot n$ times the number of rules. French Royalty has 7 relations in all. A component with more than 20 relations falls back to removing every rule on its cycles, as in Section 5.1.
 
-until no stale cycle remains or no cycle can be seeded. A cycle is left unbroken, with a warning, if every candidate rule has a closed or exhausted predicate, or has no facts to join with. Seeds are added to the synthetic graph only. The base facts of Phase I are left unchanged.
+### 5.3 An earlier approach: seeding stale cycles
+
+A cycle is *stale* when none of its predicates has a fact. An earlier version kept the cyclic rules and, for each stale cycle, created body facts for one rule of the cycle (as Mechanism 2 of Section 3.2 does) so that forward chaining could start, then re-ran completion and repeated. It was memory intensive and has been removed from the method.
 
 ## 6. The complete procedure
 
@@ -162,7 +168,7 @@ Putting the steps together, the method is:
 2. **Generate** base facts for every extensional relation $p_{ext}$ that exactly match $P_{p_{ext}}$ (Section 3), ordering rules from most to least restrictive, and combining forced assignments, rule-driven grounding and random completion, all guarded by the realizability test.
 3. **Derive** the least fixpoint of the rules over the base facts (Section 4).
 
-Before step 2, every rule with an edge on a cycle of the relation graph is removed from $\mathcal{R}$ (Section 5), so step 3 can derive every intensional predicate.
+Before step 2, the fewest rules that break every cycle of the relation graph are removed from $\mathcal{R}$ (Section 5.2), so step 3 can derive every intensional predicate.
 
 Only step 1 reads statistical data from the source graph. Everything after it uses the profiles, the supports and the rules.
 
@@ -180,7 +186,7 @@ Only step 1 reads statistical data from the source graph. Everything after it us
 2. **The realizability test is only necessary.** Only the first inequality of Gale–Ryser is checked. A full check needs the sorted degree sequences and is more expensive. Phase I can in principle reach a state that passes every local test but cannot be completed. Such states are detected only when the last mechanism finds too few objects.
 3. **Competition between rules is handled greedily.** The restrictiveness order is a heuristic. It protects restrictive rules from being starved, but it does not solve the underlying assignment problem, which is a joint constraint satisfaction problem over all rules and profiles. CSP problem, my little brain cannot handle it.
 4. **Upper bounds on support.** Support is treated as a target to reach. Because base-fact generation can lower or raise the frequency of predicates that occur in several rule bodies, a rule's final support can be lower or equal to its target. Can it be greater? I think current implementation ensures enough extensional triples to complete support with intensional triples, but I would have to check if, e.g., 100 ext. conjunctions for a rule with support equal to 100 could generate 500 heads using different intensional triples.
-5. **Cycle seeding is local and expensive.** A cycle is broken by seeding a single rule with the smallest possible seed. This guarantees that derivation starts. It does not aim to make the cyclic predicates' final profiles match the source beyond respecting their frequency budget. Also, the method is memory expensive and has been rejected until new notice. The pipeline removes the cyclic rules instead, so their head predicates are generated as extensional ones, but the removed rules are not enforced on the output and their support is not controlled.
+5. **Removed rules are not enforced.** Rules removed to break cycles (Section 5.2) do not hold on the output and their support is not controlled. Keeping a rule also makes its head relation intensional even when the rule derives few of its facts: on `fr.no-literals.csv` at PCA 0.9, rule 38 keeps `father` intensional, but its support covers 60 of the 561 `father` facts of the source, so the EDB no longer generates `father` and completion derives only about 100 of them.
 6. **Entity identity.** The generator reuses the entity set of the profiles. Whether entities should be replaced by fresh identifiers, and how that interacts with the degree maps, is not treated here.
 7. The method assumes the source graph to be as correct and complete as possible. I added a "data preparation" step to "clean" the data, but it currently does not take into account schemas or semantic constraints. SHACL-SPARQL constraints (`<dataset>.shapes.ttl`) can be checked against a `.tsv` file with `cli/validate.py`, which reports the triples that violate them, but the generator does not use them yet to avoid invalid triples.
 8. Current approach does not support literals, so the source graph must be processed beforehand. This could impact the semantics or the rules, so target rule set is always mined from the processed final version of the input graph.

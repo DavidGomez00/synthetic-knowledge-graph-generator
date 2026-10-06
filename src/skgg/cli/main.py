@@ -12,7 +12,7 @@ from pathlib import Path
 
 from SPARQLWrapper import SPARQLWrapper
 
-from skgg.core.config import RunConfig
+from skgg.core.config import CYCLE_REMOVAL_STRATEGIES, RunConfig
 from skgg.core.queries import get_predicate_frequencies, get_support, get_triple_count
 from skgg.core.rules import (
     DEFAULT_STD_THRESHOLD,
@@ -22,6 +22,7 @@ from skgg.core.rules import (
     get_relation_graph,
     parse_rule_set,
     remove_cyclic_rules,
+    remove_minimal_cyclic_rules,
     rule_sort_key,
     write_used_rules,
 )
@@ -343,6 +344,7 @@ def run_synthetic_graph_experiment(
     skip_edb_generation: bool = False,
     log_level: int | str | None = None,
     pca_threshold: float | None = None,
+    cycle_removal: str | None = None,
 ) -> None:
     """Runs a Synthetic Graph generation experiment.
 
@@ -355,9 +357,11 @@ def run_synthetic_graph_experiment(
     this run's rule filtering only. If neither is set, the rules with std
     confidence >= `DEFAULT_STD_THRESHOLD` (1) are kept instead.
 
-    After the confidence filter, `remove_cyclic_rules` deletes every rule on a
-    cycle of the relation graph, so that completion can derive every intensional
-    predicate from the EDB.
+    After the confidence filter, cyclic rules are removed so that the relation
+    graph has no cycle and completion can derive every intensional predicate from
+    the EDB. `cycle_removal`, if given, overrides `config.rules.cycle_removal`:
+    `"minimal"` removes the fewest rules (`remove_minimal_cyclic_rules`), `"all"`
+    every rule on a cycle (`remove_cyclic_rules`).
     """
 
     ## ------ Setup ------
@@ -404,7 +408,12 @@ def run_synthetic_graph_experiment(
         title=f"{config.graph.name} — relation graph",
     )
     # Before EDB generation, so a removed rule's head predicate is extensional.
-    removed_rules = remove_cyclic_rules(rules)
+    if cycle_removal is None:
+        cycle_removal = config.rules.cycle_removal
+    if cycle_removal == "all":
+        removed_rules = remove_cyclic_rules(rules)
+    else:
+        removed_rules = remove_minimal_cyclic_rules(rules)
 
     # A predicate is intensional iff a remaining rule derives it.
     intensional_preds = {r.head.predicate for r in rules.values()}
@@ -545,6 +554,14 @@ def _parse_args() -> argparse.Namespace:
         "config file's rules.pca_threshold for this run only. Without either, the "
         "rules with std confidence 1 are kept.",
     )
+    parser.add_argument(
+        "--cycle-removal",
+        choices=CYCLE_REMOVAL_STRATEGIES,
+        default=None,
+        help="How cyclic rules are removed, overriding the config file's "
+        "rules.cycle_removal for this run only: 'minimal' (the default) removes the "
+        "fewest rules that break every cycle, 'all' every rule on a cycle.",
+    )
     return parser.parse_args()
 
 
@@ -555,4 +572,5 @@ if __name__ == "__main__":
         skip_edb_generation=args.skip_edb,
         log_level=args.log_level,
         pca_threshold=args.pca_conf,
+        cycle_removal=args.cycle_removal,
     )
