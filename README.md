@@ -85,9 +85,10 @@ On GraphDB the whole graph comes from one request to the repository's `/statemen
 
 ### Complete a graph with its rules
 
-`skgg.cli.complete` applies a rule set to a real graph until a pass adds nothing, and writes the result to `--complete-uri`, replacing that graph's contents. The source is a graph URI or a `.nt`/`.tsv` file, which is loaded directly into `--complete-uri`. A config passed with `-f` supplies the source (`graph.base_uri`), rules file, PCA threshold, namespace and database connection, and flags override any of them. Without `-f`, pass `--source`, `--rules-file`, `--pca-threshold`, `--namespace` and the connection flags (`--database-url`, `--sparql-endpoint`, `--auth-type`, `--user`, `--password`).
+`skgg.cli.complete` applies a rule set to a real graph until a pass adds nothing, and writes the result to `--complete-uri` (default `graph.base_uri`), replacing that graph's contents. If the source is `--complete-uri` itself, the graph is completed in place and only the derived triples are added. The source is a graph URI or a `.nt`/`.tsv` file, which is loaded directly into `--complete-uri`. A config passed with `-f` supplies the source (`graph.base_uri`), rules file, PCA threshold, namespace and database connection, and flags override any of them. Without `-f`, pass `--source`, `--complete-uri`, `--rules-file`, `--pca-threshold`, `--namespace` and the connection flags (`--database-url`, `--sparql-endpoint`, `--auth-type`, `--user`, `--password`).
 
 ```bash
+python -m skgg.cli.complete -f family.source.json                                                                       # completes graph.base_uri in place
 python -m skgg.cli.complete -f family.source.json --complete-uri http://Family.org/complete                                  # graph.base_uri -> complete
 python -m skgg.cli.complete -f family.source.json --source data/family/family.nt  --complete-uri http://Family.org/complete  # a file instead of base_uri
 python -m skgg.cli.complete --source http://Family.org/source --complete-uri http://Family.org/complete --rules-file data/family/family.csv --pca-threshold 1 --namespace http://Family.org/ --database-url http://localhost:7200/ --sparql-endpoint repositories/Family --auth-type BASIC --user admin --password rootpassword

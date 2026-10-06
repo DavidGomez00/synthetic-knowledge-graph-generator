@@ -1,6 +1,8 @@
 """Completes a graph with a rule set: copies a base graph (a graph URI, or a
-.nt/.tsv file loaded directly) into a separate complete graph, then applies every
-rule to it until a pass adds nothing (`engine.completion.complete_graph`).
+.nt/.tsv file loaded directly) into the complete graph (default: the config's
+graph.base_uri), then applies every rule to it until a pass adds nothing
+(`engine.completion.complete_graph`). If the base graph is the complete graph,
+it is completed in place without being copied.
 
 Settings come from flags, from a config file (`-f`), or from both, in which case
 the flags win. Without a config file the source, rules file, PCA threshold and
@@ -39,7 +41,9 @@ def complete(
     chunk_size: int,
 ) -> int:
     """Overwrites `complete_uri` with `source` (a graph URI or a .nt/.tsv file)
-    completed with `rules`, applying them until a pass adds nothing.
+    completed with `rules`, applying them until a pass adds nothing. If `source`
+    is `complete_uri`, the graph is not copied and only the derived triples are
+    added to it.
 
     Returns:
         The number of triples the rules added.
@@ -54,21 +58,31 @@ def complete(
         label="complete",
     )
     total = get_triple_count(client, complete_uri)
-    logger.info(
-        "Completed %s into <%s>: %d source triples + %d derived = %d triples.",
-        source,
-        complete_uri,
-        total - added,
-        added,
-        total,
-    )
+    if source == complete_uri:
+        logger.info(
+            "Completed <%s> in place: %d existing triples + %d derived = %d triples.",
+            complete_uri,
+            total - added,
+            added,
+            total,
+        )
+    else:
+        logger.info(
+            "Completed %s into <%s>: %d source triples + %d derived = %d triples.",
+            source,
+            complete_uri,
+            total - added,
+            added,
+            total,
+        )
     return added
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Complete a graph (a graph URI or a .nt/.tsv file) with a rule "
-        "set into a separate graph, applying every rule until a pass adds nothing. "
+        "set into --complete-uri, applying every rule until a pass adds nothing. "
+        "If the source is --complete-uri, it is completed in place. "
         "Flags override the config file's values."
     )
     parser.add_argument(
@@ -76,7 +90,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--config-file",
         default=None,
         help="Config file under configurations/ (e.g. family.source), or a path "
-        "to one; the .json extension is optional. Supplies every setting below except --complete-uri.",
+        "to one; the .json extension is optional. Supplies every setting below.",
     )
     parser.add_argument(
         "--source",
@@ -86,8 +100,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--complete-uri",
-        required=True,
-        help="Graph URI the completed graph is written to. Its contents are replaced.",
+        default=None,
+        help="Graph URI the completed graph is written to (defaults to the config's "
+        "graph.base_uri). If it is the source graph, the source is completed in "
+        "place; otherwise its contents are replaced by the source.",
     )
     parser.add_argument(
         "--rules-file",
@@ -159,6 +175,9 @@ def main() -> None:
     )
 
     source: str | None = args.source or (config.graph.base_uri if config else None)
+    complete_uri: str | None = args.complete_uri or (
+        config.graph.base_uri if config else None
+    )
     rules_file: Path | None = args.rules_file or (
         config.data.input_dir / config.rules.rules_file if config else None
     )
@@ -172,6 +191,8 @@ def main() -> None:
     without_config = "is required without -f/--config-file"
     if source is None:
         parser.error(f"--source {without_config}.")
+    if complete_uri is None:
+        parser.error(f"--complete-uri {without_config}.")
     if rules_file is None:
         parser.error(f"--rules-file {without_config}.")
     if pca_threshold is None:
@@ -181,8 +202,10 @@ def main() -> None:
 
     if source.lower().endswith(TRIPLE_FILE_SUFFIXES) and not Path(source).is_file():
         parser.error(f"source file {source} does not exist.")
-    if source.strip("<>") == args.complete_uri.strip("<>"):
-        parser.error("--complete-uri must differ from the source graph.")
+    complete_uri = complete_uri.strip("<>")
+    if source.strip("<>") == complete_uri:
+        # Same graph: complete_graph then skips the copy and only adds triples.
+        source = complete_uri
     if not rules_file.is_file():
         parser.error(f"rules file {rules_file} does not exist.")
 
@@ -207,7 +230,7 @@ def main() -> None:
         rules,
         term_mapping,
         source,
-        args.complete_uri,
+        complete_uri,
         auth.chunk_size,
     )
 
