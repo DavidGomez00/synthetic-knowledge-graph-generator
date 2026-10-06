@@ -483,7 +483,7 @@ def generate_extensional_predicates(
                 if r_count:
                     progress = True
                     logger.debug(
-                        "[Step %d] Added %d triples using rule %s body (to respeect selectivity)",
+                        "[Step %d] Added %d triples using rule %s's body.",
                         step,
                         r_count,
                         r_id,
