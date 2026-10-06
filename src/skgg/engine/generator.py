@@ -196,6 +196,36 @@ def sample_groundings(
     chunk_size: int,
     fixed_bindings: list[dict[str, str]] | None = None,
 ) -> list[str]:
+    """Returns the new triples of `sample_grounding_groups`'s groundings, as one
+    list. Takes the same arguments."""
+    return [
+        triple
+        for group in sample_grounding_groups(
+            client,
+            target_uri,
+            atoms,
+            head_vars,
+            profiles,
+            missing_heads,
+            term_mapping,
+            chunk_size,
+            fixed_bindings,
+        )
+        for triple in group
+    ]
+
+
+def sample_grounding_groups(
+    client: SPARQLWrapper,
+    target_uri: str,
+    atoms: list[Atom],
+    head_vars: set[str],
+    profiles: dict[str, PredicateProfile],
+    missing_heads: int,
+    term_mapping: dict[str, str],
+    chunk_size: int,
+    fixed_bindings: list[dict[str, str]] | None = None,
+) -> list[list[str]]:
     """Constructs groundings of a rule body directly from predicate profiles.
 
     Variables shared between atoms are drawn once per grounding, from the intersection
@@ -223,8 +253,8 @@ def sample_groundings(
             count in the head projection. No usable row means nothing is built.
 
     Returns:
-        The new triples of the accepted groundings. Fewer than needed if a variable
-        runs out of candidate values.
+        The new triples of each accepted grounding, in the order of `atoms`. Fewer
+        groundings than needed if a variable runs out of candidate values.
     """
     body_vars = {t for a in atoms for t in (a.subject, a.obj) if t.startswith("?")}
     usable_rows = _usable_fixed_rows(atoms, profiles, fixed_bindings)
@@ -244,7 +274,7 @@ def sample_groundings(
 
     seen: set[tuple[str, ...]] = set()
     chosen: set[str] = set()
-    new_triples: list[str] = []
+    groups: list[list[str]] = []
     empty_batches = 0
 
     while len(seen) < missing_heads and empty_batches < _MAX_EMPTY_BATCHES:
@@ -346,7 +376,7 @@ def sample_groundings(
 
             seen.add(key)
             chosen.update(fresh)
-            new_triples.extend(fresh)
+            groups.append(list(fresh))
             accepted += 1
 
         empty_batches = 0 if accepted else empty_batches + 1
@@ -359,7 +389,7 @@ def sample_groundings(
             [str(a) for a in atoms],
         )
 
-    return new_triples
+    return groups
 
 
 # ---------------------------------------------------------------------------

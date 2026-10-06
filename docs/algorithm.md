@@ -113,6 +113,29 @@ Given the base facts $F_0$ in the EDB, the synthetic graph is obtained by applyi
 Because $T_{\mathcal{R}}$ is monotone and the entity and predicate sets are finite, the sequence stabilises at the least fixpoint $F^{*}$, the smallest set that contains $F_0$ and is closed under every rule. Once no rule adds a further fact, the graph is in a *stale state*.
 
 After the fixpoint, rule and relation **closure** is recorded. A rule is closed when its support in the graph has reached its target, and a predicate is closed when its frequency in the new graph is equal to its frequency on the target graph.
+### 4.1 Filling open relations
+
+The fixpoint closes every rule whose body facts exist, but it can leave relations short of their frequency: an intensional relation only receives the facts its rules derive, and the rules may explain only part of it. A last step adds the missing facts of every open relation, drawing subjects and objects weighted by how many more facts they need to match the source profile. Every new fact must respect two constraints:
+
+- the support of every closed rule stays the same;
+- the graph stays closed under every rule: no new body grounding is left without its head.
+
+The support of an open rule may grow, up to its target; a rule that reaches its target is closed from then on.
+
+**Which facts can change a support.** At the fixpoint every body grounding already has its head. A new fact $p(s,o)$ can therefore change a rule $r$ in two ways only. If $p$ is the head relation of $r$, it completes a grounding whose head values are $(s,o)$, if such a grounding exists. If $p$ occurs in the body of $r$, it can create new body groundings: one whose head is present raises the support, and one whose head is absent leaves the graph no longer closed under $r$. A new body grounding whose head values are already in the support changes nothing. So a random fact is safe for a relation that occurs in no rule body (up to the head check), and not otherwise.
+
+**How an open rule can still grow.** Facts are only added for open relations, so an open rule's support can only grow through its open body relations:
+
+- **A.** Every body relation of $r$ is closed: no new grounding can appear, so $r$ cannot reach its target. It is reported.
+- **B1.** A body relation is open and the head relation is closed: the head facts are fixed, and the support grows only by completing a body for a head fact that $r$ does not explain yet.
+- **B2.** A body relation and the head relation are open: new groundings are added together with their head fact, as the fixpoint would derive it.
+
+The step first builds groundings for every open rule of case B1 or B2, in the order of the rule set, with the grounding sampler of Mechanism 2 (Section 3.2.2) on the remaining budgets of the open relations. A grounding is kept only if each of its facts respects the constraints above; the head fact a B2 grounding adds is allowed to be missing while its body facts are added. Then the budget left is spent at random, under the same constraints.
+
+**Why these facts can only appear now.** EDB generation only creates extensional relations, and the fixpoint only adds heads. A relation that is the head of one rule and in the body of others therefore only receives the facts its own rules derive. On `fr.no-literals.csv` at PCA 0.9, rule 38 derives `father` (100 of 561 facts), and rules 10, 19 and 24 have `father` in their body, so they stay below their support after the fixpoint. This step is the first to create facts of an intensional relation outside the rules that derive it, and placing them where they complete the open rules' groundings raises those rules' support (rule 10: 100 to 271 of 431).
+
+**Open issue.** A single fact can feed several open rules at once: `father(e,b)` creates a grounding of rule 10 that needs `parent(e,b)` and, if `e` has a mother `a`, groundings of rules 19 and 24 that need `spouse(a,b)` and `spouse(b,a)`. A grounding built for one rule only adds that rule's head, so the groundings it creates for the others are left without head and the fact is rejected. In the run above this stops `father` at 271 of 561 and leaves rules 19 and 24 at their support after the fixpoint. See Section 8.
+
 ## 5. Rule cycles
 
 Generating the EDB only closes extensional relations, and completing the graph can only derive a fact from facts that already exist. A predicate may then be impossible to derive from anything. If every rule that produces $p$ needs $p$ itself or needs a predicate that in turn depends on $p$, no first fact can ever appear. Two typical patterns are
@@ -167,10 +190,11 @@ Putting the steps together, the method is:
 1. **Extract** the profiles $P$ of every relation-type and the targets $\operatorname{support}(r, \mathcal{G})$ of every rule from the IDB (the set of rules $\mathcal{R}$ mined from the target graph).
 2. **Generate** base facts for every extensional relation $p_{ext}$ that exactly match $P_{p_{ext}}$ (Section 3), ordering rules from most to least restrictive, and combining forced assignments, rule-driven grounding and random completion, all guarded by the realizability test.
 3. **Derive** the least fixpoint of the rules over the base facts (Section 4).
+4. **Fill** the relations still short of their frequency, keeping the support of every closed rule and raising the support of open rules up to their target (Section 4.1).
 
 Before step 2, the fewest rules that break every cycle of the relation graph are removed from $\mathcal{R}$ (Section 5.2), so step 3 can derive every intensional predicate.
 
-Only step 1 reads statistical data from the source graph. Everything after it uses the profiles, the supports and the rules.
+Only step 1 reads statistical data from the source graph, apart from the remaining budgets of step 4, computed as the source profiles minus the counts in the synthetic graph. Everything after it uses the profiles, the supports and the rules.
 
 ## 7. Properties
 
@@ -182,11 +206,12 @@ Only step 1 reads statistical data from the source graph. Everything after it us
 
 ## 8. Limitations, future work and open questions
 
-1. **Intensional frequencies are not controlled.** Relations are matched exactly for extensional predicates only. Intensional predicates are obtained by unrestricted derivation, so their frequencies and degree distributions can overshoot the source, or fall short if rules fail to fire. Making derivation respect the profile of the head predicate, that is, restricting derived facts by the same residual-profile and realizability logic, is a natural extension.
+1. **Intensional frequencies are not controlled.** Relations are matched exactly for extensional predicates only. Intensional predicates are obtained by unrestricted derivation, so their frequencies and degree distributions can overshoot the source, or fall short if rules fail to fire. The fill step (Section 4.1) adds the facts of a relation that falls short, but cannot remove the facts of one that overshoots. Making derivation respect the profile of the head predicate, that is, restricting derived facts by the same residual-profile and realizability logic, is a natural extension.
 2. **The realizability test is only necessary.** Only the first inequality of Gale–Ryser is checked. A full check needs the sorted degree sequences and is more expensive. Phase I can in principle reach a state that passes every local test but cannot be completed. Such states are detected only when the last mechanism finds too few objects.
 3. **Competition between rules is handled greedily.** The restrictiveness order is a heuristic. It protects restrictive rules from being starved, but it does not solve the underlying assignment problem, which is a joint constraint satisfaction problem over all rules and profiles. CSP problem, my little brain cannot handle it.
 4. **Upper bounds on support.** Support is treated as a target to reach. Because base-fact generation can lower or raise the frequency of predicates that occur in several rule bodies, a rule's final support can be lower or equal to its target. Can it be greater? I think current implementation ensures enough extensional triples to complete support with intensional triples, but I would have to check if, e.g., 100 ext. conjunctions for a rule with support equal to 100 could generate 500 heads using different intensional triples.
 5. **Removed rules are not enforced.** Rules removed to break cycles (Section 5.2) do not hold on the output and their support is not controlled. Keeping a rule also makes its head relation intensional even when the rule derives few of its facts: on `fr.no-literals.csv` at PCA 0.9, rule 38 keeps `father` intensional, but its support covers 60 of the 561 `father` facts of the source, so the EDB no longer generates `father` and completion derives only about 100 of them.
 6. **Entity identity.** The generator reuses the entity set of the profiles. Whether entities should be replaced by fresh identifiers, and how that interacts with the degree maps, is not treated here.
 7. The method assumes the source graph to be as correct and complete as possible. I added a "data preparation" step to "clean" the data, but it currently does not take into account schemas or semantic constraints. SHACL-SPARQL constraints (`<dataset>.shapes.ttl`) can be checked against a `.tsv` file with `cli/validate.py`, which reports the triples that violate them, but the generator does not use them yet to avoid invalid triples.
-8. Current approach does not support literals, so the source graph must be processed beforehand. This could impact the semantics or the rules, so target rule set is always mined from the processed final version of the input graph.
+8. **Filling is limited by facts shared between open rules.** The fill step (Section 4.1) rejects a fact that leaves a grounding of another open rule without its head, so relations that feed several open rules stay open (`father` at 271 of 561 on `fr.no-literals.csv` at PCA 0.9). Adding the other rules' heads in the same grounding, or re-running the rule-driven part after the random part, are the next steps (see `BACKLOG.md`).
+9. Current approach does not support literals, so the source graph must be processed beforehand. This could impact the semantics or the rules, so target rule set is always mined from the processed final version of the input graph.

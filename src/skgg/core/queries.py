@@ -262,6 +262,16 @@ def insert_triples_sparql(
     return total_inserted
 
 
+def delete_triples_sparql(
+    client: SPARQLWrapper, graph_uri: str, triples: Iterable[str]
+) -> None:
+    """Deletes the given triples (formatted as by `format_triple`) from a graph."""
+    if payload := "\n".join(triples):
+        _execute_update_query(
+            client, f"DELETE DATA {{ GRAPH <{graph_uri}> {{ {payload} }} }}"
+        )
+
+
 class TripleBuffer:
     """Accumulates triples that were decided without needing a DB read (see
     `engine/edb.py`'s direct-match/random-assignment steps), so they can be
@@ -771,8 +781,8 @@ def _values_clause(binding: dict[str, str]) -> str:
 
 
 def has_solution(client: SPARQLWrapper, query: str) -> bool:
-    """Returns whether a query built by `build_head_impact_query` or
-    `build_body_impact_query` has a solution."""
+    """Returns whether a query, e.g. one built by `build_head_impact_query`, has a
+    solution."""
     return bool(execute_select_query(client, query))
 
 
@@ -799,17 +809,36 @@ def build_head_impact_query(
     }} LIMIT 1"""
 
 
+def _supported_patterns(rule: HornRule) -> list[str]:
+    """Returns the patterns of a body grounding plus the head, with the non-head
+    variables renamed (`?x` -> `?x_old`). Inside `FILTER NOT EXISTS`, they match
+    when the head binding of the enclosing solution is already in the rule's
+    support (see `get_support`)."""
+    head_vars = rule.get_head_variables()
+
+    def rename(term: str) -> str:
+        return f"{term}_old" if term.startswith("?") and term not in head_vars else term
+
+    body = [
+        f"{rename(a.subject)} {a.predicate} {rename(a.obj)} ."
+        for a in sorted(rule.body)
+    ]
+    return [*body, f"{rule.head} ."]
+
+
 def build_body_impact_query(
     rule: HornRule, atom: Atom, subject: str, obj: str, graph_uri: str
 ) -> str | None:
-    """Builds a query with a solution iff adding the triple
-    `subject atom.predicate obj` (not yet in the graph) creates a body grounding
-    of the rule, with the triple matching `atom`, whose head binding is not in the
-    rule's support yet (see `get_support`).
+    """Builds a query returning the head bindings (head variables, sorted, then
+    `?present`) of the new body groundings that adding the triple
+    `subject atom.predicate obj` (not yet in the graph) creates, with the triple
+    matching `atom`, and whose head binding is not in the rule's support yet (see
+    `get_support`). Read the rows with `get_new_head_bindings`.
 
-    Such a grounding raises the support when its head triple is present, and
-    leaves the graph no longer closed under the rule when it is absent. A
-    grounding whose head binding is already supported changes neither.
+    `?present` tells whether the head triple is already in the graph: if so, the
+    grounding raises the support; if not, it leaves the graph no longer closed
+    under the rule. A grounding whose head binding is already supported changes
+    neither and is not returned.
 
     Other body atoms with the same predicate may match the new triple too. Like
     `get_support`, variables may take equal values.
@@ -833,31 +862,75 @@ def build_body_impact_query(
             values = _values_clause(other_binding)
             patterns.append(f"{{ {other} . }} UNION {{ {values} }}")
 
-    # Rename the non-head variables, so that the subquery looks for another
-    # grounding with the same head values.
-    head_vars = rule.get_head_variables()
-
-    def rename(term: str) -> str:
-        return f"{term}_old" if term.startswith("?") and term not in head_vars else term
-
-    old_patterns = [
-        f"{rename(a.subject)} {a.predicate} {rename(a.obj)} ."
-        for a in sorted(rule.body)
-    ] + [f"{rule.head} ."]
-
+    proj = " ".join(sorted(rule.get_head_variables()))
     newline = "\n          "
     return f"""
-    SELECT * WHERE {{
+    SELECT DISTINCT {proj} ?present WHERE {{
       {_values_clause(binding)}
       GRAPH <{graph_uri}> {{
           {newline.join(patterns)}
       }}
       FILTER NOT EXISTS {{
         GRAPH <{graph_uri}> {{
-          {newline.join(old_patterns)}
+          {newline.join(_supported_patterns(rule))}
         }}
       }}
-    }} LIMIT 1"""
+      BIND (EXISTS {{ GRAPH <{graph_uri}> {{ {rule.head} . }} }} AS ?present)
+    }}"""
+
+
+def get_new_head_bindings(
+    client: SPARQLWrapper, rule: HornRule, query: str
+) -> list[tuple[tuple[str, ...], bool]]:
+    """Runs a query built by `build_body_impact_query` and returns its rows as
+    (head values in sorted head-variable order, as bracketed terms; whether the
+    head triple is present)."""
+    names = [v[1:] for v in sorted(rule.get_head_variables())]
+    return [
+        (
+            tuple(format_term(row[name]["value"]) for name in names),
+            row["present"]["value"] == "true",
+        )
+        for row in execute_select_query(client, query)
+    ]
+
+
+def get_unsupported_head_bindings(
+    client: SPARQLWrapper,
+    rule: HornRule,
+    atoms: Iterable[Atom],
+    variables: Iterable[str],
+    graph_uri: str,
+    limit: int,
+) -> list[dict[str, str]]:
+    """Returns up to `limit` distinct bindings of `variables` that satisfy `atoms`
+    and the rule's head, where the head binding is not in the rule's support yet:
+    head triples present that no body grounding of the rule explains.
+
+    Values come back as bracketed terms, as in `get_atom_bindings`.
+    """
+    patterns = "\n          ".join(
+        [f"{atom} ." for atom in atoms] + [f"{rule.head} ."]
+    )
+    supported = "\n          ".join(_supported_patterns(rule))
+    proj = " ".join(sorted(set(variables)))
+
+    query = f"""
+    SELECT DISTINCT {proj} WHERE {{
+      GRAPH <{graph_uri}> {{
+          {patterns}
+      }}
+      FILTER NOT EXISTS {{
+        GRAPH <{graph_uri}> {{
+          {supported}
+        }}
+      }}
+    }} LIMIT {limit}"""
+
+    return [
+        {f"?{name}": format_term(cell["value"]) for name, cell in row.items()}
+        for row in execute_select_query(client, query)
+    ]
 
 
 def count_producible_heads(

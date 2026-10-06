@@ -87,18 +87,32 @@ A rule with an edge `body predicate -> head predicate` on a cycle of the relatio
 
 ## Filling open relations
 
-After completion every kept rule is usually closed, but a predicate can still be short of its target frequency (on `fr.no-literals`, `predecessor` had 6 of 358 triples). Phase 4 of `cli/main.py` (`engine/fill.py`) adds the missing triples without changing the support of any kept rule. Rules dropped by the confidence filter or by `remove_cyclic_rules` are not protected.
+After completion a predicate can still be short of its target frequency, and a rule short of its support. Phase 4 of `cli/main.py` (`engine/fill.py`'s `fill_open_predicates`) adds the missing triples of every open predicate. The method is described in [section 4.1 of `algorithm.md`](algorithm.md#41-filling-open-relations); this entry covers the terms and the checks.
 
-The support of a rule is the number of distinct head-variable bindings for which some body grounding holds and the head triple is in the graph (`core/queries.get_support`). Completion stops when a pass adds nothing, so every body grounding that `apply_rule` matches already has its head.
+On `fr.no-literals.csv` at PCA 0.9, completion leaves `father` at 100/561, `parent` at 508/946, `predecessor` at 354/358 and `spouse` at 108/865, and rules 10 (`father => parent`, 100/431), 19 and 24 (`father & mother => spouse`, 54/215 and 54/200) open.
 
-Random triples, drawn from the remaining domain and range counts, are safe only for a predicate that is in no kept rule's body. Such a triple changes no body grounding, and as a head it can only complete a grounding whose head is missing. After completion that happens only for groundings `apply_rule` skips: `build_rule_query` requires all variables to take different values and `get_support` does not, so a reflexive triple can still raise a support. When the predicate is in a rule body, a random triple can create a body grounding whose head is present (support goes up) or absent (the graph no longer satisfies the rule, and completing it again would raise the support).
+**Protected and open rules.** Only the kept rules are considered; rules dropped by the confidence filter or by cycle removal are not. A rule closed when phase 4 starts keeps its support exactly. An open rule may gain support up to its target, and is marked closed (`HornRule.closed`) when it reaches it. The graph stays closed under every kept rule: no body grounding is left without its head, so completing it again adds nothing.
 
-A candidate triple `(s, p, o)` is kept when, for every kept rule in which `p` occurs:
+**Support.** The support of a rule is the number of distinct head-variable bindings for which some body grounding holds and the head triple is in the graph (`core/queries.get_support`). Completion stops when a pass adds nothing, so every body grounding that `apply_rule` matches already has its head. A new triple with predicate `p` can therefore only change a rule in which `p` occurs: as the head, by completing a grounding with those head values, or in the body, by creating new groundings. Random triples are safe for a predicate in no rule body, with one exception: `build_rule_query` requires all variables to take different values and `get_support` does not, so a grounding with a reflexive triple can still lack its head (see the "Irreflexive relations" item in `BACKLOG.md`).
 
-- Head check, when `p` is the rule's head predicate (`build_head_impact_query`): no body grounding has the head values `(s, o)`.
-- Body check, for each body atom with predicate `p` (`build_body_impact_query`): every new body grounding that matches the candidate to that atom has a head binding already in the support, meaning another grounding has the same head values and the head triple is present. Other body atoms with predicate `p` may match the candidate as well.
+**Checks.** Every candidate triple `(s, p, o)` is checked against each kept rule in which `p` occurs, before it is inserted (`_FillState.impact`):
 
-No kept rule has `p` in both its body and its head, since that rule would be cyclic. Kept triples leave both the supports and the closure under the kept rules unchanged, so completing the graph again adds nothing. Each kept triple is inserted at once, so the checks of the next candidates see it. A predicate is given up after `engine/fill.MAX_FILL_DRAWS` draws in a row without a kept triple.
+- Head check, when `p` is the rule's head predicate (`build_head_impact_query`): does some body grounding have the head values `(s, o)`? If so, the triple adds one to the support.
+- Body check, for each body atom with predicate `p` (`build_body_impact_query`, read with `get_new_head_bindings`): the head bindings of the new body groundings that match the candidate to that atom and are not in the support yet, each with whether its head triple is present. Other body atoms with predicate `p` may match the candidate as well.
+
+The triple is rejected if it would add a supported head binding to a closed rule, push an open rule past its target, or create a grounding without its head. The one exception is the head a B2 grounding (below) adds right after its body.
+
+**Cases of an open rule** (`classify_open_rule`):
+
+- A: every body predicate is closed. No new grounding can appear, so the rule can't reach its target; it is logged as a warning.
+- B1: a body predicate is open and the head predicate is closed. Fill completes bodies for head triples the rule doesn't explain yet (`get_unsupported_head_bindings`).
+- B2: a body predicate and the head predicate are open. Fill adds new groundings with their head triple.
+
+**Passes.** The rule-driven pass takes the open rules of case B1 or B2 in rule ID order, builds groundings with `generator.sample_grounding_groups` on the remaining budgets (source counts minus synthetic counts), joined with the existing facts of the rule's closed body atoms, and inserts each grounding one triple at a time. If a triple is rejected, the grounding's triples already inserted are deleted again and their budget is given back. A rule is given up after `MAX_EMPTY_ROUNDS` sampling rounds in a row without an accepted grounding. The random pass then spends each predicate's budget left, one triple at a time, and gives a predicate up after `MAX_FILL_DRAWS` draws in a row without an accepted triple.
+
+**Why these triples can only appear now.** EDB generation only creates extensional predicates and completion only adds heads, so an intensional predicate in other rules' bodies only gets the facts its own rules derive. `father` is derived by rule 38 alone (100 triples), which keeps rules 10, 19 and 24 below their support. Fill is the first step that creates facts of an intensional predicate outside the rules that derive it. On the run above it adds 171 `father` triples with their `parent` heads, raising rule 10 from 100 to 271.
+
+**Open issue.** A triple that feeds several open rules is rejected when it leaves a grounding of another open rule without its head: `father(e,b)` needs `parent(e,b)` for rule 10 and, if `e` has a mother, a `spouse` triple for rules 19 and 24. In the run above the random pass rejects 1,915 `father` triples because of rule 10 and the rule-driven pass 970 because of rule 19, so `father` stops at 271/561 and rules 19 and 24 stay at 54. "Finish the fill step" in `BACKLOG.md` lists the next steps.
 
 ## Solvability check
 

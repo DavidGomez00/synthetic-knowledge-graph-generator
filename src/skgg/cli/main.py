@@ -136,21 +136,12 @@ def _fill_open_relations(
     term_mapping: dict[str, str],
     chunk_size: int,
 ) -> None:
-    """Flags the rules left open by completion, lists each open relation with the
-    rules a new triple of it could impact, and fills the open relations with
-    `fill_open_predicates`. Logs a warning for any rule whose support changed,
+    """Lists each open relation with the rules a new triple of it could impact,
+    and fills the open relations with `fill_open_predicates`, which also raises
+    the support of open rules toward their target. Logs a warning if the support
+    of a rule closed before the fill changed, or an open rule passed its target,
     which the fill checks should prevent."""
     profiles = progress.profiles
-    for r_id in sorted(rules, key=rule_sort_key):
-        if not rules[r_id].closed:
-            logger.warning(
-                "Rule %s is still open after completion (support %d/%d); filling "
-                "open relations never changes support.",
-                r_id,
-                get_support(client, rules[r_id], graph_uri),
-                rules[r_id].support,
-            )
-
     open_preds = {p for p, pr in profiles.items() if not pr.closed}
     if not open_preds:
         logger.info("No open relations to fill.")
@@ -171,6 +162,7 @@ def _fill_open_relations(
         )
 
     supports = {r_id: get_support(client, r, graph_uri) for r_id, r in rules.items()}
+    closed_before = {r_id for r_id, r in rules.items() if r.closed}
     fill_open_predicates(
         client=client,
         rules=rules,
@@ -186,13 +178,31 @@ def _fill_open_relations(
     for pred in open_preds:
         if freqs.get(pred[1:-1], 0) >= progress.targets[pred]:
             profiles[pred].closed = True
-    for r_id, rule in rules.items():
-        if (support := get_support(client, rule, graph_uri)) != supports[r_id]:
+    for r_id in sorted(rules, key=rule_sort_key):
+        rule, support = rules[r_id], get_support(client, rules[r_id], graph_uri)
+        if r_id in closed_before:
+            if support != supports[r_id]:
+                logger.warning(
+                    "[Fill] Support of closed rule %s changed: %d -> %d.",
+                    r_id,
+                    supports[r_id],
+                    support,
+                )
+        elif support > rule.support:
             logger.warning(
-                "[Fill] Support of rule %s changed: %d -> %d.",
+                "[Fill] Rule %s passed its target support: %d -> %d/%d.",
                 r_id,
                 supports[r_id],
                 support,
+                int(rule.support),
+            )
+        else:
+            logger.info(
+                "[Fill] Rule %s: support %d -> %d/%d.",
+                r_id,
+                supports[r_id],
+                support,
+                int(rule.support),
             )
 
 
