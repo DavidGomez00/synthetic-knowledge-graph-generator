@@ -4,9 +4,12 @@ graph.base_uri), then applies every rule to it until a pass adds nothing
 (`engine.completion.complete_graph`). If the base graph is the complete graph,
 it is completed in place without being copied.
 
+Only rules with std confidence 1 are applied, unless `--pca-conf` is given: then
+the rules with at least that PCA confidence are applied instead.
+
 Settings come from flags, from a config file (`-f`), or from both, in which case
-the flags win. Without a config file the source, rules file, PCA threshold and
-namespace are required, and the database connection falls back to the
+the flags win. Without a config file the source, rules file and namespace are
+required, and the database connection falls back to the
 `DataConfig`/`DatabaseAuthConfig` defaults."""
 
 import argparse
@@ -30,6 +33,8 @@ from skgg.engine.completion import complete_graph
 logger = logging.getLogger(__name__)
 
 TRIPLE_FILE_SUFFIXES = (".nt", ".tsv")
+# Std confidence a rule needs to be applied when --pca-conf is not given.
+DEFAULT_STD_THRESHOLD = 1.0
 
 
 def complete(
@@ -113,11 +118,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "rules.rules_file).",
     )
     parser.add_argument(
-        "--pca-threshold",
+        "--pca-conf",
         type=float,
         default=None,
-        help="Minimum PCA confidence of the rules applied (defaults to the config's "
-        "rules.pca_threshold).",
+        help="Apply the rules with at least this PCA confidence instead of the "
+        "default, the rules with std confidence 1. The config's "
+        "rules.pca_threshold is not used.",
     )
     parser.add_argument(
         "--namespace",
@@ -181,11 +187,6 @@ def main() -> None:
     rules_file: Path | None = args.rules_file or (
         config.data.input_dir / config.rules.rules_file if config else None
     )
-    pca_threshold: float | None = (
-        args.pca_threshold
-        if args.pca_threshold is not None
-        else (config.rules.pca_threshold if config else None)
-    )
     term_mapping = load_term_mapping(args.config_file, args.namespace)
 
     without_config = "is required without -f/--config-file"
@@ -195,8 +196,6 @@ def main() -> None:
         parser.error(f"--complete-uri {without_config}.")
     if rules_file is None:
         parser.error(f"--rules-file {without_config}.")
-    if pca_threshold is None:
-        parser.error(f"--pca-threshold {without_config}.")
     if term_mapping is None:
         parser.error(f"--namespace {without_config}.")
 
@@ -224,7 +223,12 @@ def main() -> None:
         args.password if args.password is not None else auth.password,
     )
 
-    rules = parse_rule_set(rules_file, term_mapping, pca_threshold)
+    if args.pca_conf is not None:
+        rules = parse_rule_set(rules_file, term_mapping, pca_threshold=args.pca_conf)
+    else:
+        rules = parse_rule_set(
+            rules_file, term_mapping, std_threshold=DEFAULT_STD_THRESHOLD
+        )
     complete(
         client,
         rules,

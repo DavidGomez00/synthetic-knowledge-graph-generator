@@ -268,20 +268,25 @@ def rule_sort_key(rule_id: str) -> tuple[int, int, str]:
 def parse_rule_set(
     rules_file: Path,
     term_mapping: dict[str, str],
-    pca_threshold: float,
+    pca_threshold: float | None = None,
+    std_threshold: float | None = None,
 ) -> dict[str, HornRule]:
     """Parse a rules CSV into a dict of HornRules identified by rule_id.
 
     Rule IDs are read from the CSV's `rule_id` column, so a rule keeps its ID
-    whatever the PCA threshold.
+    whatever the thresholds.
 
     Args:
         rules_file: Path to the rules CSV file.
         term_mapping: Mapping from ontology terms to their formatted form.
-        pca_threshold: Minimum PCA confidence a rule must have to be classified
-            "POSITIVE" and kept; rules below it, or with missing PCA
-            confidence, are classified "NEGATIVE"/"UNKNOWN" respectively and
-            dropped from the returned rule set entirely.
+        pca_threshold: Minimum PCA confidence a rule must have to be kept, or
+            None to not filter on PCA confidence.
+        std_threshold: Minimum std confidence a rule must have to be kept, or
+            None to not filter on std confidence.
+
+    A rule that meets every threshold given is classified "POSITIVE" and kept.
+    A rule missing one of the confidences filtered on is classified "UNKNOWN",
+    and any other rule "NEGATIVE"; both are dropped from the returned rule set.
 
     Returns:
         A dict of the surviving (classification == "POSITIVE") HornRules,
@@ -302,24 +307,40 @@ def parse_rule_set(
     if duplicates:
         raise ValueError(f"{rules_file} repeats rule_ids: {', '.join(duplicates)}.")
 
+    thresholds = {
+        column: threshold
+        for column, threshold in (
+            ("pca_confidence", pca_threshold),
+            ("std_confidence", std_threshold),
+        )
+        if threshold is not None
+    }
+    positive = pd.Series(True, index=rule_dataframe.index)
+    unknown = pd.Series(False, index=rule_dataframe.index)
+    for column, threshold in thresholds.items():
+        positive &= rule_dataframe[column] >= threshold
+        unknown |= rule_dataframe[column].isna()
     rule_dataframe["classification"] = "NEGATIVE"
-    rule_dataframe.loc[
-        rule_dataframe["pca_confidence"] >= pca_threshold, "classification"
-    ] = "POSITIVE"
-    rule_dataframe.loc[rule_dataframe["pca_confidence"].isna(), "classification"] = (
-        "UNKNOWN"
-    )
+    rule_dataframe.loc[positive, "classification"] = "POSITIVE"
+    rule_dataframe.loc[unknown, "classification"] = "UNKNOWN"
 
     n_total = len(rule_dataframe)
     rule_dataframe = rule_dataframe[
         rule_dataframe["classification"] == "POSITIVE"
     ].reset_index(drop=True)
+    criteria = (
+        " and ".join(
+            f"{column.replace('_', ' ').replace('pca', 'PCA')} >= {threshold:.3f}"
+            for column, threshold in thresholds.items()
+        )
+        or "no confidence threshold"
+    )
     logger.info(
-        "Kept %d/%d rules with PCA confidence >= %.3f (classification == "
-        "POSITIVE); dropped %d (NEGATIVE or UNKNOWN).",
+        "Kept %d/%d rules with %s (classification == POSITIVE); dropped %d "
+        "(NEGATIVE or UNKNOWN).",
         len(rule_dataframe),
         n_total,
-        pca_threshold,
+        criteria,
         n_total - len(rule_dataframe),
     )
 
