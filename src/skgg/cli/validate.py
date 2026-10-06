@@ -128,12 +128,26 @@ def validate(
             raise ValueError("A graph_uri is required to check a .tsv file.")
         tsv_file = Path(source)
         index = _index_tsv(tsv_file, term_mapping)
-        insert_graph(client, graph_uri, chunk_size, tsv_file, term_mapping)
         total = len(index)
+        logger.info(
+            "Reading triples from file %s: loading its %d distinct triples into "
+            "temporary graph <%s> at %s.",
+            tsv_file,
+            total,
+            graph_uri,
+            client.endpoint,
+        )
+        insert_graph(client, graph_uri, chunk_size, tsv_file, term_mapping)
     else:
         graph_uri = str(source).strip("<>")
         index = {}
         total = get_triple_count(client, graph_uri)
+        logger.info(
+            "Reading triples from graph <%s> at %s (%d triples), queried in place.",
+            graph_uri,
+            client.endpoint,
+            total,
+        )
 
     # (line, subject, predicate, object, shape, message) rows, without repeats.
     rows: set[tuple[int | None, str, str, str, str, str]] = set()
@@ -170,8 +184,12 @@ def validate(
                 constraint.message,
             )
     finally:
-        if load_file and not keep_graph:
-            clear_graph(client, graph_uri)
+        if load_file:
+            if keep_graph:
+                logger.info("Keeping temporary graph <%s> (--keep-graph).", graph_uri)
+            else:
+                clear_graph(client, graph_uri)
+                logger.info("Cleared temporary graph <%s>.", graph_uri)
 
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", encoding="utf-8") as out:
@@ -185,7 +203,11 @@ def validate(
         "%d of %d triples in %s violate a shape of %s. Report: %s",
         len(flagged),
         total,
-        source if load_file else f"<{graph_uri}>",
+        (
+            f"file {source} (loaded into <{graph_uri}>)"
+            if load_file
+            else f"graph <{graph_uri}>"
+        ),
         shapes_file,
         output,
     )
