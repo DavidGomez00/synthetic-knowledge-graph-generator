@@ -20,6 +20,7 @@ from skgg.core.rules import (
     get_relation_graph,
     parse_rule_set,
     remove_inverse_rules,
+    rule_sort_key,
 )
 from skgg.core.utils import (
     build_term_mapping,
@@ -195,7 +196,7 @@ def _format_summary_block(
             f"  ({syn_sup - og_sup:+{sup_delta_width}d})"
         )
 
-    rule_ids = sorted(rules)
+    rule_ids = sorted(rules, key=rule_sort_key)
     lines += ["", f"Rules ({len(rule_ids)}):"]
     for rid in rule_ids:
         status = "CLOSED" if rules[rid].closed else "OPEN"
@@ -205,7 +206,7 @@ def _format_summary_block(
         lines += [
             "",
             f"Removed inverse rules ({len(removed_rules)}):",
-            *(rule_row(rid) for rid in sorted(removed_rules)),
+            *(rule_row(rid) for rid in sorted(removed_rules, key=rule_sort_key)),
         ]
 
     return "\n".join(lines)

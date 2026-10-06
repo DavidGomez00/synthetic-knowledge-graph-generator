@@ -179,6 +179,7 @@ ATOM_PATTERN = re.compile(r"(\?\w+)\s+(\S+)\s+(\S+)")
 class _RuleRow(Protocol):
     """Definines the expected structure of a rule DataFrame row."""
 
+    rule_id: str
     body: str
     head: str
     std_confidence: float
@@ -222,14 +223,13 @@ def _parse_head(head_str: str, term_mapping: dict[str, str]) -> Atom:
 
 def _parse_horn_rule(
     row: _RuleRow,
-    rule_id: str,
     term_mapping: dict[str, str],
 ) -> HornRule:
     """Extracts a HornRule object from a pandas DataFrame row.
 
     Args:
-        row: A named tuple representing a row form the rules DataFrame.
-        rule_id: Assigned string identifier for the rule.
+        row: A named tuple representing a row form the rules DataFrame. Its
+            `rule_id` becomes the rule's identifier.
 
     Returns:
         A populated HornRule instance.
@@ -241,7 +241,7 @@ def _parse_horn_rule(
 
     rule = HornRule(
         signature=RuleSignature(
-            rule_id=rule_id,
+            rule_id=row.rule_id.strip(),
             body=_parse_body(str(row.body), term_mapping),
             head=_parse_head(str(row.head), term_mapping),
         ),
@@ -258,12 +258,22 @@ def _parse_horn_rule(
 # -----------------------------------------------------------------------------
 # Rule set handling
 # ---------------------------------------------------------------------------
+def rule_sort_key(rule_id: str) -> tuple[int, int, str]:
+    """Sort key for rule IDs: numeric IDs first in numeric order, then the rest as text."""
+    if rule_id.isdigit():
+        return (0, int(rule_id), "")
+    return (1, 0, rule_id)
+
+
 def parse_rule_set(
     rules_file: Path,
     term_mapping: dict[str, str],
     pca_threshold: float,
 ) -> dict[str, HornRule]:
     """Parse a rules CSV into a dict of HornRules identified by rule_id.
+
+    Rule IDs are read from the CSV's `rule_id` column, so a rule keeps its ID
+    whatever the PCA threshold.
 
     Args:
         rules_file: Path to the rules CSV file.
@@ -276,8 +286,21 @@ def parse_rule_set(
     Returns:
         A dict of the surviving (classification == "POSITIVE") HornRules,
         identified by rule_id.
+
+    Raises:
+        ValueError: If the CSV has no `rule_id` column, or a rule_id is empty
+            or repeated.
     """
-    rule_dataframe = pd.read_csv(rules_file)
+    rule_dataframe = pd.read_csv(rules_file, dtype={"rule_id": str})
+
+    if "rule_id" not in rule_dataframe.columns:
+        raise ValueError(f"{rules_file} has no 'rule_id' column.")
+    rule_ids = rule_dataframe["rule_id"].str.strip()
+    if rule_ids.isna().any() or (rule_ids == "").any():
+        raise ValueError(f"{rules_file} has rules with an empty rule_id.")
+    duplicates = sorted(set(rule_ids[rule_ids.duplicated()]), key=rule_sort_key)
+    if duplicates:
+        raise ValueError(f"{rules_file} repeats rule_ids: {', '.join(duplicates)}.")
 
     rule_dataframe["classification"] = "NEGATIVE"
     rule_dataframe.loc[
@@ -302,11 +325,9 @@ def parse_rule_set(
 
     rules: dict[str, HornRule] = {}
 
-    for row_id, row in enumerate(rule_dataframe.itertuples(index=False), start=1):
-        rule_id = str(row_id)
+    for row in rule_dataframe.itertuples(index=False):
         rule = _parse_horn_rule(
             row=row,
-            rule_id=rule_id,
             term_mapping=term_mapping,
         )
 

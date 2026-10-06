@@ -93,6 +93,16 @@ python -m skgg.cli.complete -f family.source.json --source data/family/family.nt
 python -m skgg.cli.complete --source http://Family.org/source --complete-uri http://Family.org/complete --rules-file data/family/family.csv --pca-threshold 1 --namespace http://Family.org/ --database-url http://localhost:7200/ --sparql-endpoint repositories/Family --auth-type BASIC --user admin --password rootpassword
 ```
 
+### Mine rules
+
+`mine_rules/run_amie.py` mines Horn rules from a triples file with AMIE3 and writes them to a CSV that `rules.rules_file` can point to. The AMIE3 jar is not in git: download `amie3.5.1.jar` from https://github.com/dig-team/amie/releases into `mine_rules/`, or pass its path with `--jar`. Without `-o`, the CSV goes next to the input as `<stem>.csv`.
+
+```bash
+python mine_rules/run_amie.py data/fr/fr.no-literals.tsv   # -> data/fr/fr.no-literals.csv
+```
+
+The CSV's `rule_id` column numbers the rules 1..N in AMIE's output order. The pipeline names rules by this ID in its logs, run summary and relation-graph PNG, so a rule keeps its ID whatever `rules.pca_threshold` is. `--mins`, `--minis`, `--minhc`, `--minc`, `--minpca` and `--maxad` set AMIE's thresholds, and `--help` lists the other options.
+
 ### Run the pipeline
 
 ```bash

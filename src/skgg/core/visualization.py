@@ -18,6 +18,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402 (backend must be set first)
 import networkx as nx  # noqa: E402
 
+from skgg.core.rules import rule_sort_key  # noqa: E402
+
 logger = logging.getLogger(__name__)
 
 
@@ -79,7 +81,7 @@ def plot_relation_graph(
         min_target_margin=15,
     )
     edge_labels = {
-        (u, v): ",".join(sorted(d["rule_ids"])) for u, v, d in graph.edges(data=True)
+        (u, v): ",".join(sorted(d["rule_ids"], key=rule_sort_key)) for u, v, d in graph.edges(data=True)
     }
     nx.draw_networkx_edge_labels(graph, pos, ax=ax, edge_labels=edge_labels, font_size=6)
 

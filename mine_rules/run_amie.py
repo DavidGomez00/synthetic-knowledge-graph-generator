@@ -7,29 +7,20 @@ AMIE3 is invoked as a subprocess:
 
     java [-Xmx<HEAP>] -jar <jar> [amie options...] <input file(s)>
 
-The jar is not tracked in git (it's ~96 MB): download `amie3.5.1.jar` from
+The jar is not tracked in git: download `amie3.5.1.jar` from
 https://github.com/dig-team/amie/releases into this folder, or point `--jar`
 at it.
 
 Its plain-text stdout table is parsed and written out as CSV with columns:
 
-    rule, body, head, head_coverage, std_confidence, pca_confidence,
+    rule_id, rule, body, head, head_coverage, std_confidence, pca_confidence,
     positive_examples, body_size, pca_body_size, functional_variable
 
-Example (see docs/Getting_started.md and README.md for this repo's own
-worked examples):
+rule_id numbers the rules 1..N in AMIE's output order.
 
-    python mine_rules/run_amie.py data/fr/fr.no-literals.tsv \\
-        -o output/fr/normalized_rules.csv \\
-        --mins 1 --minis 1 --minhc 0
+Example:
 
-With no threshold flags, AMIE's own defaults are used (-mins/-minis 100,
--minhc 0.01) which is appropriate for large knowledge bases. For small or
-logically-thin graphs those defaults will silently yield zero (or only
-trivial) rules -- pass --mins 1 --minis 1 --minhc 0 (and optionally --minc 0
---minpca 0 to stop AMIE from filtering rules out by confidence too), then
-judge by head_coverage/positive_examples whether what comes back is real
-structure.
+    python mine_rules/run_amie.py data/fr/fr.no-literals.tsv
 """
 
 from __future__ import annotations
@@ -44,6 +35,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_JAR = SCRIPT_DIR / "amie3.5.1.jar"
 
 CSV_FIELDS = [
+    "rule_id",
     "rule",
     "body",
     "head",
@@ -115,7 +107,7 @@ def format_body(body_text: str) -> str:
 
 def parse_amie_output(text: str) -> list[dict]:
     """Parse AMIE3's stdout table into a list of rule dicts."""
-    rules = []
+    rules: list[dict[str, object]] = []
     for line in text.splitlines():
         fields = line.split("\t")
         if len(fields) != _RULE_NUM_FIELDS:
@@ -139,6 +131,7 @@ def parse_amie_output(text: str) -> list[dict]:
         body, _, head = rule_text.partition("=>")
         rules.append(
             {
+                "rule_id": len(rules) + 1,
                 "rule": " ".join(rule_text.split()),
                 "body": format_body(body),
                 "head": " ".join(head.split()),
@@ -178,7 +171,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--output",
         type=Path,
         default=None,
-        help="Output CSV path (default: <input stem>_rules.csv next to the first input file)",
+        help="Output CSV path (default: <input stem>.csv next to the first input file)",
     )
     p.add_argument(
         "--jar", type=Path, default=DEFAULT_JAR, help="Path to the AMIE3 jar file"
