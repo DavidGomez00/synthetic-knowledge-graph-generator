@@ -28,15 +28,15 @@ docker compose --profile all up        # both
 
 ## Running an experiment
 
-Experiments are driven by JSON config files in `configurations/` (e.g. `french_royalty.source.json`).
+Experiments are driven by JSON config files in `configurations/` (e.g. `fr.no-literals.json`).
 
 ### Prepare the data
 
 This method does not support literals yet, so `skgg.cli.prepare_data` handles the source graph to create a new version with no literals, creating a copy in both `<output>.tsv` and `<output>.nt` formats. This script performs basic data preparation like dropping duplicate triples. For more details, see the preparation step in [`docs/architecture.md`](docs/architecture.md#data-flow).
 
 ```bash
-python -m skgg.cli.prepare_data data/french_royalty/source/french_royalty.tsv -f french_royalty.source.json  # -> data/french_royalty/source/french_royalty.no-literals.{tsv,nt}
-python -m skgg.cli.prepare_data path/to/graph.nt -o path/to/out --log-level DEBUG              # -> path/to/out.{tsv,nt}; DEBUG lists every untyped subject
+python -m skgg.cli.prepare_data data/fr/fr.tsv -f fr.no-literals.json              # -> data/fr/fr.no-literals.{tsv,nt}
+python -m skgg.cli.prepare_data path/to/graph.nt -o path/to/out --log-level DEBUG  # -> path/to/out.{tsv,nt}; DEBUG lists every untyped subject
 ```
 
 Without `-o`, the output goes next to the input as `<stem>.no-literals.{tsv,nt}`. A `.tsv` input needs a term mapping to write its `.nt` copy: pass a config with `-f` or a default namespace with `--namespace`. An `.nt` input needs neither.
@@ -47,7 +47,7 @@ Without `-o`, the output goes next to the input as `<stem>.no-literals.{tsv,nt}`
 
 ```bash
 python -m skgg.cli.convert path/to/graph.tsv --namespace http://example.org/  # -> path/to/graph.nt
-python -m skgg.cli.convert path/to/graph.tsv -f french_royalty.source.json    # namespaces from the config's graph section
+python -m skgg.cli.convert path/to/graph.tsv -f fr.no-literals.json           # namespaces from the config's graph section
 python -m skgg.cli.convert path/to/graph.nt -o path/to/out.tsv                # every IRI cut to its last segment
 ```
 
@@ -66,8 +66,8 @@ For an `.nt` input the term mapping is optional. With one, an IRI is shortened t
 `skgg.cli.upload` inserts a `.nt`/`.tsv` triple file into the graph database, in the named graph `graph.base_uri`. Terms in a `.tsv` file are resolved to full URIs through the config's `graph.namespace` and `graph.term_namespaces`.
 
 ```bash
-python -m skgg.cli.upload -f french_royalty.source.json --triple-file data/french_royalty/source/french_royalty.no-literals.tsv
-python -m skgg.cli.upload -f french_royalty.source.json   # uploads graph.triple_file
+python -m skgg.cli.upload -f fr.no-literals.json --triple-file data/fr/fr.no-literals.tsv
+python -m skgg.cli.upload -f fr.no-literals.json   # uploads graph.triple_file
 ```
 
 To upload the file written by `prepare_data`, pass it with `--triple-file` or set `graph.triple_file` to it. A bare filename resolves under `data.input_dir`, and a path containing `/` is used as given. `--graph-uri` uploads to a different named graph, e.g. to re-insert an already generated synthetic graph into `graph.synthetic_uri`. `--log-level` overrides the config's `logging.level` for the run.
@@ -96,15 +96,15 @@ python -m skgg.cli.complete --source http://Family.org/source --complete-uri htt
 ### Run the pipeline
 
 ```bash
-python -m skgg.cli.main -f french_royalty.source.json
-python -m skgg.cli.main -f french_royalty.source.json --skip-edb --log-level DEBUG
+python -m skgg.cli.main -f fr.no-literals.json
+python -m skgg.cli.main -f fr.no-literals.json --skip-edb --log-level DEBUG
 ```
 
 ```python
 from pathlib import Path
 from skgg.cli.main import run_synthetic_graph_experiment
 
-run_synthetic_graph_experiment(Path("configurations/french_royalty.source.json"))
+run_synthetic_graph_experiment(Path("configurations/fr.no-literals.json"))
 ```
 
 This loads the config, computes graph metrics over SPARQL, parses the ontology and Horn rule set, generates the EDB, then grows the rule-derived facts until a fixed point, producing the synthetic graph.
@@ -117,7 +117,7 @@ This loads the config, computes graph metrics over SPARQL, parses the ontology a
 src/skgg/          # package source (see docs/architecture.md for the full module map)
 configurations/    # per-experiment JSON configs
 schemas/           # schema template (.ttl) for declaring a graph's classes and relations
-data/<dataset>/    # source graph data (.nt/.tsv/.ttl/.csv) referenced by configs, e.g. data/french_royalty/source/
+data/<dataset>/    # source graph data (.nt/.tsv/.ttl/.csv) referenced by configs, e.g. data/fr/
 docs/              # architecture, concepts glossary, getting-started guide
 notebooks/         # exploratory/prototype work
 logs/              # per-run logs (gitignored)

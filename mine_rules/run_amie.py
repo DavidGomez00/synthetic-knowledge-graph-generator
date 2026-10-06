@@ -19,8 +19,8 @@ Its plain-text stdout table is parsed and written out as CSV with columns:
 Example (see docs/Getting_started.md and README.md for this repo's own
 worked examples):
 
-    python mine_rules/run_amie.py data/french_royalty/source/french_royalty.no-literals.tsv \\
-        -o output/french_royalty/normalized_rules.csv \\
+    python mine_rules/run_amie.py data/fr/fr.no-literals.tsv \\
+        -o output/fr/normalized_rules.csv \\
         --mins 1 --minis 1 --minhc 0
 
 With no threshold flags, AMIE's own defaults are used (-mins/-minis 100,

@@ -17,7 +17,7 @@ Known issues and pending features. Resolved items are archived in `BACKLOG_ARCHI
 
 ## Schema support
 - [ ] Add schema support. The schema is a `<graph_name>.schema.ttl` file that defines the classes and their properties in the graph.
-  - [x] Add a schema template (`schemas/template.ttl`) and the French Royalty schema (`data/french_royalty/source/french_royalty.ttl`).
+  - [x] Add a schema template (`schemas/template.ttl`) and the French Royalty schema (`data/fr/fr.ttl`).
   - [ ] Add a `schema_file` config field and parse the schema.
   - [ ] Decide how to use the schema in the pipeline.
 
