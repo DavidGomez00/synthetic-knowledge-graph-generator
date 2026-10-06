@@ -26,7 +26,7 @@ Graphs are never loaded into memory-intensive libraries like RDFlib for bulk wor
 
 ## Running an experiment
 
-Experiments are driven by JSON config files in `configurations/` (e.g. `french_royalty.source.json`, `lung_cancer.json`), loaded via `RunConfig.from_json(...)`.
+Experiments are driven by JSON config files in `configurations/` (e.g. `french_royalty.source.json`, `family.source.json`), loaded via `RunConfig.from_json(...)`.
 
 The main entry point is `run_synthetic_graph_experiment` in `src/skgg/cli/main.py`, runnable either as a library call or from the CLI:
 
@@ -132,7 +132,7 @@ LoRA fine-tuning of LLMs and Chain-of-Thought dataset generation from KGs are no
 
 - No test suite, linting/CI pipeline, or Makefile currently exists in this repo — `ruff` and `mypy` are configured in `pyproject.toml` (strict mypy, ruff rule sets E/F/I/UP/B/N) but are not wired into any automated command; run them manually (`ruff check .`, `mypy .`) if validating changes. See `BACKLOG.md` for the open question of whether/how to add a `tests/` + CI setup.
 - Per-experiment outputs (logs) are written under `logs/`. This folder is gitignored.
-- Input graph data (`.nt`/`.tsv`, `.ttl`, rule CSVs) lives under `data/`, a plain local folder with one subfolder per dataset (e.g. `data/family/`, `data/french_royalty/`, `data/lung_cancer/`). Each config's `data.input_dir` picks the folder that its `graph.triple_file` and `rules.rules_file` are read from: `configurations/family.source.json` reads `data/family/`, `configurations/french_royalty.source.json` reads `data/french_royalty/source/`, `configurations/french_royalty.pygraft.json` reads `data/french_royalty/`, and `configurations/lung_cancer.json` reads `data/lung_cancer/`. Loading a config raises `FileNotFoundError` if that folder does not exist. `data/family/family.csv` holds only the CSV header for now, so a Family run parses no rules until the rules are mined again on the completed `family.nt`.
+- Input graph data (`.nt`/`.tsv`, `.ttl`, rule CSVs) lives under `data/`, a plain local folder with one subfolder per dataset (e.g. `data/family/`, `data/french_royalty/`). Each config's `data.input_dir` picks the folder that its `graph.triple_file` and `rules.rules_file` are read from: `configurations/family.source.json` reads `data/family/`, `configurations/french_royalty.source.json` reads `data/french_royalty/source/`, and `configurations/french_royalty.pygraft.json` reads `data/french_royalty/`. Loading a config raises `FileNotFoundError` if that folder does not exist. `data/family/family.csv` holds only the CSV header for now, so a Family run parses no rules until the rules are mined again on the completed `family.nt`.
 - A dataset's schema is a `.ttl` file next to its data (e.g. `data/french_royalty/source/french_royalty.ttl`) that declares its classes (`owl:Class`) and entity-to-entity relations (`owl:ObjectProperty` with `rdfs:domain`/`rdfs:range`). Start new schemas from `schemas/template.ttl`. The pipeline does not read schemas yet (see `BACKLOG.md`).
 
 ## Writing documentation
