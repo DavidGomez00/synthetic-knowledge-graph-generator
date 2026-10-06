@@ -1,13 +1,16 @@
-"""Writes a cleaned copy of an .nt/.tsv file as a .tsv file: every '/' in a term's own name becomes '_' (e.g. `Matilda_of_Saxony_1172_1209/10`,
+"""Writes a cleaned copy of an .nt/.tsv file as a .tsv file: every '/' in a term's own
+name becomes '_' (e.g. `Matilda_of_Saxony_1172_1209/10`,
 which would otherwise shorten to `10`), duplicate triples are dropped (keeping
 the first occurrence), and so are its "literals": triples whose object is never
 typed (never the subject of a type triple), plus every triple of a predicate
 whose objects are always literals (e.g. `name`). Type triples themselves are
-always kept. Also reports every term used as a subject that is never typed."""
+kept, unless `--drop-types` is given and every entity is typed to the same
+class. Also reports every term used as a subject that is never typed."""
 
 import argparse
 import logging
 import re
+from collections import defaultdict
 from collections.abc import Collection, Iterator
 from pathlib import Path
 from urllib.parse import unquote
@@ -73,6 +76,28 @@ def _iter_triples(path: Path) -> Iterator[tuple[str, str, str]]:
             yield subject, predicate, obj
 
 
+def _single_class(subjects: set[str], classes: dict[str, set[str]]) -> str:
+    """Returns the one class that every subject term is typed to.
+
+    Raises:
+        ValueError: If a subject is never typed, or the subjects are typed to
+            more or fewer than one class in all.
+    """
+    untyped = sorted(subjects - classes.keys())
+    if untyped:
+        raise ValueError(
+            f"Cannot drop type triples: {len(untyped)} subject terms are never "
+            f"typed, e.g.: {', '.join(untyped[:10])}"
+        )
+    all_classes = sorted(set().union(*classes.values()))
+    if len(all_classes) != 1:
+        raise ValueError(
+            "Cannot drop type triples: the entities are typed to "
+            f"{len(all_classes)} classes ({', '.join(all_classes)}), not one."
+        )
+    return all_classes[0]
+
+
 def _output_path(output: Path) -> Path:
     """Returns `output` with a .tsv suffix, replacing a .nt suffix."""
     suffix = output.suffix.lower()
@@ -87,12 +112,15 @@ def clean(
     input_file: str | Path,
     output: str | Path,
     literal_predicates: Collection[str] = LITERAL_PREDICATES,
-) -> tuple[int, int, int, int, set[str]]:
+    drop_types: bool = False,
+) -> tuple[int, int, int, int, int, set[str]]:
     """Writes `input_file` to the .tsv file `output`, replacing '/' with '_'
     in every term's own name (see `_clean_term`), then dropping duplicate
     triples, every triple of a `literal_predicates` predicate, and every
-    non-type triple whose object is never typed. The IRIs of an .nt input
-    become their last segment (`utils.short_term`).
+    non-type triple whose object is never typed. With `drop_types`, every
+    type triple is dropped last, once every subject term is checked to be
+    typed to the same single class. The IRIs of an .nt input become their
+    last segment (`utils.short_term`).
 
     Args:
         input_file: The .nt/.tsv file to clean.
@@ -100,18 +128,21 @@ def clean(
             suffix replaced).
         literal_predicates: Predicates (bare terms, matched against each
             predicate's `utils.short_term`) whose triples are always dropped.
+        drop_types: Whether to drop every type triple as well.
 
     Returns:
-        `(kept, duplicates, literals, literal_predicate_triples,
-        untyped_subjects)`: the triples written; the duplicate, untyped-object
-        and literal-predicate triples dropped; and the terms used as subjects
-        that are never typed.
+        `(kept, duplicates, literals, literal_predicate_triples, type_triples,
+        untyped_subjects)`: the triples written; the duplicate, untyped-object,
+        literal-predicate and type triples dropped; and the terms used as
+        subjects that are never typed.
 
     Raises:
         ValueError: If the output path is the input file, two distinct terms
             differ only in '/' vs '_' (or '%2F' vs '_'), which cleaning would
-            merge, or two distinct .nt IRIs share a short term, which the .tsv
-            output would merge.
+            merge, two distinct .nt IRIs share a short term, which the .tsv
+            output would merge, or `drop_types` is set and some subject term
+            is untyped or the subjects are not all typed to the same class.
+            The output file is not written in the last case.
     """
     input_file = Path(input_file)
     tsv_file = _output_path(Path(output))
@@ -136,14 +167,18 @@ def clean(
                     )
             yield subject, predicate, obj
 
-    typed: set[str] = set()
+    # Subject term -> the classes it is typed to.
+    classes: dict[str, set[str]] = defaultdict(set)
     subjects: set[str] = set()
-    for subject, predicate, _ in _clean_triples():
+    for subject, predicate, obj in _clean_triples():
         subjects.add(subject)
         if predicate in type_predicates:
-            typed.add(subject)
+            classes[subject].add(obj)
+    typed = set(classes)
 
-    kept = duplicates = removed = literal_predicate_triples = 0
+    entity_class = _single_class(subjects, classes) if drop_types else None
+
+    kept = duplicates = removed = literal_predicate_triples = type_triples = 0
     seen: set[tuple[str, str, str]] = set()
     literals: set[str] = set()
     # .nt -> .tsv: short term -> the IRI it came from, to catch collisions.
@@ -173,6 +208,9 @@ def clean(
                 literals.add(obj)
                 removed += 1
                 continue
+            if drop_types and predicate in type_predicates:
+                type_triples += 1
+                continue
 
             tsv_triple = triple if is_tsv else tuple(map(_shorten, triple))
             tsv_out.write("\t".join(tsv_triple) + "\n")
@@ -198,6 +236,12 @@ def clean(
         removed,
         len(literals),
     )
+    if drop_types:
+        logger.info(
+            "Every entity is typed to %s: removed %d type triples.",
+            entity_class,
+            type_triples,
+        )
 
     untyped_subjects = subjects - typed
     if untyped_subjects:
@@ -211,7 +255,14 @@ def clean(
     else:
         logger.info("Every subject term is typed.")
 
-    return kept, duplicates, removed, literal_predicate_triples, untyped_subjects
+    return (
+        kept,
+        duplicates,
+        removed,
+        literal_predicate_triples,
+        type_triples,
+        untyped_subjects,
+    )
 
 
 def _parse_args() -> argparse.Namespace:
@@ -226,8 +277,7 @@ def _parse_args() -> argparse.Namespace:
         "--output",
         type=Path,
         default=None,
-        help="Output .tsv path (defaults to <stem>.no-literals.tsv next to the "
-        "input).",
+        help="Output .tsv path (defaults to <stem>.no-literals.tsv next to the input).",
     )
     parser.add_argument(
         "--literal-predicates",
@@ -235,6 +285,12 @@ def _parse_args() -> argparse.Namespace:
         default=sorted(LITERAL_PREDICATES),
         help="Predicates whose triples are always dropped, as their objects are "
         "always literals (default: %(default)s). Pass with no values to disable.",
+    )
+    parser.add_argument(
+        "--drop-types",
+        action="store_true",
+        help="Drop every type triple as a final step. Fails, writing nothing, "
+        "unless every subject term is typed to the same single class.",
     )
     parser.add_argument(
         "--log-level",
@@ -253,4 +309,5 @@ if __name__ == "__main__":
         input_file,
         args.output or input_file.with_name(f"{input_file.stem}.no-literals.tsv"),
         literal_predicates=set(args.literal_predicates),
+        drop_types=args.drop_types,
     )
