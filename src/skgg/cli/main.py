@@ -22,6 +22,7 @@ from skgg.core.rules import (
     parse_rule_set,
     remove_cyclic_rules,
     rule_sort_key,
+    write_used_rules,
 )
 from skgg.core.utils import (
     build_term_mapping,
@@ -376,6 +377,7 @@ def run_synthetic_graph_experiment(
         for rule_id in get_closed_rules(client, edb_uri, rules):
             rules[rule_id].closed = True
     else:
+        write_used_rules(rules_file, rules.keys())
         generate_extensional_predicates(
             client=client,
             term_mapping=term_mapping,

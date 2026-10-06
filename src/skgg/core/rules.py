@@ -5,9 +5,11 @@ operations (dependency graphs, cycle detection and cyclic rule removal) used to
 drive EDB/synthetic graph generation.
 """
 
+import csv
 import logging
 import re
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -356,6 +358,34 @@ def parse_rule_set(
         rules[rule.rule_id] = rule
 
     return rules
+
+
+def write_used_rules(rules_file: Path, rule_ids: Iterable[str]) -> Path:
+    """Copies the rows of `rules_file` whose rule_id is in `rule_ids` to
+    `<stem>_used<suffix>` next to it, e.g. `rules.csv` -> `rules_used.csv`.
+
+    Rows keep the input's columns, order, values and line endings, so the
+    output can be read back with `parse_rule_set`.
+
+    Returns:
+        The path written.
+    """
+    output = rules_file.with_name(f"{rules_file.stem}_used{rules_file.suffix}")
+    keep = set(rule_ids)
+    with rules_file.open(newline="") as f:
+        text = f.read()
+    header, *rows = csv.reader(text.splitlines(keepends=True))
+    id_column = header.index("rule_id")
+    used = [row for row in rows if row and row[id_column].strip() in keep]
+
+    line_end = "\r\n" if "\r\n" in text else "\n"
+    with output.open("w", newline="") as f:
+        writer = csv.writer(f, lineterminator=line_end)
+        writer.writerow(header)
+        writer.writerows(used)
+
+    logger.info("Saved %d used rules to <%s>.", len(used), output)
+    return output
 
 
 def get_extensional_dependencies(
