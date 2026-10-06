@@ -10,7 +10,7 @@ import logging
 from SPARQLWrapper import SPARQLWrapper
 
 from skgg.core.queries import get_predicate_frequencies, initialize_graph
-from skgg.core.rules import HornRule
+from skgg.core.rules import HornRule, rule_sort_key
 from skgg.engine.generator import apply_rule, get_closed_preds, get_closed_rules
 from skgg.engine.metrics import PredicateProfile
 
@@ -20,6 +20,13 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Graph completion.
 # ---------------------------------------------------------------------------
+def _format_rule_counts(counts: dict[str, int]) -> str:
+    """Formats triples added per rule as `rule 26 +10, rule 3 +4`, in rule order."""
+    return ", ".join(
+        f"rule {r_id} +{counts[r_id]}" for r_id in sorted(counts, key=rule_sort_key)
+    )
+
+
 def complete_graph(
     client: SPARQLWrapper,
     rules: dict[str, HornRule],
@@ -37,8 +44,8 @@ def complete_graph(
     itself; the rules are then applied to `target_uri` until a pass adds nothing.
 
     `label` prefixes this call's log lines, so the several completions of one
-    pipeline run can be told apart. Per-pass detail is logged at DEBUG; one INFO
-    line summarizes the whole call.
+    pipeline run can be told apart. Each pass logs the triples each rule added,
+    and one line sums them up per rule for the whole call.
 
     Returns:
         The total number of triples added.
@@ -64,7 +71,7 @@ def complete_graph(
     total_added = 0
     while True:
         step += 1
-        added = 0
+        pass_counts: dict[str, int] = {}
         for r_id, rule in rules.items():
             count = apply_rule(
                 client=client,
@@ -74,29 +81,31 @@ def complete_graph(
                 chunk_size=chunk_size,
             )
             if count:
-                logger.debug("Rule %s added %d triples.", r_id, count)
+                pass_counts[r_id] = count
                 state[r_id] += count
-                added += count
                 grounded_preds.add(rule.head.predicate)
 
-        if added:
-            state_msg = " \n".join(
-                [
-                    f"\tRule {r_id} added {state[r_id]} triples."
-                    for r_id in rules.keys()
-                    if state[r_id] > 0
-                ]
-            )
-            total_added += added
-            logger.debug("[%s] Pass %d: added %d triples.", label, step, added)
-            logger.debug("\n%s", state_msg)
-
-        else:
-            logger.debug("[%s] Pass %d: no triples added.", label, step)
+        if not pass_counts:
+            logger.info("[%s] Pass %d: no triples added.", label, step)
             break
 
+        added = sum(pass_counts.values())
+        total_added += added
+        logger.info(
+            "[%s] Pass %d: +%d triples (%s).",
+            label,
+            step,
+            added,
+            _format_rule_counts(pass_counts),
+        )
+
+    totals = {r_id: count for r_id, count in state.items() if count}
     logger.info(
-        "[%s] +%d triples in %d passes (stale state).", label, total_added, step
+        "[%s] +%d triples in %d passes (stale state)%s.",
+        label,
+        total_added,
+        step,
+        f": {_format_rule_counts(totals)}" if totals else "",
     )
 
     for rule_id in get_closed_rules(client, target_uri, rules):

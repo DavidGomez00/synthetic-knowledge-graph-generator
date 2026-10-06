@@ -29,7 +29,7 @@ from skgg.core.queries import (
     insert_triples_sparql,
 )
 from skgg.core.rules import HornRule, get_extensional_dependencies
-from skgg.core.utils import format_triple
+from skgg.core.utils import format_triple, short_term
 from skgg.engine.generator import (
     decrement_counts,
     sample_groundings,
@@ -297,6 +297,27 @@ def insert_random_triples(
 # ---------------------------------------------------------------------------
 # Generate extensional predicates.
 # ---------------------------------------------------------------------------
+def _format_relations(
+    preds: set[str],
+    profiles: dict[str, PredicateProfile],
+    targets: dict[str, int],
+    intensional_preds: set[str],
+) -> str:
+    """Formats each predicate of `preds` as `name current/target (status)`, where
+    current is how many triples were generated so far (its target minus its
+    remaining `PredicateProfile.frequency`). Intensional predicates are marked."""
+
+    def relation(pred: str) -> str:
+        profile = profiles[pred]
+        status = "closed" if profile.closed else "open"
+        if pred in intensional_preds:
+            status += ", intensional"
+        current = targets[pred] - profile.frequency
+        return f"{short_term(pred)} {current}/{targets[pred]} ({status})"
+
+    return ", ".join(relation(p) for p in sorted(preds, key=short_term))
+
+
 def generate_extensional_predicates(
     client: SPARQLWrapper,
     rules: dict[str, HornRule],
@@ -329,6 +350,11 @@ def generate_extensional_predicates(
     # to read `edb_uri`, and unconditionally before this function returns.
     buffer = TripleBuffer()
 
+    # Target frequency per predicate, copied before the steps below spend
+    # `PredicateProfile.frequency` as a remaining budget.
+    targets = {p: pr.frequency for p, pr in profiles.items()}
+    intensional_preds = {r.head.predicate for r in rules.values()}
+
     # Warm-up: Direct matches for any predicate untill no new triples.
     logger.info("Start warm-up.")
 
@@ -347,8 +373,17 @@ def generate_extensional_predicates(
 
     update_closed_preds(profiles=profiles)
 
+    # Direct matches cover every predicate, so intensional ones may get triples too.
+    if warm_preds := {p for p, pr in profiles.items() if pr.frequency < targets[p]}:
+        logger.info(
+            "[Warm-up] Relations with direct matches (%d, added/target): %s",
+            len(warm_preds),
+            _format_relations(warm_preds, profiles, targets, intensional_preds),
+        )
+    else:
+        logger.info("[Warm-up] No direct matches.")
+
     extensional_dependency = get_extensional_dependencies(rules)
-    intensional_preds = {r.head.predicate for r in rules.values()}
     extensional_profiles = {
         pred: profiles[pred] for pred in (profiles.keys() - intensional_preds)
     }
@@ -373,6 +408,14 @@ def generate_extensional_predicates(
         return all(pr.closed for pr in extensional_profiles.values())
 
     logger.info("Creating EDB")
+    open_ext_preds = {p for p, pr in extensional_profiles.items() if not pr.closed}
+    logger.info(
+        "Extensional relations to generate (%d/%d, current/target): %s",
+        len(open_ext_preds),
+        len(extensional_profiles),
+        _format_relations(open_ext_preds, profiles, targets, intensional_preds)
+        or "none",
+    )
     logger.info(
         "Closed predicates [%d/%d].",
         sum(1 for pr in profiles.values() if pr.closed),
@@ -440,7 +483,10 @@ def generate_extensional_predicates(
                 if r_count:
                     progress = True
                     logger.debug(
-                        "[Step %d] Added %d triples from %s", step, r_count, r_id
+                        "[Step %d] Added %d triples using rule %s body (to respeect selectivity)",
+                        step,
+                        r_count,
+                        r_id,
                     )
                     break
 

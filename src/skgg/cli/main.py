@@ -60,7 +60,8 @@ def _format_rule(rule: HornRule) -> str:
 class _ClosureProgress:
     """Logs the closure state between pipeline steps: how many predicates and
     rules are closed, which ones closed since the previous call, and each open
-    predicate's current frequency against its target."""
+    extensional and intensional predicate's current frequency against its
+    target."""
 
     client: SPARQLWrapper
     profiles: dict[str, PredicateProfile]
@@ -68,11 +69,13 @@ class _ClosureProgress:
     # Target frequency per predicate, copied on creation: EDB generation later
     # spends `PredicateProfile.frequency` as a remaining budget.
     targets: dict[str, int] = field(init=False)
+    intensional_preds: set[str] = field(init=False)
     closed_preds: set[str] = field(default_factory=set)
     closed_rules: set[str] = field(default_factory=set)
 
     def __post_init__(self) -> None:
         self.targets = {p: pr.frequency for p, pr in self.profiles.items()}
+        self.intensional_preds = {r.head.predicate for r in self.rules.values()}
 
     def log(self, stage: str, graph_uri: str) -> None:
         """Logs the closure state after `stage`, measuring open predicates'
@@ -100,14 +103,22 @@ class _ClosureProgress:
         if open_preds:
             # Profiles are keyed by the bracketed URI, frequencies by the bare one.
             freqs = get_predicate_frequencies(self.client, graph_uri)
-            logger.info(
-                "[%s] Open predicates (current/target): %s",
-                stage,
-                ", ".join(
-                    f"{short_term(p)} {freqs.get(p[1:-1], 0)}/{self.targets[p]}"
-                    for p in open_preds
-                ),
-            )
+            intensional = [p for p in open_preds if p in self.intensional_preds]
+            extensional = [p for p in open_preds if p not in self.intensional_preds]
+            for kind, preds in (
+                ("extensional", extensional),
+                ("intensional", intensional),
+            ):
+                if preds:
+                    logger.info(
+                        "[%s] Open %s predicates (current/target): %s",
+                        stage,
+                        kind,
+                        ", ".join(
+                            f"{short_term(p)} {freqs.get(p[1:-1], 0)}/{self.targets[p]}"
+                            for p in preds
+                        ),
+                    )
         if open_rules := sorted(self.rules.keys() - closed_rules):
             logger.debug("[%s] Open rules: %s", stage, ", ".join(open_rules))
 
@@ -323,6 +334,24 @@ def run_synthetic_graph_experiment(
     # Before EDB generation, so a removed rule's head predicate is extensional.
     removed_rules = remove_cyclic_rules(rules)
 
+    # A predicate is intensional iff a remaining rule derives it.
+    intensional_preds = {r.head.predicate for r in rules.values()}
+    targets = {p: pr.frequency for p, pr in graph_metrics.profiles.items()}
+    for kind, preds in (
+        ("Extensional", targets.keys() - intensional_preds),
+        ("Intensional", intensional_preds),
+    ):
+        logger.info(
+            "%s relations (%d, target frequency): %s",
+            kind,
+            len(preds),
+            ", ".join(
+                f"{short_term(p)} {targets.get(p, 0)}"
+                for p in sorted(preds, key=short_term)
+            )
+            or "none",
+        )
+
     # Created before EDB generation, which spends the profiles' frequencies.
     progress = _ClosureProgress(client, graph_metrics.profiles, rules)
 
@@ -364,9 +393,19 @@ def run_synthetic_graph_experiment(
             edb_uri,
             get_triple_count(client, edb_uri),
         )
-    progress.log("EDB", edb_uri)
 
     _log_phase(3, "Completing graph")
+    progress.log("EDB", edb_uri)
+    logger.info(
+        "Applying %d rules (%d open): %s",
+        len(rules),
+        sum(1 for r in rules.values() if not r.closed),
+        ", ".join(
+            f"{rid} ({'closed' if rules[rid].closed else 'open'})"
+            for rid in sorted(rules, key=rule_sort_key)
+        )
+        or "none",
+    )
     complete_graph(
         client=client,
         rules=rules,
