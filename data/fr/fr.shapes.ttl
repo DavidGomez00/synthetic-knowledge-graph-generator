@@ -1,33 +1,13 @@
-# SHACL-SPARQL shapes for the French Royalty graph, checked by `cli/validate.py`.
+# SHACL-SPARQL shapes for the French Royalty KG.
 #
-# - The `ex:` namespace must equal the experiment config's `graph.namespace`,
-#   and local names must match the bare terms in the .tsv file.
-# - Only `sh:sparql` constraints are checked. Each `sh:select` returns the
-#   violating triple as `$this ?path ?value`, and a second one, if any, as
-#   `?this2 ?path2 ?value2`.
-# - Only "conflict" constraints are supported: ones broken by triples that are
-#   present (irreflexive, asymmetric, maximum count, disjoint relations).
-#   "Missing" constraints (minimum count, required type) are not, because the
-#   graph grows step by step and a triple could be rejected for lacking something
-#   a later rule adds.
-#
-# Meaning of each relation, read from subject to object:
-#
-# - `A child B`: A has child B.
-# - `A parent B`, `A father B`, `A mother B`: A has parent / father / mother B.
-# - `A successor B`: A has successor B, so A came before B.
-# - `A predecessor B`: A has predecessor B, so B came before A.
-# - `A spouse B`: A is married to B, in either direction.
-#
-# Several shapes repeat two UNION blocks, since SHACL has no way to share them:
-#
-# - Parentage, "?child has parent ?parent": `?child parent|father|mother ?parent`
-#   or `?parent child ?child`.
-# - Succession, "?earlier came before ?later": `?earlier successor ?later` or
-#   `?later predecessor ?earlier`.
+# Each relation in French Royalty is irreflexive and is read from subject to object.
+# For example, "child" is read as "has child" or "spouse" is read as "has spouse".
 #
 # Each block also binds the triple as written in the file (`$this ?path ?value`
 # or `?this2 ?path2 ?value2`), so the report names it.
+
+# Prefixes
+# ex: must equal the experiment namespace
 
 @prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -52,7 +32,6 @@ ex:Irreflexive a sh:NodeShape ;
 
 # Asymmetric parentage: nobody is both the parent and the child of the same
 # person, whichever of `parent`, `father`, `mother` or `child` each triple uses
-# (e.g. `A parent B` with `A child B`, or `A father B` with `B parent A`).
 
 ex:ParentageAsymmetric a sh:NodeShape ;
     sh:targetSubjectsOf ex:parent , ex:father , ex:mother , ex:child ;
@@ -159,9 +138,7 @@ ex:SpouseNotParentage a sh:NodeShape ;
         """ ;
     ] .
 
-# Asymmetric succession: if A came before B, B did not come before A. This
-# also flags historically true cases, such as reigns that alternated between
-# two people or two titles held in opposite order.
+# Asymmetric succession: if A came before B, B did not come before A.
 
 ex:SuccessionAsymmetric a sh:NodeShape ;
     sh:targetSubjectsOf ex:successor , ex:predecessor ;
