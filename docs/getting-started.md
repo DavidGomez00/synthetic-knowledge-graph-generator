@@ -67,7 +67,7 @@ This computes `GraphMetrics` from `base_uri`, generates the EDB, then grows the 
 The CLI also accepts:
 - `--skip-edb` — skip EDB generation and reuse whatever triples already sit at `graph.edb_uri` (e.g. from a previous run).
 - `--log-level DEBUG` (or `INFO`/`WARNING`/...) — override the config's `logging.level` for this run only, without editing the JSON file.
-- `--pca-threshold 0.9` — override the config's `rules.pca_threshold` for this run only; rules with PCA confidence below it are excluded from every pipeline step.
+- `--pca-conf 0.9` — keep only the rules with PCA confidence >= 0.9 for this run, overriding the config's `rules.pca_threshold`. Without either, the rules with std confidence 1 are kept. Excluded rules are left out of every pipeline step.
 
 ```bash
 python -m skgg.cli.main -f fr.no-literals.json --skip-edb --log-level DEBUG

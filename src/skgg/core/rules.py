@@ -1,12 +1,11 @@
 """Defines data structures and logic for Horn Rule-based systems.
 
 Provides the HornRule dataclass, Pandas CSV parsing, and rule-set-level
-operations (dependency graphs, cycle detection, inverse rule pairs) used to drive
-EDB/synthetic graph generation.
+operations (dependency graphs, cycle detection and cyclic rule removal) used to
+drive EDB/synthetic graph generation.
 """
 
 import logging
-import math
 import re
 from collections import defaultdict
 from dataclasses import dataclass
@@ -174,6 +173,8 @@ class HornRule:
 # Rule parsing.
 # ---------------------------------------------------------------------------
 ATOM_PATTERN = re.compile(r"(\?\w+)\s+(\S+)\s+(\S+)")
+# Std confidence a rule needs to be kept when no PCA threshold is given.
+DEFAULT_STD_THRESHOLD = 1.0
 
 
 class _RuleRow(Protocol):
@@ -461,188 +462,63 @@ def find_stale_cycles(
     return sorted(cycles, key=lambda cycle: (len(cycle), cycle))
 
 
-# ---------------------------------------------------------------------------
-# Inverse rule pairs.
-# ---------------------------------------------------------------------------
-@dataclass(frozen=True, slots=True)
-class InversePair:
-    """Two single-atom rules that derive each predicate from the other with the
-    variables swapped: `?x p ?y => ?y q ?x` and `?x q ?y => ?y p ?x`, with p != q.
+def remove_cyclic_rules(rules: dict[str, HornRule]) -> dict[str, HornRule]:
+    """Deletes from `rules`, in place, every rule with an edge on a cycle of the
+    relation graph (`get_relation_graph`), so that no cycle is left.
 
-    Each makes the other's body predicate intensional, so the pair forms a
-    `p -> q -> p` cycle in the relation graph (`get_relation_graph`).
-    """
+    An edge `body predicate -> head predicate` is on a cycle when both predicates
+    are in the same strongly connected component (a self-loop `p -> p` included).
+    The head predicate of a removed rule becomes extensional, and EDB generation
+    produces it, unless a remaining rule still derives it.
 
-    first: HornRule
-    second: HornRule
-
-
-def _inverse_key(rule: HornRule) -> tuple[str, str] | None:
-    """Returns (body predicate, head predicate) if `rule` has the form
-    `?x p ?y => ?y q ?x` with p != q and distinct variables, else None."""
-    if len(rule.body) != 1:
-        return None
-    (atom,) = rule.body
-    head = rule.head
-    if (
-        atom.subject.startswith("?")
-        and atom.obj.startswith("?")
-        and atom.subject != atom.obj
-        and (head.subject, head.obj) == (atom.obj, atom.subject)
-        and atom.predicate != head.predicate
-    ):
-        return atom.predicate, head.predicate
-    return None
-
-
-def find_inverse_pairs(rules: dict[str, HornRule]) -> list[InversePair]:
-    """Finds every pair of rules `?x p ?y => ?y q ?x` and `?x q ?y => ?y p ?x`
-    (p != q) in `rules`, sorted by predicate for determinism.
-
-    Symmetric rules (`?x p ?y => ?y p ?x`) are not pairs. If a set holds more than
-    one rule with the same pair of predicates (e.g. a duplicate row), that pair is
-    skipped with a warning.
-    """
-    by_key: dict[tuple[str, str], list[HornRule]] = defaultdict(list)
-    for rule in rules.values():
-        if (key := _inverse_key(rule)) is not None:
-            by_key[key].append(rule)
-
-    pairs: list[InversePair] = []
-    for (p, q), found in sorted(by_key.items()):
-        # Each pair is found once, from its (smaller, larger) predicate key.
-        if p > q or (inverse := by_key.get((q, p))) is None:
-            continue
-        if len(found) > 1 or len(inverse) > 1:
-            logger.warning(
-                "Skipping inverse pair %s/%s: more than one rule per direction "
-                "(rules %s).",
-                short_term(p),
-                short_term(q),
-                ", ".join(r.rule_id for r in found + inverse),
-            )
-            continue
-        pairs.append(InversePair(found[0], inverse[0]))
-    return pairs
-
-
-def _is_exact_inverse(rule: HornRule) -> bool:
-    """True if the single-atom rule's body and head predicates are exact inverses in
-    the source graph: every body fact has its head fact (std confidence 1) and every
-    head fact has its body fact (head coverage 1). PCA confidence 1 is not enough, as
-    it ignores subjects without any head fact."""
-    return (
-        rule.std_confidence is not None
-        and rule.head_coverage is not None
-        and math.isclose(rule.std_confidence, 1.0)
-        and math.isclose(rule.head_coverage, 1.0)
-    )
-
-
-def removable_inverse_rule(
-    pair: InversePair, rules: dict[str, HornRule]
-) -> HornRule | None:
-    """Returns the rule of `pair` that can be deleted from `rules` with no downside,
-    or None if both must stay. The reason is logged either way.
-
-    Deleting `?x q ?y => ?y p ?x` (head p) and keeping `?x p ?y => ?y q ?x` (head q)
-    loses nothing when:
-
-    1. p and q are exact inverses in the source (`_is_exact_inverse`), so generating
-       p to its profile and deriving q from it also reproduces q's profile, and both
-       rules keep their support.
-    2. The deleted rule is the only one with head p, so p becomes extensional and the
-       EDB generates it.
-    3. The kept rule is the only one with head q, so every q fact is derived from p
-       and the deleted rule still holds on the output.
-
-    When both rules qualify, the predicate used in more bodies of the other rules
-    becomes extensional (ties broken by name), since EDB generation can then ground
-    those bodies directly.
-    """
-    first, second = pair.first, pair.second
-    pair_ids = {first.rule_id, second.rule_id}
-    name = f"{short_term(first.head.predicate)}/{short_term(second.head.predicate)}"
-    rule_ids = f"rules {first.rule_id} and {second.rule_id}"
-
-    if not (_is_exact_inverse(first) and _is_exact_inverse(second)):
-        logger.info(
-            "Kept inverse pair %s (%s): not exact inverses (std confidence %s/%s, "
-            "head coverage %s/%s).",
-            name,
-            rule_ids,
-            first.std_confidence,
-            second.std_confidence,
-            first.head_coverage,
-            second.head_coverage,
-        )
-        return None
-
-    other_producers: dict[str, list[str]] = defaultdict(list)
-    for rule in rules.values():
-        head_pred = rule.head.predicate
-        if rule.rule_id not in pair_ids and head_pred in (
-            first.head.predicate,
-            second.head.predicate,
-        ):
-            other_producers[short_term(head_pred)].append(rule.rule_id)
-    if other_producers:
-        logger.info(
-            "Kept inverse pair %s (%s): also derived by other rules (%s).",
-            name,
-            rule_ids,
-            "; ".join(
-                f"{pred} by rules {', '.join(r_ids)}"
-                for pred, r_ids in sorted(other_producers.items())
-            ),
-        )
-        return None
-
-    def body_uses(predicate: str) -> int:
-        """Number of rules outside the pair with `predicate` in their body."""
-        return sum(
-            predicate in rule.get_body_predicates()
-            for rule in rules.values()
-            if rule.rule_id not in pair_ids
-        )
-
-    removed = min(
-        (first, second),
-        key=lambda rule: (-body_uses(rule.head.predicate), rule.head.predicate),
-    )
-    logger.info(
-        "Removed rule %s of inverse pair %s: %s becomes extensional.",
-        removed.rule_id,
-        name,
-        short_term(removed.head.predicate),
-    )
-    return removed
-
-
-def remove_inverse_rules(rules: dict[str, HornRule]) -> dict[str, HornRule]:
-    """Deletes from `rules`, in place, the rule of each inverse pair that can be
-    removed with no downside (`removable_inverse_rule`), so that its head predicate
-    becomes extensional and EDB generation produces it.
-
-    Run it on the rule set a run actually uses (after `parse_rule_set`'s PCA
+    Run it on the rule set a run actually uses (after `parse_rule_set`'s confidence
     filter), before EDB generation.
 
     Returns:
         The removed rules, identified by rule_id.
     """
-    pairs = find_inverse_pairs(rules)
-    removed: dict[str, HornRule] = {}
-    for pair in pairs:
-        if (rule := removable_inverse_rule(pair, rules)) is not None:
-            # Later pairs must not count the removed rule as deriving its head.
-            del rules[rule.rule_id]
-            removed[rule.rule_id] = rule
+    graph = get_relation_graph(rules)
+    components = list(nx.strongly_connected_components(graph))
+    component_of = {pred: i for i, preds in enumerate(components) for pred in preds}
 
-    if pairs:
+    # Rule ids with an edge inside each component, keyed by the component's index.
+    cyclic_ids: dict[int, set[str]] = defaultdict(set)
+    for src, dst, rule_ids in graph.edges(data="rule_ids"):
+        if component_of[src] == component_of[dst]:
+            cyclic_ids[component_of[src]] |= rule_ids
+
+    if not cyclic_ids:
+        return {}
+
+    for i, rule_ids in sorted(
+        cyclic_ids.items(), key=lambda item: sorted(map(short_term, components[item[0]]))
+    ):
         logger.info(
-            "Removed %d rules from %d inverse pairs; %d rules left.",
-            len(removed),
-            len(pairs),
-            len(rules),
+            "Removed rules %s: on the cycle of %s.",
+            ", ".join(sorted(rule_ids, key=rule_sort_key)),
+            ", ".join(sorted(short_term(p) for p in components[i])),
         )
+    removed_ids = set().union(*cyclic_ids.values())
+    removed = {
+        rule_id: rules.pop(rule_id) for rule_id in sorted(removed_ids, key=rule_sort_key)
+    }
+
+    producers: dict[str, list[str]] = defaultdict(list)
+    for rule in rules.values():
+        producers[rule.head.predicate].append(rule.rule_id)
+    removed_heads = {rule.head.predicate for rule in removed.values()}
+    extensional = sorted(short_term(p) for p in removed_heads if p not in producers)
+    if extensional:
+        logger.info(
+            "Predicates made extensional by cyclic rule removal: %s",
+            ", ".join(extensional),
+        )
+    for pred in sorted(removed_heads & producers.keys(), key=short_term):
+        logger.info(
+            "%s stays intensional: derived by rules %s.",
+            short_term(pred),
+            ", ".join(sorted(producers[pred], key=rule_sort_key)),
+        )
+    logger.info("Removed %d cyclic rules; %d rules left.", len(removed), len(rules))
     return removed
+

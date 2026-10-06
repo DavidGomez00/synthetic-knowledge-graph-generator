@@ -21,7 +21,7 @@ from yarl import URL
 
 from skgg.core.config import DatabaseAuthConfig, DataConfig, RunConfig
 from skgg.core.queries import get_triple_count
-from skgg.core.rules import HornRule, parse_rule_set
+from skgg.core.rules import DEFAULT_STD_THRESHOLD, HornRule, parse_rule_set
 from skgg.core.utils import (
     build_sparql_client,
     load_term_mapping,
@@ -33,8 +33,6 @@ from skgg.engine.completion import complete_graph
 logger = logging.getLogger(__name__)
 
 TRIPLE_FILE_SUFFIXES = (".nt", ".tsv")
-# Std confidence a rule needs to be applied when --pca-conf is not given.
-DEFAULT_STD_THRESHOLD = 1.0
 
 
 def complete(

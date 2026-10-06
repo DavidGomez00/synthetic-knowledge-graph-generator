@@ -37,14 +37,14 @@ Rule quality metrics carried alongside each rule (from the CSV, used to filter w
 - **Support** — count of distinct bindings of the *head atom's* variables for which the head fact holds in the source graph and the body holds for at least one binding of its own extra variables (if any). Those extra body-only variables aren't projected over, so each one only needs a single witness — matching AMIE3's definition. How much evidence the rule has.
 - **Head coverage** — support divided by the total number of head-predicate triples in the graph. What fraction of the target relation this rule explains.
 - **Std(ard) confidence** — support divided by the number of bindings that satisfy the body (closed-world: body-satisfying bindings that *don't* also satisfy the head count against the rule).
-- **PCA confidence** — like standard confidence, but under the *Partial Completeness Assumption*: only counts a body-satisfying binding as contradicting evidence if some other object is already known for the same subject/predicate. More forgiving of open-world incompleteness, so PCA confidence is normally ≥ standard confidence, and is what `rules.pca_threshold` filters on (`RulesConfig` in `core/config.py`).
+- **PCA confidence** — like standard confidence, but under the *Partial Completeness Assumption*: only counts a body-satisfying binding as contradicting evidence if some other object is already known for the same subject/predicate. More forgiving of open-world incompleteness, so PCA confidence is normally ≥ standard confidence, and is what `rules.pca_threshold` filters on when it is set (`RulesConfig` in `core/config.py`); otherwise the pipeline keeps the rules with standard confidence 1.
 
 ## Extensional database (EDB) and Intensional database (IDB)
 
 Standard Datalog terminology, used directly as named-graph URIs in each config (`graph.edb_uri`, `graph.synthetic_uri`):
 
 - **Extensional predicate** — never appears as a rule's head; its truth is asserted directly as ground facts (there's no rule to derive it from). The **Extensional Database (EDB)** is the set of such ground facts — `engine/edb.py` generates it to satisfy both the predicate profiles and any rule bodies that reference these predicates.
-- **Intensional predicate** — appears as some rule's head; its truth is *derived* by applying rules over already-known facts. The **Intensional Database (IDB)** is the EDB plus everything derivable from it by forward-chaining the rules — this is the final synthetic graph (`graph.synthetic_uri`), built by `engine/completion.py`'s `complete_graph` starting from the EDB, with `engine/cycles.py`'s `break_cycles` interleaved to seed any [stale cycle](#stale-cycle) completion alone could never start.
+- **Intensional predicate** — appears as some rule's head; its truth is *derived* by applying rules over already-known facts. The **Intensional Database (IDB)** is the EDB plus everything derivable from it by forward-chaining the rules — this is the final synthetic graph (`graph.synthetic_uri`), built by `engine/completion.py`'s `complete_graph` starting from the EDB. The pipeline removes every [cyclic rule](#cyclic-rule) first, so completion can derive every intensional predicate from the EDB.
 
 ## Closure
 
@@ -77,19 +77,13 @@ RDF terms are written as bare short names in rules/data (`hasAge`) but need a fu
 
 EDB generation only seeds extensional predicates (never a rule head). If every rule producing a predicate depends on that predicate itself (`p -> p`, e.g. `spouse(a,b) => spouse(b,a)`) or on a rule that depends back on it (`A -> B -> A`), completion can never start: the predicates stay empty. A cycle of the relation graph (`core/rules.get_relation_graph`) none of whose predicates has triples after completion is *stale*.
 
-`engine/cycles.break_cycles` picks one rule of one stale cycle (fewest ungrounded body atoms, non-recursive first, most restrictive first), instantiates its ungrounded body atoms with `sample_groundings` as if they were extensional (joined via `fixed_bindings` with any body atoms already grounded), inserts them into the synthetic graph only, and returns; the pipeline then re-runs completion and calls it again until nothing more is seeded. Intensional dependencies do not gate the choice: the non-recursive rules a recursive rule would wait for can never fire inside a stale cycle.
+The pipeline avoids stale cycles by removing every [cyclic rule](#cyclic-rule) before EDB generation. `engine/cycles.break_cycles`, which the pipeline no longer calls, picks one rule of one stale cycle (fewest ungrounded body atoms, non-recursive first, most restrictive first), instantiates its ungrounded body atoms with `sample_groundings` as if they were extensional (joined via `fixed_bindings` with any body atoms already grounded), inserts them into the synthetic graph only, and returns; the caller then re-runs completion and calls it again until nothing more is seeded. Intensional dependencies do not gate the choice: the non-recursive rules a recursive rule would wait for can never fire inside a stale cycle.
 
-## Inverse rule pair
+## Cyclic rule
 
-Two single-atom rules that derive each predicate from the other with the variables swapped, R1 = `?x p ?y => ?y q ?x` and R2 = `?x q ?y => ?y p ?x` with p ≠ q, e.g. `parent`/`child`. Both p and q are rule heads, so both are intensional, and the pair forms a `p -> q -> p` cycle that is stale when no other rule derives either predicate. `core/rules.find_inverse_pairs` finds these pairs. Symmetric rules (p = q) are not pairs.
+A rule with an edge `body predicate -> head predicate` on a cycle of the relation graph (`core/rules.get_relation_graph`), meaning both predicates are in the same strongly connected component. A recursive rule (`p -> p`) is cyclic, and so is a rule whose body predicate depends back on its head through other rules, even if only one of its body predicates does.
 
-`core/rules.removable_inverse_rule` allows deleting R2 only when doing so loses nothing:
-
-1. p and q are exact inverses in the source: R1 has standard confidence 1 (every p fact has its q fact) and head coverage 1 (every q fact has its p fact). For such a pair, R1's standard confidence is R2's head coverage and the other way round. PCA confidence 1 is not enough, because it ignores subjects that have no head fact at all.
-2. R2 is the only rule with head p, so p becomes extensional and the EDB generates it to its profile.
-3. R1 is the only rule with head q, so every q fact is derived from p and R2 still holds on the output.
-
-Under these conditions completion derives q = p⁻¹, which matches q's profile, and both rules keep their source support. Conditions 2 and 3 describe the isolated pair, which is exactly the case that forms a stale cycle. When both rules qualify, the predicate used in more bodies of the other rules becomes extensional, because EDB Step 2 can then ground those bodies directly. `core/rules.remove_inverse_rules` applies this in `cli/main.py` right after the rule set is parsed, before EDB generation, and the summary lists the removed rules with their support, original -> synthetic, which should not change.
+`core/rules.remove_cyclic_rules` deletes every cyclic rule in `cli/main.py`, right after the rule set is parsed and before EDB generation. The rule set left has no cycle, so no [stale cycle](#stale-cycle) can occur. The head predicate of a deleted rule becomes extensional, and the EDB generates it to its profile, unless a remaining (non-cyclic) rule still derives it. With the 68 std confidence 1 rules of `data/family/family.csv`, it removes 49 rules: `brother`, `daughter`, `father`, `mother` and `type` become extensional, while `aunt`, `husband`, `nephew`, `niece`, `son`, `uncle` and `wife` stay intensional through 19 other rules. The summary lists the removed rules with their support, original -> synthetic.
 
 ## Solvability check
 

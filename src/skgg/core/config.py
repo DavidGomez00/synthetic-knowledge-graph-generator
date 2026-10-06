@@ -96,17 +96,17 @@ class RulesConfig:
     Attributes:
         rules_file: Filename (relative to `data.input_dir`) of the rules CSV,
             parsed by `core.rules.parse_rule_set`.
-        pca_threshold: Minimum PCA confidence a rule must have to be kept.
-            `core.rules.parse_rule_set` classifies each rule as POSITIVE (PCA
-            confidence >= this threshold), NEGATIVE (below it), or UNKNOWN
-            (missing PCA confidence), then drops every rule that isn't
-            POSITIVE — so only rules meeting the threshold flow into EDB
-            generation, IDB/completion, and cycle-breaking. Overridable
-            per-run via `--pca-threshold` on the CLI.
+        pca_threshold: Minimum PCA confidence a rule must have to be kept, or
+            None (the default) to keep the rules with std confidence >=
+            `core.rules.DEFAULT_STD_THRESHOLD` (1) instead.
+            `core.rules.parse_rule_set` drops every rule below the threshold
+            or missing the confidence it filters on, so only the remaining
+            rules flow into EDB generation and completion. Overridable per run
+            with `--pca-conf` on the CLI.
     """
 
     rules_file: str
-    pca_threshold: float
+    pca_threshold: float | None = None
 
 
 @dataclass(frozen=True)

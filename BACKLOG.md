@@ -8,7 +8,6 @@ Known issues and pending features. Resolved items are archived in `BACKLOG_ARCHI
 ## 'engine/'
 - [ ] **`edb.py`**: When generating random triples, consider predicate irreflexivity to exclude the subject from possible objects. 
 - [ ] **`cycles.py`/`generator.py`** *(low priority)*: 
-  - [ ] Move the cycle detection and seeding to the first steps of the pipeline. Instead of seeding these relations independently, treat "need-to-seed" relations as extensional.
   - [ ] `apply_rule` in completion is not profile-capped, so a seeded cycle can overshoot its target frequency. Add a parameter to cap it or not.
 - [ ] **`metrics.py`** *(low priority)*: `GraphMetrics.from_uri` dumps its result to `logs/metrics/<uri>.json` for debugging. There's still no path to make the pipeline consume that JSON instead of re-querying the graph over SPARQL.
 

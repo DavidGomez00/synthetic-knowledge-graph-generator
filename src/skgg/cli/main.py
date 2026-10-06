@@ -15,11 +15,12 @@ from SPARQLWrapper import SPARQLWrapper
 from skgg.core.config import RunConfig
 from skgg.core.queries import get_predicate_frequencies, get_support, get_triple_count
 from skgg.core.rules import (
+    DEFAULT_STD_THRESHOLD,
     Atom,
     HornRule,
     get_relation_graph,
     parse_rule_set,
-    remove_inverse_rules,
+    remove_cyclic_rules,
     rule_sort_key,
 )
 from skgg.core.utils import (
@@ -31,18 +32,17 @@ from skgg.core.utils import (
 )
 from skgg.core.visualization import plot_relation_graph
 from skgg.engine.completion import complete_graph
-from skgg.engine.cycles import break_cycles
 from skgg.engine.edb import generate_extensional_predicates
 from skgg.engine.generator import get_closed_preds, get_closed_rules
 from skgg.engine.metrics import GraphMetrics, PredicateProfile
 
 logger = logging.getLogger(__name__)
 
-_TOTAL_PHASES = 5
+_TOTAL_PHASES = 4
 
 
 def _log_phase(number: int, title: str) -> None:
-    """Logs a pipeline stage header, e.g. `[3/5] Completing graph`."""
+    """Logs a pipeline stage header, e.g. `[3/4] Completing graph`."""
     logger.info("[%d/%d] %s", number, _TOTAL_PHASES, title)
 
 
@@ -128,8 +128,8 @@ def _format_summary_block(
     synthetic (delta) and open/closed status (read directly off
     PredicateProfile.closed / HornRule.closed, the authoritative closure
     state maintained throughout generation -- not re-derived here). Rules
-    removed by `remove_inverse_rules` follow in their own section, without a
-    status: their synthetic support should equal the original."""
+    removed by `remove_cyclic_rules` follow in their own section, without a
+    status."""
     triple_delta = syn_triple_count - og_triple_count
     pct = f", {triple_delta / og_triple_count:+.1%}" if og_triple_count else ""
     lines = [
@@ -205,7 +205,7 @@ def _format_summary_block(
     if removed_rules:
         lines += [
             "",
-            f"Removed inverse rules ({len(removed_rules)}):",
+            f"Removed cyclic rules ({len(removed_rules)}):",
             *(rule_row(rid) for rid in sorted(removed_rules, key=rule_sort_key)),
         ]
 
@@ -223,7 +223,7 @@ def log_summary(
     """Logs one consolidated report comparing the synthetic graph against the
     original: total triples, per-predicate frequency, and per-rule support,
     each as original -> synthetic (delta) plus open/closed status, then the
-    support of each rule in `removed_rules` (see `remove_inverse_rules`). Replaces
+    support of each rule in `removed_rules` (see `remove_cyclic_rules`). Replaces
     the previous summarize_progress()/summary() pair, which queried
     overlapping data twice and logged two separate, overlapping reports.
     """
@@ -269,7 +269,12 @@ def run_synthetic_graph_experiment(
 
     `log_level`, if given, overrides `config.logging.level` for this run.
     `pca_threshold`, if given, overrides `config.rules.pca_threshold` for
-    this run's rule filtering only.
+    this run's rule filtering only. If neither is set, the rules with std
+    confidence >= `DEFAULT_STD_THRESHOLD` (1) are kept instead.
+
+    After the confidence filter, `remove_cyclic_rules` deletes every rule on a
+    cycle of the relation graph, so that completion can derive every intensional
+    predicate from the EDB.
     """
 
     ## ------ Setup ------
@@ -295,21 +300,28 @@ def run_synthetic_graph_experiment(
         default_namespace=config.graph.namespace,
     )
 
-    rules = parse_rule_set(
-        rules_file=rules_file,
-        term_mapping=term_mapping,
-        pca_threshold=(
-            pca_threshold if pca_threshold is not None else config.rules.pca_threshold
-        ),
-    )
-    # Before EDB generation, so a removed rule's head predicate is extensional.
-    removed_rules = remove_inverse_rules(rules)
-
+    if pca_threshold is None:
+        pca_threshold = config.rules.pca_threshold
+    if pca_threshold is not None:
+        rules = parse_rule_set(
+            rules_file=rules_file,
+            term_mapping=term_mapping,
+            pca_threshold=pca_threshold,
+        )
+    else:
+        rules = parse_rule_set(
+            rules_file=rules_file,
+            term_mapping=term_mapping,
+            std_threshold=DEFAULT_STD_THRESHOLD,
+        )
+    # Drawn before the cyclic rules are removed, so the PNG shows their cycles.
     plot_relation_graph(
         get_relation_graph(rules),
         Path("logs") / f"relation_graph_{config.graph.name}.png",
         title=f"{config.graph.name} — relation graph",
     )
+    # Before EDB generation, so a removed rule's head predicate is extensional.
+    removed_rules = remove_cyclic_rules(rules)
 
     # Created before EDB generation, which spends the profiles' frequencies.
     progress = _ClosureProgress(client, graph_metrics.profiles, rules)
@@ -367,34 +379,7 @@ def run_synthetic_graph_experiment(
     )
     progress.log("initial", synthetic_uri)
 
-    _log_phase(4, "Breaking rule cycles")
-    round_no = 0
-    seeded = 1
-    while seeded:
-        seeded = break_cycles(
-            client=client,
-            rules=rules,
-            term_mapping=term_mapping,
-            synthetic_uri=synthetic_uri,
-            chunk_size=chunk_size,
-            profiles=graph_metrics.profiles,
-        )
-        round_no += 1
-        complete_graph(
-            client=client,
-            rules=rules,
-            term_mapping=term_mapping,
-            source=synthetic_uri,
-            target_uri=synthetic_uri,
-            chunk_size=chunk_size,
-            profiles=graph_metrics.profiles,
-            label=f"cycle round {round_no}",
-        )
-        progress.log(f"cycle round {round_no}", synthetic_uri)
-
-    logger.info("No cycles to break or rules to complete.")
-
-    _log_phase(5, "Summary")
+    _log_phase(4, "Summary")
     log_summary(
         client,
         config.graph.base_uri,
@@ -429,10 +414,12 @@ def _parse_args() -> argparse.Namespace:
         help="Override the config file's logging level (e.g. DEBUG, INFO, WARNING).",
     )
     parser.add_argument(
-        "--pca-threshold",
+        "--pca-conf",
         type=float,
         default=None,
-        help="Override the config file's rules.pca_threshold for this run only.",
+        help="Keep the rules with at least this PCA confidence, overriding the "
+        "config file's rules.pca_threshold for this run only. Without either, the "
+        "rules with std confidence 1 are kept.",
     )
     return parser.parse_args()
 
@@ -443,5 +430,5 @@ if __name__ == "__main__":
         resolve_config_path(args.config_file),
         skip_edb_generation=args.skip_edb,
         log_level=args.log_level,
-        pca_threshold=args.pca_threshold,
+        pca_threshold=args.pca_conf,
     )
