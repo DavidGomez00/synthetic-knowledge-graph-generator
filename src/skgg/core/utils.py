@@ -157,7 +157,7 @@ def load_term_mapping(
     config_file: str | None, namespace: str | None
 ) -> dict[str, str] | None:
     """Builds the term mapping for the `-f`/`--config-file` and `--namespace`
-    options of the local-file scripts (`cli/prepare_data.py`, `cli/convert.py`):
+    options of `cli/convert.py`:
     the config file's `graph.term_namespaces`, under `namespace` or else the
     config's `graph.namespace`. Only the config's graph section is read, so its
     other sections (e.g. `data.input_dir`, which must exist) aren't checked.

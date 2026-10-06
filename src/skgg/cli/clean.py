@@ -1,5 +1,4 @@
-"""Writes a cleaned copy of an .nt/.tsv file, in both .tsv and .nt formats:
-every '/' in a term's own name becomes '_' (e.g. `Matilda_of_Saxony_1172_1209/10`,
+"""Writes a cleaned copy of an .nt/.tsv file as a .tsv file: every '/' in a term's own name becomes '_' (e.g. `Matilda_of_Saxony_1172_1209/10`,
 which would otherwise shorten to `10`), duplicate triples are dropped (keeping
 the first occurrence), and so are its "literals": triples whose object is never
 typed (never the subject of a type triple), plus every triple of a predicate
@@ -13,7 +12,7 @@ from collections.abc import Collection, Iterator
 from pathlib import Path
 from urllib.parse import unquote
 
-from skgg.core.utils import format_term, load_term_mapping, setup_logging, short_term
+from skgg.core.utils import setup_logging, short_term
 
 logger = logging.getLogger(__name__)
 
@@ -74,32 +73,31 @@ def _iter_triples(path: Path) -> Iterator[tuple[str, str, str]]:
             yield subject, predicate, obj
 
 
-def _output_paths(output: Path) -> tuple[Path, Path]:
-    """Returns the `(.tsv, .nt)` output paths for `output`, ignoring any
-    .tsv/.nt suffix it already has."""
-    if output.suffix.lower() in (".tsv", ".nt"):
+def _output_path(output: Path) -> Path:
+    """Returns `output` with a .tsv suffix, replacing a .nt suffix."""
+    suffix = output.suffix.lower()
+    if suffix == ".tsv":
+        return output
+    if suffix == ".nt":
         output = output.with_suffix("")
-    return output.with_name(f"{output.name}.tsv"), output.with_name(f"{output.name}.nt")
+    return output.with_name(f"{output.name}.tsv")
 
 
-def prepare_data(
+def clean(
     input_file: str | Path,
     output: str | Path,
-    term_mapping: dict[str, str] | None = None,
     literal_predicates: Collection[str] = LITERAL_PREDICATES,
 ) -> tuple[int, int, int, int, set[str]]:
-    """Writes `input_file` to `<output>.tsv` and `<output>.nt`, replacing '/'
-    with '_' in every term's own name (see `_clean_term`), then dropping
-    duplicate triples, every triple of a `literal_predicates` predicate, and
-    every non-type triple whose object is never typed.
+    """Writes `input_file` to the .tsv file `output`, replacing '/' with '_'
+    in every term's own name (see `_clean_term`), then dropping duplicate
+    triples, every triple of a `literal_predicates` predicate, and every
+    non-type triple whose object is never typed. The IRIs of an .nt input
+    become their last segment (`utils.short_term`).
 
     Args:
         input_file: The .nt/.tsv file to clean.
-        output: Output path without extension (a .tsv/.nt suffix is ignored).
-        term_mapping: Bare-term -> namespace mapping (see `utils.format_term`).
-            Required when `input_file` is a .tsv file, to expand its terms into
-            the .nt output. Ignored for .nt files, whose IRIs become their last
-            segment in the .tsv output (`utils.short_term`).
+        output: Output .tsv path (a missing .tsv suffix is added, and a .nt
+            suffix replaced).
         literal_predicates: Predicates (bare terms, matched against each
             predicate's `utils.short_term`) whose triples are always dropped.
 
@@ -110,19 +108,17 @@ def prepare_data(
         that are never typed.
 
     Raises:
-        ValueError: If an output path is the input file, a .tsv input comes
-            without a `term_mapping`, two distinct terms differ only in '/' vs
-            '_' (or '%2F' vs '_'), which cleaning would merge, or two distinct
-            .nt IRIs share a short term, which the .tsv output would merge.
+        ValueError: If the output path is the input file, two distinct terms
+            differ only in '/' vs '_' (or '%2F' vs '_'), which cleaning would
+            merge, or two distinct .nt IRIs share a short term, which the .tsv
+            output would merge.
     """
     input_file = Path(input_file)
-    tsv_file, nt_file = _output_paths(Path(output))
-    if input_file.resolve() in (tsv_file.resolve(), nt_file.resolve()):
-        raise ValueError("The output files must differ from the input file.")
+    tsv_file = _output_path(Path(output))
+    if input_file.resolve() == tsv_file.resolve():
+        raise ValueError("The output file must differ from the input file.")
 
     is_tsv = input_file.suffix.lower() == ".tsv"
-    if is_tsv and term_mapping is None:
-        raise ValueError("A term_mapping is required to convert a .tsv file to .nt.")
 
     type_predicates = {TSV_TYPE, NT_TYPE}
 
@@ -153,10 +149,6 @@ def prepare_data(
     # .nt -> .tsv: short term -> the IRI it came from, to catch collisions.
     short_terms: dict[str, str] = {}
 
-    def _expand(term: str) -> str:
-        """A .tsv term as an .nt term."""
-        return format_term(term, term_mapping)
-
     def _shorten(term: str) -> str:
         """An .nt term as a .tsv term."""
         short = unquote(short_term(term))
@@ -166,10 +158,7 @@ def prepare_data(
             )
         return short
 
-    with (
-        tsv_file.open("w", encoding="utf-8") as tsv_out,
-        nt_file.open("w", encoding="utf-8") as nt_out,
-    ):
+    with tsv_file.open("w", encoding="utf-8") as tsv_out:
         for triple in _clean_triples():
             if triple in seen:
                 duplicates += 1
@@ -186,9 +175,7 @@ def prepare_data(
                 continue
 
             tsv_triple = triple if is_tsv else tuple(map(_shorten, triple))
-            nt_triple = tuple(map(_expand, triple)) if is_tsv else triple
             tsv_out.write("\t".join(tsv_triple) + "\n")
-            nt_out.write(" ".join(nt_triple) + " .\n")
             kept += 1
 
     renamed = sorted(
@@ -200,11 +187,10 @@ def prepare_data(
         )
 
     logger.info(
-        "Wrote %s and %s: kept %d triples, removed %d duplicate triples, %d "
+        "Wrote %s: kept %d triples, removed %d duplicate triples, %d "
         "triples of literal predicates (%s) and %d untyped-object triples (%d "
         "distinct literals).",
         tsv_file,
-        nt_file,
         kept,
         duplicates,
         literal_predicate_triples,
@@ -230,7 +216,7 @@ def prepare_data(
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Write a .nt/.tsv file as both .tsv and .nt, with '/' in term "
+        description="Write a .nt/.tsv file as .tsv, with '/' in term "
         "names replaced by '_', without duplicate triples or literals (objects "
         "that are never typed), and report subjects that are never typed."
     )
@@ -240,23 +226,8 @@ def _parse_args() -> argparse.Namespace:
         "--output",
         type=Path,
         default=None,
-        help="Output path without extension; writes <output>.tsv and <output>.nt "
-        "(defaults to <stem>.no-literals next to the input).",
-    )
-    parser.add_argument(
-        "-f",
-        "--config-file",
-        default=None,
-        help="Config file under configurations/ (or a path to one; the .json "
-        "extension is optional) whose "
-        "graph.namespace/graph.term_namespaces map .tsv terms to IRIs. Required "
-        "(or --namespace) for .tsv input; ignored for .nt input.",
-    )
-    parser.add_argument(
-        "--namespace",
-        default=None,
-        help="Default namespace for .tsv terms (overrides the config file's "
-        "graph.namespace).",
+        help="Output .tsv path (defaults to <stem>.no-literals.tsv next to the "
+        "input).",
     )
     parser.add_argument(
         "--literal-predicates",
@@ -270,14 +241,7 @@ def _parse_args() -> argparse.Namespace:
         default="INFO",
         help="Logging level (e.g. DEBUG, INFO, WARNING).",
     )
-    args = parser.parse_args()
-    if (
-        args.input_file.suffix.lower() == ".tsv"
-        and args.config_file is None
-        and args.namespace is None
-    ):
-        parser.error("a .tsv input needs -f/--config-file or --namespace.")
-    return args
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
@@ -285,9 +249,8 @@ if __name__ == "__main__":
     setup_logging(level=args.log_level)
 
     input_file: Path = args.input_file
-    prepare_data(
+    clean(
         input_file,
-        args.output or input_file.with_name(f"{input_file.stem}.no-literals"),
-        term_mapping=load_term_mapping(args.config_file, args.namespace),
+        args.output or input_file.with_name(f"{input_file.stem}.no-literals.tsv"),
         literal_predicates=set(args.literal_predicates),
     )

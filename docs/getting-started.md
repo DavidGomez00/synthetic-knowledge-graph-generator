@@ -25,13 +25,13 @@ If you'd rather use Virtuoso instead, `docker compose --profile virtuoso up` bri
 
 ## 3. Prepare the data
 
-The pipeline does not handle literals yet, so the source graph is first cleaned with `cli/prepare_data.py`, which works on local files only (no graph database needed):
+The pipeline does not handle literals yet, so the source graph is first cleaned with `cli/clean.py`, which works on local files only (no graph database needed):
 
 ```bash
-python -m skgg.cli.prepare_data data/fr/fr.tsv -f fr.no-literals.json
+python -m skgg.cli.clean data/fr/fr.tsv
 ```
 
-This writes `data/fr/fr.no-literals.tsv` and `data/fr/fr.no-literals.nt`: the same triples without duplicates, without triples whose object is never typed, and without `name` triples (the `--literal-predicates` default). The config passed with `-f` supplies the term mapping needed to write the `.nt` copy. `-o` sets a different output path.
+This writes `data/fr/fr.no-literals.tsv`: the same triples without duplicates, without triples whose object is never typed, and without `name` triples (the `--literal-predicates` default). `-o` sets a different output path.
 
 If a dataset only needs the other format, without any cleaning, `cli/convert.py` converts a `.nt` file to `.tsv` or back; see [Convert between .nt and .tsv](../README.md#convert-between-nt-and-tsv) in the README.
 

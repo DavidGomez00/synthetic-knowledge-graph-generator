@@ -32,14 +32,14 @@ Experiments are driven by JSON config files in `configurations/` (e.g. `fr.no-li
 
 ### Prepare the data
 
-This method does not support literals yet, so `skgg.cli.prepare_data` handles the source graph to create a new version with no literals, creating a copy in both `<output>.tsv` and `<output>.nt` formats. This script performs basic data preparation like dropping duplicate triples. For more details, see the preparation step in [`docs/architecture.md`](docs/architecture.md#data-flow).
+This method does not support literals yet, so `skgg.cli.clean` writes a copy of the source graph with no literals, as a `.tsv` file. This script performs basic data preparation like dropping duplicate triples. For more details, see the preparation step in [`docs/architecture.md`](docs/architecture.md#data-flow).
 
 ```bash
-python -m skgg.cli.prepare_data data/fr/fr.tsv -f fr.no-literals.json              # -> data/fr/fr.no-literals.{tsv,nt}
-python -m skgg.cli.prepare_data path/to/graph.nt -o path/to/out --log-level DEBUG  # -> path/to/out.{tsv,nt}; DEBUG lists every untyped subject
+python -m skgg.cli.clean data/fr/fr.tsv                                        # -> data/fr/fr.no-literals.tsv
+python -m skgg.cli.clean path/to/graph.nt -o path/to/out.tsv --log-level DEBUG  # DEBUG lists every untyped subject
 ```
 
-Without `-o`, the output goes next to the input as `<stem>.no-literals.{tsv,nt}`. A `.tsv` input needs a term mapping to write its `.nt` copy: pass a config with `-f` or a default namespace with `--namespace`. An `.nt` input needs neither.
+Without `-o`, the output goes next to the input as `<stem>.no-literals.tsv`. The IRIs of an `.nt` input are cut to their last segment, and the script fails if two IRIs collide. Use `skgg.cli.convert` if you also need an `.nt` copy.
 
 ### Convert between .nt and .tsv
 
@@ -51,7 +51,7 @@ python -m skgg.cli.convert path/to/graph.tsv -f fr.no-literals.json           # 
 python -m skgg.cli.convert path/to/graph.nt -o path/to/out.tsv                # every IRI cut to its last segment
 ```
 
-A `.tsv` input needs a term mapping, from `--namespace` or from a config passed with `-f` (as for `prepare_data`). Each row must hold three tab-separated values, which become N-Triples terms as follows:
+A `.tsv` input needs a term mapping, from `--namespace` or from a config passed with `-f`. Each row must hold three tab-separated values, which become N-Triples terms as follows:
 
 - `type` in the predicate column becomes `rdf:type`.
 - A value starting with `http` is kept as a full IRI, and one starting with `_:` as a blank node.
@@ -70,7 +70,7 @@ python -m skgg.cli.upload -f fr.no-literals.json --triple-file data/fr/fr.no-lit
 python -m skgg.cli.upload -f fr.no-literals.json   # uploads graph.triple_file
 ```
 
-To upload the file written by `prepare_data`, pass it with `--triple-file` or set `graph.triple_file` to it. A bare filename resolves under `data.input_dir`, and a path containing `/` is used as given. `--graph-uri` uploads to a different named graph, e.g. to re-insert an already generated synthetic graph into `graph.synthetic_uri`. `--log-level` overrides the config's `logging.level` for the run.
+To upload the file written by `clean`, pass it with `--triple-file` or set `graph.triple_file` to it. A bare filename resolves under `data.input_dir`, and a path containing `/` is used as given. `--graph-uri` uploads to a different named graph, e.g. to re-insert an already generated synthetic graph into `graph.synthetic_uri`. `--log-level` overrides the config's `logging.level` for the run.
 
 ### Download a graph
 

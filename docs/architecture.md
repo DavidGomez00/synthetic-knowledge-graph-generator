@@ -8,7 +8,7 @@ The pipeline turns a source graph into a synthetic one in two stages. It first p
 
 ```mermaid
 flowchart LR
-    RAW["source graph<br/>(.nt/.tsv file)"] -->|cli/prepare_data.py| NT["cleaned graph<br/>(.nt/.tsv file)"]
+    RAW["source graph<br/>(.nt/.tsv file)"] -->|cli/clean.py| NT["cleaned graph<br/>(.tsv file)"]
     NT -->|cli/upload.py| BASE[("base_uri")]
     NS["graph.namespace<br/>graph.term_namespaces"] --> TERM["term mapping"]
     RULES["rules<br/>(.csv file)"] -->|"parse_rule_set<br/>remove_inverse_rules"| HORN["Horn rules"]
@@ -28,7 +28,7 @@ flowchart LR
 
 Blue nodes are named graphs in the database, keyed by the URIs in each config's `graph` section. The green node is the synthetic graph the pipeline delivers.
 
-1. Preparation (`cli/prepare_data.py`, optional and local). The pipeline does not support literals yet, so this script writes a cleaned copy of a `.nt`/`.tsv` file as both `<output>.tsv` and `<output>.nt`. It replaces every `/` in a term's own name with `_` (written as `%2F` inside an IRI's last segment) and fails if two terms clean to the same name. It drops duplicate triples, every non-type triple whose object is never typed (never the subject of a `type`/`rdf:type` triple), and every triple whose predicate is in `--literal-predicates` (default `name`). Type triples are always kept. It logs a warning for every subject that is never typed; DEBUG lists each one. `cli/convert.py` only converts a file between `.nt` and `.tsv`, keeping literals. Both scripts build the term mapping from `-f` or `--namespace` (`core/utils.load_term_mapping`) and never touch the database.
+1. Preparation (`cli/clean.py`, optional and local). The pipeline does not support literals yet, so this script writes a cleaned copy of a `.nt`/`.tsv` file as a `.tsv` file, cutting `.nt` IRIs to their last segment. It replaces every `/` in a term's own name with `_` (written as `%2F` inside an IRI's last segment) and fails if two terms clean to the same name. It drops duplicate triples, every non-type triple whose object is never typed (never the subject of a `type`/`rdf:type` triple), and every triple whose predicate is in `--literal-predicates` (default `name`). Type triples are always kept. It logs a warning for every subject that is never typed; DEBUG lists each one. `cli/convert.py` only converts a file between `.nt` and `.tsv`, keeping literals, and builds its term mapping from `-f` or `--namespace` (`core/utils.load_term_mapping`). Neither script touches the database.
 2. Upload (`cli/upload.py`). Loads a `.nt` or `.tsv` file (`graph.triple_file`) into `base_uri`, or into `--graph-uri` if given. `.tsv` rows are bare `subject\tpredicate\tobject` terms, resolved to full URIs through the term mapping before insertion.
 3. Metrics and rules (phase 1 of `cli/main.py`). `engine/metrics.py` profiles `base_uri` over SPARQL: per-predicate frequency, domain and range counts, reflexivity. These profiles are all the pipeline needs from the source graph. The rule set is then parsed (`core/rules.parse_rule_set`, which keeps only rules with PCA confidence >= `pca_threshold`), and `core/rules.remove_inverse_rules` deletes the redundant rule of each isolated [inverse rule pair](concepts.md#inverse-rule-pair), so that its head predicate becomes extensional and the EDB generates it. `core/visualization.plot_relation_graph` writes the remaining rules' predicate dependency graph to `logs/relation_graph_<graph.name>.png`, with every predicate on a cycle drawn in red.
 4. EDB generation (phase 2). `engine/edb.py`'s `generate_extensional_predicates` fills `edb_uri` with triples for the extensional predicates (those no rule head produces) until each one reaches its target frequency. It applies three mechanisms in a fixed priority: `check_direct_matches` adds the triples the profiles force, `check_triples_from_rule` builds groundings of each rule's extensional body with `generator.sample_groundings` so the joins the rules need exist, and `insert_random_triples` spends the remaining budget with draws weighted by each entity's remaining count. See [section 3 of `algorithm.md`](algorithm.md#3-extensional-database-edb) for the method. `--skip-edb` skips this phase and reuses the triples already at `edb_uri`.
@@ -43,7 +43,7 @@ flowchart TD
         UPLOAD["upload.py"]
         DOWNLOAD["download.py"]
         COMPLETE["complete.py"]
-        PREPARE["prepare_data.py"]
+        CLEAN["clean.py"]
         CONVERT["convert.py"]
         VALIDATE["validate.py"]
     end
@@ -72,7 +72,7 @@ flowchart TD
     DOWNLOAD --> CONFIG & CONVERT & QUERIES & UTILS
     COMPLETE --> CONFIG & COMPLETION & RULES & QUERIES & UTILS
     VALIDATE --> CONFIG & SHAPES & QUERIES & UTILS
-    PREPARE & CONVERT --> UTILS
+    CLEAN & CONVERT --> UTILS
 
     EDB --> GEN & METRICS & RULES & QUERIES & UTILS
     COMPLETION --> GEN & METRICS & RULES & QUERIES
@@ -86,7 +86,7 @@ flowchart TD
     QUERIES -->|SPARQL| DB
 ```
 
-`prepare_data.py` and `convert.py` only read and write local files. Every other script reaches the database through `core/queries.py`.
+`clean.py` and `convert.py` only read and write local files. Every other script reaches the database through `core/queries.py`.
 
 ### `core/`
 
@@ -112,7 +112,7 @@ flowchart TD
 - `download.py`: writes a named graph to `<output>.nt` and `<output>.tsv` (`python -m skgg.cli.download -f <config> [--graph-uri <uri>] [-o <output>]`), with `core/queries.export_graph_nt` for the `.nt` and `cli/convert.convert` for the `.tsv`. It fails if the `.nt` has a different number of triples than the graph.
 - `complete.py`: completes a real graph with a rule set (`python -m skgg.cli.complete [-f <config>] --complete-uri <uri>`). It copies a graph URI or a `.nt`/`.tsv` file into `--complete-uri` and runs `complete_graph` on it until a pass adds nothing. Settings come from a config, from flags (including the database connection), or both. It uses no profiles and does not apply `remove_inverse_rules`.
 - `validate.py`: reports the triples of a graph that violate a SHACL-SPARQL shapes file (`python -m skgg.cli.validate -f <config> [--source <uri|file.tsv>] [--shapes <file>] [--graph-uri <uri>] [-o <report>] [--keep-graph]`). The source defaults to the config's `graph.base_uri`, which is queried in place. A `.tsv` source is loaded into a temporary named graph that is cleared after the check. It runs every constraint with `build_shape_query` and writes a `.violations.tsv` report with the line number (`.tsv` sources only), terms, shape and message of each flagged triple.
-- `prepare_data.py`: writes a cleaned copy of a `.nt`/`.tsv` file, step 1 of "Data flow" above.
+- `clean.py`: writes a cleaned `.tsv` copy of a `.nt`/`.tsv` file, step 1 of "Data flow" above.
 - `convert.py`: converts a triples file from `.nt` to `.tsv` or back, dropping only duplicate triples and lines that are not a triple. Literals are kept; in the `.tsv` a literal becomes its bare text.
 
 ## Known rough edges
