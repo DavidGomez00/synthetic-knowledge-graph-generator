@@ -93,6 +93,15 @@ python -m skgg.cli.complete -f family.source.json --source data/family/family.nt
 python -m skgg.cli.complete --source http://Family.org/source --complete-uri http://Family.org/complete --rules-file data/family/family.csv --pca-threshold 1 --namespace http://Family.org/ --database-url http://localhost:7200/ --sparql-endpoint repositories/Family --auth-type BASIC --user admin --password rootpassword
 ```
 
+### Validate a graph against SHACL shapes
+
+`skgg.cli.validate` checks a graph against the `sh:sparql` constraints of a SHACL shapes file and writes every triple that violates one to a `.violations.tsv` report, with the triple's line in the `.tsv` file, its terms, the shape and the shape's `sh:message`. It checks the config's `graph.base_uri` unless `--source` names another graph URI or a `.tsv` file. A `.tsv` file is loaded into a temporary named graph (`--graph-uri`, default `graph.namespace` + `validation`), which is cleared after the check unless `--keep-graph` is given. The shapes file defaults to `data.input_dir / <folder name>.shapes.ttl`, e.g. `data/fr/fr.shapes.ttl`, and its `ex:` prefix must equal the config's `graph.namespace`. The source graph and file are not modified, and the pipeline does not use the shapes yet.
+
+```bash
+python -m skgg.cli.validate -f fr.no-literals.json                                          # graph.base_uri -> data/fr/source.violations.tsv
+python -m skgg.cli.validate -f fr.no-literals.json --source data/fr/fr.no-literals.skgg.tsv  # -> data/fr/fr.no-literals.skgg.violations.tsv
+```
+
 ### Mine rules
 
 `mine_rules/run_amie.py` mines Horn rules from a triples file with AMIE3 and writes them to a CSV that `rules.rules_file` can point to. The AMIE3 jar is not in git: download `amie3.5.1.jar` from https://github.com/dig-team/amie/releases into `mine_rules/`, or pass its path with `--jar`. Without `-o`, the CSV goes next to the input as `<stem>.csv`.

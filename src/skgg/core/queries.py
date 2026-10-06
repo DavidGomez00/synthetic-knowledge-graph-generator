@@ -8,6 +8,7 @@ overlap/consolidation TODOs in this file.
 
 import itertools
 import logging
+import re
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import BinaryIO, cast
@@ -18,6 +19,7 @@ from SPARQLWrapper import JSON, POST, URLENCODED, SPARQLWrapper
 from yarl import URL
 
 from skgg.core.rules import Atom, HornRule, RuleSignature
+from skgg.core.shapes import SparqlConstraint
 from skgg.core.utils import format_term, format_triple
 
 logger = logging.getLogger(__name__)
@@ -167,6 +169,57 @@ def build_rule_query(rule: RuleSignature, graph_uri: str) -> str:
     }}
     """
     return query
+
+
+# A PREFIX or BASE declaration at the head of a shape's `sh:select`.
+_QUERY_PROLOGUE = re.compile(
+    r"\s*(?:PREFIX\s+[^\s:]*:\s*<[^>]*>|BASE\s*<[^>]*>)", re.IGNORECASE
+)
+
+# `$this` filter for each `SparqlConstraint.targets` kind, given the target IRI.
+_TARGET_FILTERS = {
+    "subjectsOf": "EXISTS {{ $this <{}> [] }}",
+    "objectsOf": "EXISTS {{ [] <{}> $this }}",
+    "class": "EXISTS {{ $this <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>/"
+    "<http://www.w3.org/2000/01/rdf-schema#subClassOf>* <{}> }}",
+    "node": "sameTerm($this, <{}>)",
+}
+
+
+def build_shape_query(constraint: SparqlConstraint, graph_uri: str) -> str:
+    """Creates a query returning the violations of a SHACL-SPARQL constraint in
+    a named graph.
+
+    The constraint's `sh:select` becomes a subquery over `FROM <graph_uri>`,
+    with `$this` left unbound (rather than pre-bound per focus node, as SHACL
+    does) and then kept only when it is one of the shape's targets. PREFIX/BASE
+    lines at the head of the `sh:select` move above the wrapper, since a
+    subquery can't hold them.
+    """
+    select = constraint.select
+    prologue = []
+    while match := _QUERY_PROLOGUE.match(select):
+        prologue.append(match[0].strip())
+        select = select[match.end() :]
+
+    prefixes = [
+        f"PREFIX {prefix}: <{namespace}>"
+        for prefix, namespace in sorted(constraint.prefixes.items())
+    ]
+    targets = " || ".join(
+        _TARGET_FILTERS[kind].format(iri) for kind, iri in constraint.targets
+    )
+    header = "\n".join([*prefixes, *prologue])
+    return f"""{header}
+SELECT *
+FROM <{graph_uri}>
+WHERE {{
+  {{
+    {select.strip()}
+  }}
+  FILTER ({targets})
+}}
+"""
 
 
 # ---------------------------------------------------------------------------

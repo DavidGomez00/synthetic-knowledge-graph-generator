@@ -1,67 +1,235 @@
-# SHACL-SPARQL shapes template for `cli/normalization.py`.
-# 
+# SHACL-SPARQL shapes for the French Royalty graph, checked by `cli/validate.py`.
+#
+# - The `ex:` namespace must equal the experiment config's `graph.namespace`,
+#   and local names must match the bare terms in the .tsv file.
+# - Only `sh:sparql` constraints are checked. Each `sh:select` returns the
+#   violating triple as `$this ?path ?value`, and a second one, if any, as
+#   `?this2 ?path2 ?value2`.
 # - Only "conflict" constraints are supported: ones broken by triples that are
 #   present (irreflexive, asymmetric, maximum count, disjoint relations).
 #   "Missing" constraints (minimum count, required type) are not, because the
 #   graph grows step by step and a triple could be rejected for lacking something
 #   a later rule adds.
+#
+# Meaning of each relation, read from subject to object:
+#
+# - `A child B`: A has child B.
+# - `A parent B`, `A father B`, `A mother B`: A has parent / father / mother B.
+# - `A successor B`: A has successor B, so A came before B.
+# - `A predecessor B`: A has predecessor B, so B came before A.
+# - `A spouse B`: A is married to B, in either direction.
+#
+# Several shapes repeat two UNION blocks, since SHACL has no way to share them:
+#
+# - Parentage, "?child has parent ?parent": `?child parent|father|mother ?parent`
+#   or `?parent child ?child`.
+# - Succession, "?earlier came before ?later": `?earlier successor ?later` or
+#   `?later predecessor ?earlier`.
+#
+# Each block also binds the triple as written in the file (`$this ?path ?value`
+# or `?this2 ?path2 ?value2`), so the report names it.
 
 @prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix sh:   <http://www.w3.org/ns/shacl#> .
-@prefix ex:   <http://example.org/> .
+@prefix ex:   <http://FrenchRoyalty.org/> .
 
-# Irreflexive relation: nobody is their own father.
+# Irreflexive relations: no relation links a person to themselves.
 
-ex:FatherIrreflexive a sh:NodeShape ;
-    sh:targetSubjectsOf ex:father ;
+ex:Irreflexive a sh:NodeShape ;
+    sh:targetSubjectsOf ex:child , ex:parent , ex:father , ex:mother , ex:spouse , ex:successor , ex:predecessor ;
     sh:sparql [
-        sh:message "Nobody is their own father" ;
+        sh:message "Nobody is related to themselves" ;
         sh:select """
             SELECT $this ?path ?value
             WHERE {
-                $this ex:father ?value .
-                FILTER ($this = ?value)
-                BIND (ex:father AS ?path)
+                $this ?path ?value .
+                VALUES ?path { ex:child ex:parent ex:father ex:mother ex:spouse ex:successor ex:predecessor }
+                FILTER (sameTerm($this, ?value))
             }
         """ ;
     ] .
 
-# Disjoint relations: nobody is both the parent and the child of the same person.
+# Asymmetric parentage: nobody is both the parent and the child of the same
+# person, whichever of `parent`, `father`, `mother` or `child` each triple uses
+# (e.g. `A parent B` with `A child B`, or `A father B` with `B parent A`).
 
-ex:ParentChildDisjoint a sh:NodeShape ;
-    sh:targetSubjectsOf ex:parent ;
+ex:ParentageAsymmetric a sh:NodeShape ;
+    sh:targetSubjectsOf ex:parent , ex:father , ex:mother , ex:child ;
     sh:sparql [
         sh:message "Nobody is both parent and child of the same person" ;
         sh:select """
             SELECT $this ?path ?value ?this2 ?path2 ?value2
             WHERE {
-                $this ex:parent ?value .
-                $this ex:child ?value .
-                BIND (ex:parent AS ?path)
-                BIND ($this AS ?this2)
-                BIND (ex:child AS ?path2)
+                {
+                    $this ?path ?value .
+                    VALUES ?path { ex:parent ex:father ex:mother }
+                    BIND ($this AS ?child)
+                    BIND (?value AS ?parent)
+                } UNION {
+                    $this ex:child ?value .
+                    BIND (ex:child AS ?path)
+                    BIND ($this AS ?parent)
+                    BIND (?value AS ?child)
+                }
+                {
+                    ?parent ?path2 ?child .
+                    VALUES ?path2 { ex:parent ex:father ex:mother }
+                    BIND (?parent AS ?this2)
+                    BIND (?child AS ?value2)
+                } UNION {
+                    ?child ex:child ?parent .
+                    BIND (ex:child AS ?path2)
+                    BIND (?child AS ?this2)
+                    BIND (?parent AS ?value2)
+                }
+            }
+        """ ;
+    ] .
+
+# Disjoint roles: nobody is the father of one person and the mother of
+# another. When both are the same person, this is someone who has the same
+# person as father and as mother.
+
+ex:FatherOrMother a sh:NodeShape ;
+    sh:targetSubjectsOf ex:father ;
+    sh:sparql [
+        sh:message "Nobody is both a father and a mother" ;
+        sh:select """
+            SELECT $this ?path ?value ?this2 ?path2 ?value2
+            WHERE {
+                $this ex:father ?value .
+                ?this2 ex:mother ?value .
+                BIND (ex:father AS ?path)
+                BIND (ex:mother AS ?path2)
                 BIND (?value AS ?value2)
             }
         """ ;
     ] .
 
+# Acyclic parentage: nobody is their own ancestor. Every parentage triple on a
+# cycle is reported. Cycles of one or two triples are also caught by
+# ex:Irreflexive and ex:ParentageAsymmetric; this shape is there for longer ones.
 
-# Disjoint relations: nobody is both the father and the mother of the same person.
-
-ex:FatherMotherDisjoint a sh:NodeShape ;
-    sh:targetSubjectsOf ex:father ;
+ex:AncestryAcyclic a sh:NodeShape ;
+    sh:targetSubjectsOf ex:parent , ex:father , ex:mother , ex:child ;
     sh:sparql [
-        sh:message "Nobody is both father and mother of the same person" ;
+        sh:message "Nobody is their own ancestor" ;
+        sh:select """
+            SELECT $this ?path ?value
+            WHERE {
+                {
+                    $this ?path ?value .
+                    VALUES ?path { ex:parent ex:father ex:mother }
+                    BIND ($this AS ?child)
+                    BIND (?value AS ?parent)
+                } UNION {
+                    $this ex:child ?value .
+                    BIND (ex:child AS ?path)
+                    BIND ($this AS ?parent)
+                    BIND (?value AS ?child)
+                }
+                ?parent (ex:parent|ex:father|ex:mother|^ex:child)+ ?child .
+            }
+        """ ;
+    ] .
+
+# Disjoint relations: nobody is married to their own parent or child.
+
+ex:SpouseNotParentage a sh:NodeShape ;
+    sh:targetSubjectsOf ex:spouse ;
+    sh:sparql [
+        sh:message "Nobody is married to their own parent or child" ;
         sh:select """
             SELECT $this ?path ?value ?this2 ?path2 ?value2
             WHERE {
-                $this ex:father ?value .
-                $this ex:mother ?value .
-                BIND (ex:father AS ?path)
-                BIND ($this AS ?this2)
-                BIND (ex:mother AS ?path2)
-                BIND (?value AS ?value2)
+                $this ex:spouse ?value .
+                BIND (ex:spouse AS ?path)
+                {
+                    $this ?path2 ?value .
+                    BIND ($this AS ?this2)
+                    BIND (?value AS ?value2)
+                } UNION {
+                    ?value ?path2 $this .
+                    BIND (?value AS ?this2)
+                    BIND ($this AS ?value2)
+                }
+                VALUES ?path2 { ex:parent ex:father ex:mother ex:child }
+            }
+        """ ;
+    ] .
+
+# Asymmetric succession: if A came before B, B did not come before A. This
+# also flags historically true cases, such as reigns that alternated between
+# two people or two titles held in opposite order.
+
+ex:SuccessionAsymmetric a sh:NodeShape ;
+    sh:targetSubjectsOf ex:successor , ex:predecessor ;
+    sh:sparql [
+        sh:message "Nobody both precedes and succeeds the same person" ;
+        sh:select """
+            SELECT $this ?path ?value ?this2 ?path2 ?value2
+            WHERE {
+                {
+                    $this ex:successor ?value .
+                    BIND (ex:successor AS ?path)
+                    BIND ($this AS ?earlier)
+                    BIND (?value AS ?later)
+                } UNION {
+                    $this ex:predecessor ?value .
+                    BIND (ex:predecessor AS ?path)
+                    BIND (?value AS ?earlier)
+                    BIND ($this AS ?later)
+                }
+                {
+                    ?later ex:successor ?earlier .
+                    BIND (ex:successor AS ?path2)
+                    BIND (?later AS ?this2)
+                    BIND (?earlier AS ?value2)
+                } UNION {
+                    ?earlier ex:predecessor ?later .
+                    BIND (ex:predecessor AS ?path2)
+                    BIND (?earlier AS ?this2)
+                    BIND (?later AS ?value2)
+                }
+            }
+        """ ;
+    ] .
+
+# Succession follows descent: nobody is succeeded by their own parent or
+# another ancestor. The second triple reported is the first parentage step
+# from the earlier person towards that ancestor.
+
+ex:SuccessorNotAncestor a sh:NodeShape ;
+    sh:targetSubjectsOf ex:successor , ex:predecessor ;
+    sh:sparql [
+        sh:message "Nobody is succeeded by their own ancestor" ;
+        sh:select """
+            SELECT $this ?path ?value ?this2 ?path2 ?value2
+            WHERE {
+                {
+                    $this ex:successor ?value .
+                    BIND (ex:successor AS ?path)
+                    BIND ($this AS ?earlier)
+                    BIND (?value AS ?later)
+                } UNION {
+                    $this ex:predecessor ?value .
+                    BIND (ex:predecessor AS ?path)
+                    BIND (?value AS ?earlier)
+                    BIND ($this AS ?later)
+                }
+                {
+                    ?earlier ?path2 ?step .
+                    VALUES ?path2 { ex:parent ex:father ex:mother }
+                    BIND (?earlier AS ?this2)
+                    BIND (?step AS ?value2)
+                } UNION {
+                    ?step ex:child ?earlier .
+                    BIND (ex:child AS ?path2)
+                    BIND (?step AS ?this2)
+                    BIND (?earlier AS ?value2)
+                }
+                ?step (ex:parent|ex:father|ex:mother|^ex:child)* ?later .
             }
         """ ;
     ] .

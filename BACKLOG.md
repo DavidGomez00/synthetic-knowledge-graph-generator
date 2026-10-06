@@ -20,6 +20,7 @@ Known issues and pending features. Resolved items are archived in `BACKLOG_ARCHI
   - [x] Add a schema template (`schemas/template.ttl`) and the French Royalty schema (`data/fr/fr.ttl`).
   - [ ] Add a `schema_file` config field and parse the schema.
   - [ ] Decide how to use the schema in the pipeline.
+- [ ] Use the SHACL shapes (`<dataset>.shapes.ttl`) in the pipeline. `cli/validate.py` only reports the triples of a graph or `.tsv` file that violate them; EDB generation and completion still insert such triples.
 
 
 # Future work

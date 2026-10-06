@@ -93,6 +93,14 @@ python -m skgg.cli.complete -f family.source.json --source data/family/family.nt
 python -m skgg.cli.complete --source http://Family.org/source --complete-uri http://Family.org/complete --rules-file data/family/family.csv --pca-threshold 1 --namespace http://Family.org/ --database-url http://localhost:7200/ --sparql-endpoint repositories/Family --auth-type BASIC --user admin --password rootpassword
 ```
 
+`cli/validate.py` checks a graph against the SHACL-SPARQL shapes of a `<dataset>.shapes.ttl` file and reports every triple that violates one (importable as `validate(client, source, shapes_file, term_mapping, graph_uri, chunk_size, output, keep_graph)`, which returns the number of flagged triples). `--source` picks the graph: a graph URI or a `.tsv` file, default the config's `graph.base_uri`. A graph URI is queried in place. A `.tsv` file is loaded into a temporary named graph, `--graph-uri` (default `graph.namespace` + `validation`, e.g. `http://FrenchRoyalty.org/validation`), replacing that graph's contents, and the graph is cleared afterwards unless `--keep-graph` is given; both flags are ignored, with a warning, for a graph URI source. It refuses a `--graph-uri` equal to the config's `base_uri`, `edb_uri` or `synthetic_uri`. `core/shapes.load_shapes` reads the shapes file with rdflib (only the shapes, never the data), and `core/queries.build_shape_query` wraps each `sh:select` in a subquery over `FROM <graph-uri>`, keeping only rows whose `$this` is one of the shape's targets (`sh:targetSubjectsOf`, `sh:targetObjectsOf`, `sh:targetClass`, `sh:targetNode`). Only `sh:sparql` constraints are checked; other shapes, deactivated ones, shapes without a target and queries that use `$shapesGraph`, `$currentShape` or `$PATH` are skipped with a warning. A result row names its triples as `?this ?path ?value`, then `?this2 ?path2 ?value2`, and so on. The report (`-o`, default a `.tsv` source's path with suffix `.violations.tsv`, or `data.input_dir / <last segment of the graph URI>.violations.tsv`) has one row per flagged triple and shape, with columns `line`, `subject`, `predicate`, `object`, `shape` and `message` (`sh:message`), sorted by the triple's line in the `.tsv` file. The line is empty for a triple that is not in the file, and always empty for a graph URI source. `-f` is required (database connection, term mapping and default source), `--shapes` defaults to `data.input_dir / <folder name>.shapes.ttl`, and `--log-level` overrides `logging.level`. Neither the source graph nor the source file is modified, and the pipeline does not use the shapes yet.
+
+```bash
+python -m skgg.cli.validate -f fr.no-literals.json                                          # graph.base_uri -> data/fr/source.violations.tsv
+python -m skgg.cli.validate -f fr.no-literals.json --source data/fr/fr.no-literals.skgg.tsv  # -> data/fr/fr.no-literals.skgg.violations.tsv
+python -m skgg.cli.validate -f fr.no-literals.json --source path/to/graph.tsv --shapes path/to/x.shapes.ttl -o path/to/report.tsv --keep-graph
+```
+
 `cli/main.py`'s `__main__` block parses `-f`/`--config-file`, `--skip-edb`, `--log-level`, and `--pca-threshold` from the CLI (see the `bash` example above) and calls `run_synthetic_graph_experiment` end-to-end; confirmed working (verified via `python -m skgg.cli.main -f fr.no-literals.json`; see `BACKLOG.md`). Check `BACKLOG.md` for the current TODO list before assuming any other code path is exercised/working.
 
 ## Architecture
@@ -108,11 +116,13 @@ src/skgg/
     prepare_data.py     # standalone script: copy a .nt/.tsv file without duplicates or untyped objects; report untyped subjects
     convert.py          # standalone script: convert a triples file from .nt to .tsv or back
     complete.py         # standalone script: complete a graph URI or .nt/.tsv file with a rule set into a separate graph
+    validate.py         # standalone script: report the triples of a graph URI or .tsv file that violate a SHACL-SPARQL shapes file
   core/
     config.py           # RunConfig and all sub-configs (dataclasses), loaded from configurations/*.json
     utils.py            # logging setup, config lookup, SPARQL client factory, term mapping and term formatting
     visualization.py    # plot_relation_graph: renders the predicate relation graph to a PNG, cycles in red
     rules.py           # Atom / RuleSignature (Horn rule) dataclasses, rule-set CSV parsing, relation graph and stale cycles, inverse rule pairs
+    shapes.py           # SparqlConstraint / load_shapes: the sh:sparql constraints of a <dataset>.shapes.ttl file
     queries.py          # All SPARQL query construction + execution against the graph DB (insert/select/ask/clear/count)
   engine/
     metrics.py          # GraphMetrics / PredicateProfile: topological descriptors (domain/range frequency per predicate)
@@ -134,6 +144,7 @@ LoRA fine-tuning of LLMs and Chain-of-Thought dataset generation from KGs are no
 - Per-experiment outputs (logs) are written under `logs/`. This folder is gitignored.
 - Input graph data (`.nt`/`.tsv`, `.ttl`, rule CSVs) lives under `data/`, a plain local folder with one subfolder per dataset (e.g. `data/family/`, `data/fr/`). Each config's `data.input_dir` picks the folder that its `graph.triple_file` and `rules.rules_file` are read from: `configurations/family.source.json` reads `data/family/`, and the three `configurations/fr*.json` (`fr.json`, `fr.no-literals.json`, `fr.pygraft.json`) read `data/fr/`. Loading a config raises `FileNotFoundError` if that folder does not exist.
 - A dataset's schema is a `.ttl` file next to its data (e.g. `data/fr/fr.ttl`) that declares its classes (`owl:Class`) and entity-to-entity relations (`owl:ObjectProperty` with `rdfs:domain`/`rdfs:range`). Start new schemas from `schemas/template.ttl`. The pipeline does not read schemas yet (see `BACKLOG.md`).
+- A dataset's SHACL constraints are a `<dataset>.shapes.ttl` file in its `data.input_dir` (e.g. `data/fr/fr.shapes.ttl`), with one `sh:sparql` constraint per shape. Its `ex:` prefix must equal the config's `graph.namespace`. Only `cli/validate.py` reads it.
 
 ## Writing documentation
 
