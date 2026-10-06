@@ -30,7 +30,7 @@ A **Horn Rule** is an implication: `body → head`, where the body is a conjunct
 ?a ex:parentOf ?b AND ?b ex:parentOf ?c -> ?a ex:grandparentOf ?c
 ```
 
-Rules are mined with AMIE3 (`mine_rules/run_amie.py`) and loaded from a CSV per dataset (`rules.rules_file` in each config), parsed by `core.rules.parse_rule_set`. Each row has a `rule_id`, which `run_amie.py` numbers 1..N in AMIE's output order; logs, the run summary and the relation-graph PNG name rules by it, so a rule keeps its ID whatever the PCA threshold.
+Rules are mined with AMIE3 (`mine_rules/run_amie.py`) and loaded from a CSV per dataset (`rules.rules_file` in each config), parsed by `core.rules.parse_rule_set`. Each row has a `rule_id`, which `run_amie.py` numbers 1..N after sorting the rules by std confidence, then PCA confidence, both descending; logs, the run summary and the relation-graph PNG name rules by it, so a rule keeps its ID whatever the PCA threshold.
 
 Rule quality metrics carried alongside each rule (from the CSV, used to filter which rules are trusted enough to drive generation):
 

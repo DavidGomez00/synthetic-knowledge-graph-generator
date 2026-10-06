@@ -16,7 +16,8 @@ Its plain-text stdout table is parsed and written out as CSV with columns:
     rule_id, rule, body, head, head_coverage, std_confidence, pca_confidence,
     positive_examples, body_size, pca_body_size, functional_variable
 
-rule_id numbers the rules 1..N in AMIE's output order.
+Rules are sorted by std_confidence, then pca_confidence, both descending
+(ties keep AMIE's output order), and rule_id numbers them 1..N in that order.
 
 Example:
 
@@ -131,7 +132,6 @@ def parse_amie_output(text: str) -> list[dict]:
         body, _, head = rule_text.partition("=>")
         rules.append(
             {
-                "rule_id": len(rules) + 1,
                 "rule": " ".join(rule_text.split()),
                 "body": format_body(body),
                 "head": " ".join(head.split()),
@@ -144,6 +144,9 @@ def parse_amie_output(text: str) -> list[dict]:
                 "functional_variable": fvar.strip(),
             }
         )
+    rules.sort(key=lambda r: (r["std_confidence"], r["pca_confidence"]), reverse=True)
+    for rule_id, rule in enumerate(rules, start=1):
+        rule["rule_id"] = rule_id
     return rules
 
 

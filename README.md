@@ -111,7 +111,7 @@ python -m skgg.cli.validate -f fr.no-literals.json --source data/fr/fr.no-litera
 python mine_rules/run_amie.py data/fr/fr.no-literals.tsv   # -> data/fr/fr.no-literals.csv
 ```
 
-The CSV's `rule_id` column numbers the rules 1..N in AMIE's output order. The pipeline names rules by this ID in its logs, run summary and relation-graph PNG, so a rule keeps its ID whatever `rules.pca_threshold` is. `--mins`, `--minis`, `--minhc`, `--minc`, `--minpca` and `--maxad` set AMIE's thresholds, and `--help` lists the other options.
+The CSV lists the rules by std confidence, then PCA confidence, both descending (ties keep AMIE's output order), and its `rule_id` column numbers them 1..N in that order. The pipeline names rules by this ID in its logs, run summary and relation-graph PNG, so a rule keeps its ID whatever `rules.pca_threshold` is. `--mins`, `--minis`, `--minhc`, `--minc`, `--minpca` and `--maxad` set AMIE's thresholds, and `--help` lists the other options.
 
 ### Run the pipeline
 
