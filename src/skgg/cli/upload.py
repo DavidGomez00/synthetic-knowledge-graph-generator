@@ -50,8 +50,8 @@ def _parse_args() -> argparse.Namespace:
         "-f",
         "--config-file",
         required=True,
-        help="Config file under configurations/ (e.g. fr.no-literals.json), "
-        "or a path to one.",
+        help="Config file under configurations/ (e.g. fr.no-literals), or a path "
+        "to one. The .json extension is optional.",
     )
     parser.add_argument(
         "--triple-file",

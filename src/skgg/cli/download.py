@@ -88,8 +88,8 @@ def _parse_args() -> argparse.Namespace:
         "-f",
         "--config-file",
         required=True,
-        help="Config file under configurations/ (e.g. family.source.json), or a "
-        "path to one.",
+        help="Config file under configurations/ (e.g. family.source), or a path "
+        "to one. The .json extension is optional.",
     )
     parser.add_argument(
         "--graph-uri",

@@ -202,8 +202,8 @@ def _parse_args() -> argparse.Namespace:
         "-f",
         "--config-file",
         required=True,
-        help="Config file under configurations/ (e.g. fr.json), or a "
-        "path to one. Gives the database connection, the term mapping and the "
+        help="Config file under configurations/ (e.g. fr), or a path to one; the "
+        ".json extension is optional. Gives the database connection, the term mapping and the "
         "default source.",
     )
     parser.add_argument(

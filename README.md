@@ -128,7 +128,7 @@ run_synthetic_graph_experiment(Path("configurations/fr.no-literals.json"))
 
 This loads the config, computes graph metrics over SPARQL, parses the ontology and Horn rule set, generates the EDB, then grows the rule-derived facts until a fixed point, producing the synthetic graph.
 
-`-f`/`--config-file` resolves a bare filename under `configurations/`; `--skip-edb` reuses the existing EDB graph instead of regenerating it; `--log-level` overrides the config's `logging.level` for that run. For a full walkthrough, see [`docs/getting-started.md`](docs/getting-started.md).
+`-f`/`--config-file` resolves a bare filename under `configurations/`, with or without the `.json` extension (`-f fr.no-literals` works too, in every `cli/` script); `--skip-edb` reuses the existing EDB graph instead of regenerating it; `--log-level` overrides the config's `logging.level` for that run. For a full walkthrough, see [`docs/getting-started.md`](docs/getting-started.md).
 
 ## Project layout
 

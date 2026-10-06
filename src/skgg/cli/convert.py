@@ -191,7 +191,8 @@ def _parse_args() -> argparse.Namespace:
         "-f",
         "--config-file",
         default=None,
-        help="Config file under configurations/ (or a path to one) whose "
+        help="Config file under configurations/ (or a path to one; the .json "
+        "extension is optional) whose "
         "graph.namespace/graph.term_namespaces map .tsv terms to IRIs. Required "
         "(or --namespace) for .tsv input. For .nt input, only IRIs in these "
         "namespaces are shortened; without it or --namespace, every IRI is.",

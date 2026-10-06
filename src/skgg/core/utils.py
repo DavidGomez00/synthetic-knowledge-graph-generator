@@ -19,8 +19,11 @@ logger = logging.getLogger(__name__)
 def resolve_config_path(name: str) -> Path:
     """Resolves a bare config filename against `configurations/`; a value that
     already contains a path separator (e.g. "configurations/mario.json" or an
-    absolute path) is used as given. Shared by `cli/main.py` and
-    `cli/upload.py`'s `-f`/`--config_file` argument."""
+    absolute path) is used as given. The `.json` extension is optional:
+    "fr.no-literals" and "fr.no-literals.json" name the same file. Shared by
+    every `cli/` script's `-f`/`--config-file` argument."""
+    if not name.endswith(".json"):
+        name += ".json"
     path = Path(name)
     return path if "/" in name else Path("configurations") / path
 

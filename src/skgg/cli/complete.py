@@ -75,8 +75,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "-f",
         "--config-file",
         default=None,
-        help="Config file under configurations/ (e.g. family.source.json), or a "
-        "path to one. Supplies every setting below except --complete-uri.",
+        help="Config file under configurations/ (e.g. family.source), or a path "
+        "to one; the .json extension is optional. Supplies every setting below except --complete-uri.",
     )
     parser.add_argument(
         "--source",

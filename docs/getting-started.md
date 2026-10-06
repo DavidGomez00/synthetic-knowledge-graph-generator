@@ -43,7 +43,7 @@ If a dataset only needs the other format, without any cleaning, `cli/convert.py`
 python -m skgg.cli.upload -f fr.no-literals.json
 ```
 
-This uploads `data/fr/fr.no-literals.tsv` (`graph.triple_file` in the config, resolved under `data.input_dir`) into `base_uri`, the graph that metrics get extracted from in step 5. The script only uploads; it runs no rule-based completion. `-f`/`--config-file` resolves a bare filename under `configurations/` (same as step 5 below), `--triple-file` and `--graph-uri` override the input file and the target graph, and `--log-level` overrides the config's `logging.level` for the run.
+This uploads `data/fr/fr.no-literals.tsv` (`graph.triple_file` in the config, resolved under `data.input_dir`) into `base_uri`, the graph that metrics get extracted from in step 5. The script only uploads; it runs no rule-based completion. `-f`/`--config-file` resolves a bare filename under `configurations/`, with or without the `.json` extension (same as step 5 below), `--triple-file` and `--graph-uri` override the input file and the target graph, and `--log-level` overrides the config's `logging.level` for the run.
 
 `graph.triple_file` accepts a `.tsv` file of bare `subject<TAB>predicate<TAB>object` terms — `fr.no-literals.json` uses this format; terms are resolved to full URIs via the term mapping before insertion, the same way rule bodies are. An `.nt` file works too.
 
