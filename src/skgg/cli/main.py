@@ -18,6 +18,7 @@ from skgg.core.rules import (
     DEFAULT_STD_THRESHOLD,
     Atom,
     HornRule,
+    get_impacted_rules,
     get_relation_graph,
     parse_rule_set,
     remove_cyclic_rules,
@@ -34,16 +35,17 @@ from skgg.core.utils import (
 from skgg.core.visualization import plot_relation_graph
 from skgg.engine.completion import complete_graph
 from skgg.engine.edb import generate_extensional_predicates
+from skgg.engine.fill import fill_open_predicates
 from skgg.engine.generator import get_closed_preds, get_closed_rules
 from skgg.engine.metrics import GraphMetrics, PredicateProfile
 
 logger = logging.getLogger(__name__)
 
-_TOTAL_PHASES = 4
+_TOTAL_PHASES = 5
 
 
 def _log_phase(number: int, title: str) -> None:
-    """Logs a pipeline stage header, e.g. `[3/4] Completing graph`."""
+    """Logs a pipeline stage header, e.g. `[3/5] Completing graph`."""
     logger.info("[%d/%d] %s", number, _TOTAL_PHASES, title)
 
 
@@ -122,6 +124,75 @@ class _ClosureProgress:
                     )
         if open_rules := sorted(self.rules.keys() - closed_rules):
             logger.debug("[%s] Open rules: %s", stage, ", ".join(open_rules))
+
+
+def _fill_open_relations(
+    client: SPARQLWrapper,
+    rules: dict[str, HornRule],
+    progress: _ClosureProgress,
+    source_uri: str,
+    graph_uri: str,
+    term_mapping: dict[str, str],
+    chunk_size: int,
+) -> None:
+    """Flags the rules left open by completion, lists each open relation with the
+    rules a new triple of it could impact, and fills the open relations with
+    `fill_open_predicates`. Logs a warning for any rule whose support changed,
+    which the fill checks should prevent."""
+    profiles = progress.profiles
+    for r_id in sorted(rules, key=rule_sort_key):
+        if not rules[r_id].closed:
+            logger.warning(
+                "Rule %s is still open after completion (support %d/%d); filling "
+                "open relations never changes support.",
+                r_id,
+                get_support(client, rules[r_id], graph_uri),
+                rules[r_id].support,
+            )
+
+    open_preds = {p for p, pr in profiles.items() if not pr.closed}
+    if not open_preds:
+        logger.info("No open relations to fill.")
+        return
+
+    freqs = get_predicate_frequencies(client, graph_uri)
+    impacted = get_impacted_rules(open_preds, rules)
+    logger.info("Open relations (%d), current/target:", len(open_preds))
+    for pred in sorted(open_preds, key=short_term):
+        head_of, body_of = impacted[pred]
+        logger.info(
+            "  %s %d/%d: head of rules %s; in the body of rules %s.",
+            short_term(pred),
+            freqs.get(pred[1:-1], 0),
+            progress.targets[pred],
+            ", ".join(head_of) or "none",
+            ", ".join(body_of) or "none",
+        )
+
+    supports = {r_id: get_support(client, r, graph_uri) for r_id, r in rules.items()}
+    fill_open_predicates(
+        client=client,
+        rules=rules,
+        open_preds=open_preds,
+        targets=progress.targets,
+        source_uri=source_uri,
+        graph_uri=graph_uri,
+        term_mapping=term_mapping,
+        chunk_size=chunk_size,
+    )
+
+    freqs = get_predicate_frequencies(client, graph_uri)
+    for pred in open_preds:
+        if freqs.get(pred[1:-1], 0) >= progress.targets[pred]:
+            profiles[pred].closed = True
+    for r_id, rule in rules.items():
+        if (support := get_support(client, rule, graph_uri)) != supports[r_id]:
+            logger.warning(
+                "[Fill] Support of rule %s changed: %d -> %d.",
+                r_id,
+                supports[r_id],
+                support,
+            )
 
 
 def _format_summary_block(
@@ -420,7 +491,19 @@ def run_synthetic_graph_experiment(
     )
     progress.log("initial", synthetic_uri)
 
-    _log_phase(4, "Summary")
+    _log_phase(4, "Filling open relations")
+    _fill_open_relations(
+        client,
+        rules,
+        progress,
+        config.graph.base_uri,
+        synthetic_uri,
+        term_mapping,
+        chunk_size,
+    )
+    progress.log("fill", synthetic_uri)
+
+    _log_phase(5, "Summary")
     log_summary(
         client,
         config.graph.base_uri,

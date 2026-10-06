@@ -85,6 +85,21 @@ A rule with an edge `body predicate -> head predicate` on a cycle of the relatio
 
 `core/rules.remove_cyclic_rules` deletes every cyclic rule in `cli/main.py`, right after the rule set is parsed and before EDB generation. The rule set left has no cycle, so no [stale cycle](#stale-cycle) can occur. The head predicate of a deleted rule becomes extensional, and the EDB generates it to its profile, unless a remaining (non-cyclic) rule still derives it. With the 68 std confidence 1 rules of `data/family/family.csv`, it removes 49 rules: `brother`, `daughter`, `father`, `mother` and `type` become extensional, while `aunt`, `husband`, `nephew`, `niece`, `son`, `uncle` and `wife` stay intensional through 19 other rules. The summary lists the removed rules with their support, original -> synthetic.
 
+## Filling open relations
+
+After completion every kept rule is usually closed, but a predicate can still be short of its target frequency (on `fr.no-literals`, `predecessor` had 6 of 358 triples). Phase 4 of `cli/main.py` (`engine/fill.py`) adds the missing triples without changing the support of any kept rule. Rules dropped by the confidence filter or by `remove_cyclic_rules` are not protected.
+
+The support of a rule is the number of distinct head-variable bindings for which some body grounding holds and the head triple is in the graph (`core/queries.get_support`). Completion stops when a pass adds nothing, so every body grounding that `apply_rule` matches already has its head.
+
+Random triples, drawn from the remaining domain and range counts, are safe only for a predicate that is in no kept rule's body. Such a triple changes no body grounding, and as a head it can only complete a grounding whose head is missing. After completion that happens only for groundings `apply_rule` skips: `build_rule_query` requires all variables to take different values and `get_support` does not, so a reflexive triple can still raise a support. When the predicate is in a rule body, a random triple can create a body grounding whose head is present (support goes up) or absent (the graph no longer satisfies the rule, and completing it again would raise the support).
+
+A candidate triple `(s, p, o)` is kept when, for every kept rule in which `p` occurs:
+
+- Head check, when `p` is the rule's head predicate (`build_head_impact_query`): no body grounding has the head values `(s, o)`.
+- Body check, for each body atom with predicate `p` (`build_body_impact_query`): every new body grounding that matches the candidate to that atom has a head binding already in the support, meaning another grounding has the same head values and the head triple is present. Other body atoms with predicate `p` may match the candidate as well.
+
+No kept rule has `p` in both its body and its head, since that rule would be cyclic. Kept triples leave both the supports and the closure under the kept rules unchanged, so completing the graph again adds nothing. Each kept triple is inserted at once, so the checks of the next candidates see it. A predicate is given up after `engine/fill.MAX_FILL_DRAWS` draws in a row without a kept triple.
+
 ## Solvability check
 
 While selecting which groundings to commit to the EDB (`generator.sample_groundings`), each candidate grounding is checked: it is accepted only if committing it would still leave every affected predicate's remaining domain/range degree sequence realizable as a graph (`generator.is_assignment_solvable`, a Gale-Ryser/Havel-Hakimi style check) before accepting it — so early choices don't paint later predicates into an impossible corner.

@@ -388,6 +388,25 @@ def write_used_rules(rules_file: Path, rule_ids: Iterable[str]) -> Path:
     return output
 
 
+def get_impacted_rules(
+    preds: Iterable[str], rules: dict[str, HornRule]
+) -> dict[str, tuple[list[str], list[str]]]:
+    """Returns, for each predicate, the IDs of the rules with it as head and the IDs
+    of the rules with it in their body, each sorted with `rule_sort_key`. A new
+    triple with that predicate can only change the support of these rules."""
+    impacted: dict[str, tuple[list[str], list[str]]] = {}
+    for pred in preds:
+        head_of = [r_id for r_id, r in rules.items() if r.head.predicate == pred]
+        body_of = [
+            r_id for r_id, r in rules.items() if pred in r.get_body_predicates()
+        ]
+        impacted[pred] = (
+            sorted(head_of, key=rule_sort_key),
+            sorted(body_of, key=rule_sort_key),
+        )
+    return impacted
+
+
 def get_extensional_dependencies(
     rules: dict[str, HornRule],
 ) -> dict[str, set[str]]:

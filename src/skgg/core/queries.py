@@ -747,6 +747,119 @@ def get_support(client: SPARQLWrapper, rule: HornRule, graph_uri: str) -> int:
     return 0
 
 
+def _bind_atom(atom: Atom, subject: str, obj: str) -> dict[str, str] | None:
+    """Returns the variable bindings that make `atom` match the triple
+    `(subject atom.predicate obj)`, or None if it can't (a constant differs, or the
+    same variable would need two values)."""
+    binding: dict[str, str] = {}
+    for term, value in ((atom.subject, subject), (atom.obj, obj)):
+        if not term.startswith("?"):
+            if term != value:
+                return None
+        elif binding.setdefault(term, value) != value:
+            return None
+    return binding
+
+
+def _values_clause(binding: dict[str, str]) -> str:
+    """Formats a binding as a one-row VALUES clause (empty for no variables)."""
+    if not binding:
+        return ""
+    names = " ".join(binding)
+    values = " ".join(binding.values())
+    return f"VALUES ({names}) {{ ({values}) }}"
+
+
+def has_solution(client: SPARQLWrapper, query: str) -> bool:
+    """Returns whether a query built by `build_head_impact_query` or
+    `build_body_impact_query` has a solution."""
+    return bool(execute_select_query(client, query))
+
+
+def build_head_impact_query(
+    rule: HornRule, subject: str, obj: str, graph_uri: str
+) -> str | None:
+    """Builds a query with a solution iff adding the head triple
+    `(subject head-predicate obj)` would raise the rule's support:
+    some body grounding has those head values. The triple is new,
+    so that head binding is not in the support yet.
+
+    Returns None if the head atom can't match the triple.
+    """
+    if (binding := _bind_atom(rule.head, subject, obj)) is None:
+        return None
+
+    patterns = "\n          ".join(f"{atom} ." for atom in sorted(rule.body))
+    return f"""
+    SELECT * WHERE {{
+      {_values_clause(binding)}
+      GRAPH <{graph_uri}> {{
+          {patterns}
+      }}
+    }} LIMIT 1"""
+
+
+def build_body_impact_query(
+    rule: HornRule, atom: Atom, subject: str, obj: str, graph_uri: str
+) -> str | None:
+    """Builds a query with a solution iff adding the triple
+    `subject atom.predicate obj` (not yet in the graph) creates a body grounding
+    of the rule, with the triple matching `atom`, whose head binding is not in the
+    rule's support yet (see `get_support`).
+
+    Such a grounding raises the support when its head triple is present, and
+    leaves the graph no longer closed under the rule when it is absent. A
+    grounding whose head binding is already supported changes neither.
+
+    Other body atoms with the same predicate may match the new triple too. Like
+    `get_support`, variables may take equal values.
+
+    Returns None if `atom` can't match the triple.
+    """
+    if (binding := _bind_atom(atom, subject, obj)) is None:
+        return None
+
+    patterns = []
+    for other in sorted(rule.body - {atom}):
+        other_binding = (
+            _bind_atom(other, subject, obj)
+            if other.predicate == atom.predicate
+            else None
+        )
+        if other_binding is None:
+            patterns.append(f"{other} .")
+        else:
+            # The new triple is not in the graph yet, so match it explicitly.
+            values = _values_clause(other_binding)
+            patterns.append(f"{{ {other} . }} UNION {{ {values} }}")
+
+    # Rename the non-head variables, so that the subquery looks for another
+    # grounding with the same head values.
+    head_vars = rule.get_head_variables()
+
+    def rename(term: str) -> str:
+        return f"{term}_old" if term.startswith("?") and term not in head_vars else term
+
+    old_patterns = [
+        f"{rename(a.subject)} {a.predicate} {rename(a.obj)} ."
+        for a in sorted(rule.body)
+    ] + [f"{rule.head} ."]
+
+    newline = "\n          "
+    return f"""
+    SELECT * WHERE {{
+      {_values_clause(binding)}
+      GRAPH <{graph_uri}> {{
+          {newline.join(patterns)}
+      }}
+      FILTER NOT EXISTS {{
+        GRAPH <{graph_uri}> {{
+          {newline.join(old_patterns)}
+        }}
+      }}
+    }} LIMIT 1"""
+
+
 def count_producible_heads(
     client: SPARQLWrapper, rule: HornRule, atoms: Iterable[Atom], graph_uri: str
 ) -> int:

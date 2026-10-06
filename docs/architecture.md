@@ -19,6 +19,7 @@ flowchart LR
     EDBGEN --> EDB[("edb_uri")]
 
     EDB -->|"engine/completion.py<br/>forward-chain rules"| SYN[("synthetic_uri")]
+    SYN -->|"engine/fill.py<br/>fill open relations"| SYN
 
     style BASE fill:#2563eb,color:#fff
     style EDB fill:#2563eb,color:#fff
@@ -31,7 +32,8 @@ Blue nodes are named graphs in the database, keyed by the URIs in each config's 
 2. Upload (`cli/upload.py`). Loads a `.nt` or `.tsv` file (`graph.triple_file`) into `base_uri`, or into `--graph-uri` if given. `.tsv` rows are bare `subject\tpredicate\tobject` terms, resolved to full URIs through the term mapping before insertion.
 3. Metrics and rules (phase 1 of `cli/main.py`). `engine/metrics.py` profiles `base_uri` over SPARQL: per-predicate frequency, domain and range counts, reflexivity. These profiles are all the pipeline needs from the source graph. The rule set is then parsed (`core/rules.parse_rule_set`, which keeps only rules with std confidence 1, or with PCA confidence >= `rules.pca_threshold` when the config or `--pca-conf` sets one). `core/visualization.plot_relation_graph` writes the remaining rules' predicate dependency graph to `logs/relation_graph_<graph.name>.png`, with every predicate on a cycle drawn in red. `core/rules.remove_cyclic_rules` then deletes every [cyclic rule](concepts.md#cyclic-rule), so the rule set the EDB and completion use has no cycle.
 4. EDB generation (phase 2). `engine/edb.py`'s `generate_extensional_predicates` fills `edb_uri` with triples for the extensional predicates (those no rule head produces) until each one reaches its target frequency. It applies three mechanisms in a fixed priority: `check_direct_matches` adds the triples the profiles force, `check_triples_from_rule` builds groundings of each rule's extensional body with `generator.sample_groundings` so the joins the rules need exist, and `insert_random_triples` spends the remaining budget with draws weighted by each entity's remaining count. See [section 3 of `algorithm.md`](algorithm.md#3-extensional-database-edb) for the method. `--skip-edb` skips this phase and reuses the triples already at `edb_uri`.
-5. Completion (phase 3). `engine/completion.py`'s `complete_graph` copies `edb_uri` into `synthetic_uri`, then applies every rule on each pass and repeats until a pass adds nothing. It returns the number of triples added and takes a `label` for its log lines. Rules are not ordered, and `apply_rule` is called without a `profile`, so a rule can overshoot its head predicate's target frequency. The profiles passed to `complete_graph` are only used afterwards: `engine/generator.py`'s `get_closed_rules`/`get_closed_preds` check which rules reached their `support` and which predicates reached their `frequency`, and set their `closed` fields for reporting. Phase 4 logs the summary (see `cli/main.py` below). An earlier design, `engine/idb.py`'s `generate_idb`, ordered rules with the same head and checked upfront that every intensional predicate could be derived; it has been removed (see [Rule application order](concepts.md#rule-application-order)).
+5. Completion (phase 3). `engine/completion.py`'s `complete_graph` copies `edb_uri` into `synthetic_uri`, then applies every rule on each pass and repeats until a pass adds nothing. It returns the number of triples added and takes a `label` for its log lines. Rules are not ordered, and `apply_rule` is called without a `profile`, so a rule can overshoot its head predicate's target frequency. The profiles passed to `complete_graph` are only used afterwards: `engine/generator.py`'s `get_closed_rules`/`get_closed_preds` check which rules reached their `support` and which predicates reached their `frequency`, and set their `closed` fields for reporting. Phase 5 logs the summary (see `cli/main.py` below). An earlier design, `engine/idb.py`'s `generate_idb`, ordered rules with the same head and checked upfront that every intensional predicate could be derived; it has been removed (see [Rule application order](concepts.md#rule-application-order)).
+6. Filling open relations (phase 4). Completion leaves every kept rule closed, but not always every predicate. `engine/fill.py`'s `fill_open_predicates` adds the missing triples of each open predicate to `synthetic_uri`, drawing subjects and objects weighted by how many more triples they need to match their counts in `base_uri`, and keeps a triple only if it changes the support of no kept rule (see [Filling open relations](concepts.md#filling-open-relations)).
 
 ## Components
 
@@ -52,6 +54,7 @@ flowchart TD
         EDB["edb.py"]
         GEN["generator.py"]
         COMPLETION["completion.py"]
+        FILL["fill.py"]
         CYCLES["cycles.py"]
     end
 
@@ -66,7 +69,7 @@ flowchart TD
 
     DB[("Virtuoso /<br/>GraphDB")]
 
-    MAIN --> CONFIG & METRICS & EDB & GEN & COMPLETION & CYCLES & RULES & QUERIES & VIS & UTILS
+    MAIN --> CONFIG & METRICS & EDB & GEN & COMPLETION & FILL & CYCLES & RULES & QUERIES & VIS & UTILS
     UPLOAD --> CONFIG & QUERIES & UTILS
     DOWNLOAD --> CONFIG & CONVERT & QUERIES & UTILS
     COMPLETE --> CONFIG & COMPLETION & RULES & QUERIES & UTILS
@@ -102,6 +105,7 @@ flowchart TD
 - `generator.py`: triple-generation code shared by the other engine modules. `sample_groundings` builds groundings of a rule's extensional body directly from the predicate profiles, without materializing a cartesian product; `engine/edb.py` uses it, and so does `engine/cycles.py` to seed a stale cycle's ungrounded body atoms. `apply_rule` applies one rule, querying the graph for bindings; given a `profile`, it also checks with `is_assignment_solvable` that each new triple keeps the remaining profile realizable. `engine/completion.py` always calls it without a `profile`. `get_closed_rules`/`get_closed_preds` check over SPARQL whether a rule or predicate reached its `support` or `frequency` target.
 - `edb.py`: EDB generation, step 4 of "Data flow" above.
 - `completion.py`: `complete_graph`, step 5 of "Data flow" above. `cli/complete.py` also uses it on real graphs.
+- `fill.py`: `fill_open_predicates`, step 6 of "Data flow" above. Each candidate triple goes through `core/queries.build_head_impact_query` and `build_body_impact_query` for every kept rule its predicate occurs in, and is inserted at once when it passes, so later checks see it.
 - `cycles.py`: `break_cycles` finds stale cycles (`core/rules.find_stale_cycles`), seeds one rule of one cycle in the synthetic graph with `sample_groundings`, and returns the number of triples it seeded. `cli/main.py` no longer calls it, since `core/rules.remove_cyclic_rules` leaves no cycle to seed. See [Stale cycle](concepts.md#stale-cycle).
 
 ### `cli/`
