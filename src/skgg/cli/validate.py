@@ -1,7 +1,7 @@
 """Checks a graph against the SHACL-SPARQL shapes of a `<dataset>.shapes.ttl`
 file and reports every triple that violates one.
 
-The source is a graph URI (by default the config's `graph.base_uri`) or a .tsv
+The source is a graph URI (by default the config's base graph) or a .tsv
 triples file. A graph URI is queried as it is. A .tsv file is loaded into a
 temporary named graph, which is cleared again after the check. Each shape's
 `sh:select` runs against the graph (`core/queries.build_shape_query`), and every
@@ -26,7 +26,12 @@ from skgg.core.queries import (
 )
 from skgg.core.shapes import load_shapes, triples_in_row
 from skgg.core.triples import Triple, read_tsv, tsv_term_to_nt
-from skgg.core.utils import config_term_mapping, create_sparql_client, short_term
+from skgg.core.utils import (
+    config_term_mapping,
+    create_sparql_client,
+    graph_file_stem,
+    short_term,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -221,20 +226,23 @@ def _parse_args() -> argparse.Namespace:
         "--source",
         default=None,
         help="Graph to check: a graph URI, queried in place, or a .tsv file, "
-        "loaded into --graph-uri (defaults to the config's graph.base_uri).",
+        "loaded into --graph-uri (defaults to the config's base graph, e.g. "
+        "http://FrenchRoyalty.org/base).",
     )
     parser.add_argument(
         "--shapes",
         type=Path,
         default=None,
-        help="Shapes file (defaults to data.input_dir / <folder name>.shapes.ttl, "
-        "e.g. data/fr/fr.shapes.ttl).",
+        help="Shapes file (defaults to data.input_dir / <stem of graph.triple_file>"
+        ".shapes.ttl, e.g. data/french_royalty/french_royalty.shapes.ttl).",
     )
     parser.add_argument(
         "--graph-uri",
         default=None,
         help="Named graph a .tsv source is loaded into; its contents are replaced "
-        "and then cleared (defaults to graph.namespace + 'validation').",
+        "and then cleared (defaults to <namespace>/validation, e.g. "
+        "http://FrenchRoyalty.org/validation). The base graph and the pipeline's "
+        "graphs (<namespace>/skgg/...) are refused.",
     )
     parser.add_argument(
         "-o",
@@ -242,8 +250,9 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="Report file (defaults to a .tsv source's path with suffix "
-        ".violations.tsv, or for a graph URI to data.input_dir / <last segment of "
-        "the URI>.violations.tsv).",
+        ".violations.tsv, or for a graph URI to data.input_dir / the triple file's "
+        "stem and the URI's path under the namespace, e.g. "
+        "data/french_royalty/french_royalty.skgg.pca=0.9.violations.tsv).",
     )
     parser.add_argument(
         "--keep-graph",
@@ -267,7 +276,9 @@ if __name__ == "__main__":
     config = load_config(args)
 
     input_dir = config.data.input_dir
-    shapes_file: Path = args.shapes or input_dir / f"{input_dir.name}.shapes.ttl"
+    shapes_file: Path = (
+        args.shapes or input_dir / f"{Path(config.graph.triple_file).stem}.shapes.ttl"
+    )
     if not shapes_file.is_file():
         raise SystemExit(f"Shapes file {shapes_file} does not exist.")
 
@@ -275,17 +286,12 @@ if __name__ == "__main__":
     source: str = args.source or graph.base_uri
     graph_uri: str | None = None
     if is_tsv_source(source):
-        graph_uri = args.graph_uri or graph.namespace.rstrip("/#") + "/validation"
-        config_graphs = (
-            graph.base_uri,
-            graph.edb_uri,
-            graph.synthetic_uri,
-            graph.filled_uri,
-        )
-        if graph_uri in config_graphs:
+        graph_uri = args.graph_uri or f"{graph.root_uri}/validation"
+        bare_uri = graph_uri.strip("<>")
+        if bare_uri == graph.base_uri or bare_uri.startswith(f"{graph.skgg_uri}/"):
             raise SystemExit(
-                f"--graph-uri <{graph_uri}> is one of the config's graphs; it would "
-                "be overwritten and cleared."
+                f"--graph-uri <{bare_uri}> is the base graph or a pipeline graph; it "
+                "would be overwritten and cleared."
             )
         default_output = Path(source).with_suffix(".violations.tsv")
     else:
@@ -295,7 +301,7 @@ if __name__ == "__main__":
                 "<%s> is queried in place.",
                 source.strip("<>"),
             )
-        default_output = input_dir / f"{short_term(source.strip('<>'))}.violations.tsv"
+        default_output = input_dir / f"{graph_file_stem(graph, source)}.violations.tsv"
 
     validate(
         client=create_sparql_client(config),

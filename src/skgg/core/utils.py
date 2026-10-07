@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 def resolve_config_path(name: str) -> Path:
     """Resolves a bare config filename against `configurations/`; a value that
-    already contains a path separator (e.g. "configurations/mario.json" or an
-    absolute path) is used as given. The `.json` extension is optional:
-    "fr.no-literals" and "fr.no-literals.json" name the same file. Shared by
+    already contains a path separator (e.g. "configurations/french_royalty.json"
+    or an absolute path) is used as given. The `.json` extension is optional:
+    "french_royalty" and "french_royalty.json" name the same file. Shared by
     every `cli/` script's `-f`/`--config-file` argument."""
     if not name.endswith(".json"):
         name += ".json"
@@ -36,6 +36,19 @@ def short_term(term: str) -> str:
     if not bare.startswith("http"):
         return term
     return bare.rstrip("/#").rsplit("/", 1)[-1].rsplit("#", 1)[-1]
+
+
+def graph_file_stem(graph: GraphConfig, graph_uri: str) -> str:
+    """Names the local files of one of a dataset's graphs: the stem of
+    `graph.triple_file`, then the graph URI's path under `graph.root_uri` with
+    dots for slashes, e.g. `french_royalty.skgg.pca=0.9.filled` for
+    `http://FrenchRoyalty.org/skgg/pca=0.9/filled`. A URI outside the root gives
+    its last segment (`short_term`)."""
+    bare = graph_uri.strip("<>")
+    path = bare.removeprefix(f"{graph.root_uri}/")
+    if path == bare:
+        return short_term(bare)
+    return f"{Path(graph.triple_file).stem}.{path.strip('/').replace('/', '.')}"
 
 
 # ---------------------------------------------------------------------------

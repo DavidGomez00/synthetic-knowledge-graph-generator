@@ -14,7 +14,7 @@ def add_config_args(
     """Adds `-f`/`--config-file` and `--log-level` to `parser`. `config_help` is
     appended to the help text of `-f`."""
     config_file_help = (
-        "Config file under configurations/ (e.g. fr.no-literals), or a path to "
+        "Config file under configurations/ (e.g. french_royalty), or a path to "
         "one. The .json extension is optional."
     )
     parser.add_argument(

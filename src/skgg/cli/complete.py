@@ -1,11 +1,13 @@
 """Completes a graph with a rule set: copies a base graph (a graph URI, or a
 .nt/.tsv file loaded directly) into the complete graph (default: the config's
-graph.base_uri), then applies every rule to it until a pass adds nothing
-(`engine.completion.complete_graph`). If the base graph is the complete graph,
-it is completed in place without being copied.
+base graph, `GraphConfig.base_uri`), then applies every rule to it until a pass
+adds nothing (`engine.completion.complete_graph`). If the base graph is the
+complete graph, it is completed in place without being copied.
 
 Only rules with std confidence 1 are applied, unless `--pca-conf` is given: then
-the rules with at least that PCA confidence are applied instead.
+the rules with at least that PCA confidence are applied instead. The config's
+base graph is only completed with std confidence 1 rules, so `--pca-conf` is
+refused when the complete graph is the config's base graph.
 
 Settings come from flags, from a config file (`-f`), or from both, in which case
 the flags win. Without a config file the source, rules file and namespace are
@@ -89,13 +91,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--source",
         default=None,
         help="Base graph: a graph URI or a .nt/.tsv file, loaded directly into "
-        "--complete-uri (defaults to the config's graph.base_uri).",
+        "--complete-uri (defaults to the config's base graph, e.g. "
+        "http://FrenchRoyalty.org/base).",
     )
     parser.add_argument(
         "--complete-uri",
         default=None,
         help="Graph URI the completed graph is written to (defaults to the config's "
-        "graph.base_uri). If it is the source graph, the source is completed in "
+        "base graph). If it is the source graph, the source is completed in "
         "place; otherwise its contents are replaced by the source.",
     )
     parser.add_argument(
@@ -111,7 +114,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Apply the rules with at least this PCA confidence instead of the "
         "default, the rules with std confidence 1. The config's "
-        "rules.pca_threshold is not used.",
+        "rules.pca_threshold is not used. Refused when --complete-uri is the "
+        "config's base graph, which is only completed with std confidence 1 rules.",
     )
     parser.add_argument(
         "--namespace",
@@ -128,7 +132,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--sparql-endpoint",
         default=None,
-        help=f"SPARQL endpoint path under --database-url, e.g. repositories/Family "
+        help="SPARQL endpoint path under --database-url, e.g. "
+        "repositories/FrenchRoyalty "
         f"(config: data.sparql_endpoint; default {DataConfig.sparql_endpoint}).",
     )
     parser.add_argument(
@@ -179,6 +184,13 @@ def main() -> None:
     if source.lower().endswith(TRIPLE_FILE_SUFFIXES) and not Path(source).is_file():
         parser.error(f"source file {source} does not exist.")
     complete_uri = complete_uri.strip("<>")
+    base_uri = config.graph.base_uri if config is not None else None
+    if args.pca_conf is not None and complete_uri == base_uri:
+        parser.error(
+            f"the base graph <{complete_uri}> is only completed with std confidence "
+            "1 rules; drop --pca-conf, or pass --complete-uri to write a PCA "
+            "completion to another graph."
+        )
     if source.strip("<>") == complete_uri:
         # Same graph: complete_graph then skips the copy and only adds triples.
         source = complete_uri

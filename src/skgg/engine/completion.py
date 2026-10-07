@@ -1,6 +1,6 @@
 """Forward-chains the rule set over a graph until no rule adds any more triples.
 
-Used by `cli/main.py` to derive the synthetic graph (`graph.synthetic_uri`) from
+Used by `cli/main.py` to derive the synthetic graph (`GraphConfig.synthetic_uri`) from
 the EDB, and again after each cycle-breaking round. Assumes rule bodies are
 fully grounded.
 """

@@ -358,6 +358,16 @@ def parse_rule_set(
     return rules
 
 
+def rule_filter_label(pca_threshold: float | None) -> str:
+    """Labels the confidence filter of a run for its graph URIs (see
+    `GraphConfig`): `pca=0.9` for a PCA threshold, or `std=1` for the
+    `DEFAULT_STD_THRESHOLD` kept when there is none. Thresholds are written
+    without trailing zeros, so 1 and 1.0 give the same label."""
+    if pca_threshold is not None:
+        return f"pca={pca_threshold:g}"
+    return f"std={DEFAULT_STD_THRESHOLD:g}"
+
+
 def write_used_rules(rules_file: Path, rule_ids: Iterable[str]) -> Path:
     """Copies the rows of `rules_file` whose rule_id is in `rule_ids` to
     `<stem>_used<suffix>` next to it, e.g. `rules.csv` -> `rules_used.csv`.

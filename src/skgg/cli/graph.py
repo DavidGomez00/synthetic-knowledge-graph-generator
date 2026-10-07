@@ -1,8 +1,9 @@
 """Moves a named graph between a local triples file and the graph database.
 
-`upload` overwrites a graph (by default `graph.base_uri`) with an .nt/.tsv file
-(by default `graph.triple_file`); `download` writes a graph to an .nt and a .tsv
-file, through the store's native export endpoint (see `queries.export_graph_nt`).
+`upload` overwrites a graph (by default the base graph, `GraphConfig.base_uri`)
+with an .nt/.tsv file (by default `graph.triple_file`); `download` writes a graph
+to an .nt and a .tsv file, through the store's native export endpoint (see
+`queries.export_graph_nt`).
 """
 
 import argparse
@@ -14,7 +15,7 @@ from SPARQLWrapper import SPARQLWrapper
 from skgg.cli.common import add_config_args, load_config
 from skgg.core.queries import export_graph_nt, get_triple_count, initialize_graph
 from skgg.core.triples import convert
-from skgg.core.utils import config_term_mapping, create_sparql_client, short_term
+from skgg.core.utils import config_term_mapping, create_sparql_client, graph_file_stem
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +108,7 @@ def _parse_args() -> argparse.Namespace:
 
     upload = commands.add_parser(
         "upload",
-        help="Overwrite graph.base_uri (or --graph-uri) with an .nt/.tsv file.",
+        help="Overwrite the base graph (or --graph-uri) with an .nt/.tsv file.",
     )
     add_config_args(upload)
     upload.add_argument(
@@ -119,18 +120,20 @@ def _parse_args() -> argparse.Namespace:
     upload.add_argument(
         "--graph-uri",
         default=None,
-        help="Override the target graph URI (defaults to graph.base_uri).",
+        help="Override the target graph URI (defaults to the base graph, e.g. "
+        "http://FrenchRoyalty.org/base).",
     )
 
     download = commands.add_parser(
         "download",
-        help="Write graph.base_uri (or --graph-uri) to an .nt and a .tsv file.",
+        help="Write the base graph (or --graph-uri) to an .nt and a .tsv file.",
     )
     add_config_args(download)
     download.add_argument(
         "--graph-uri",
         default=None,
-        help="Graph URI to download (defaults to graph.base_uri).",
+        help="Graph URI to download (defaults to the base graph, e.g. "
+        "http://FrenchRoyalty.org/base).",
     )
     download.add_argument(
         "-o",
@@ -138,8 +141,10 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="Output path without suffix; writes <output>.nt and <output>.tsv "
-        "(defaults to data.input_dir / the graph URI's last segment, e.g. "
-        "data/fr/skgg for http://FrenchRoyalty.org/skgg).",
+        "(defaults to data.input_dir / the triple file's stem and the graph URI's "
+        "path under the namespace, e.g. data/french_royalty/french_royalty.skgg."
+        "pca=0.9 for "
+        "http://FrenchRoyalty.org/skgg/pca=0.9).",
     )
     return parser.parse_args()
 
@@ -162,7 +167,9 @@ if __name__ == "__main__":
             client, source, graph_uri, term_mapping, config.db_config.chunk_size
         )
     else:
-        output = args.output or config.data.input_dir / short_term(graph_uri)
+        output = args.output or config.data.input_dir / graph_file_stem(
+            config.graph, graph_uri
+        )
         download_graph(
             client, graph_uri, output, term_mapping, config.db_config.chunk_size
         )

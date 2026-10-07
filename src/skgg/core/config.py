@@ -62,22 +62,30 @@ class DatabaseAuthConfig:
 
 @dataclass(frozen=True)
 class GraphConfig:
-    """Knowledge Graph settings: file locations and the named-graph URIs used to
-    key each stage of the pipeline (see AGENTS.md's "Architecture" section for how
-    base/EDB/synthetic relate).
+    """Knowledge Graph settings: file locations, and the named-graph URIs that key
+    each stage of the pipeline (see "Graph layout" in docs/architecture.md).
+
+    Graph URIs are not set in the config. They are derived from `root_uri`, the
+    namespace without its trailing `/` or `#` (e.g. `http://FrenchRoyalty.org`),
+    and for a pipeline run from the label of its rule filter
+    (`core.rules.rule_filter_label`, e.g. `pca=0.9` or `std=1`):
+
+        <root>/base                  the uploaded source graph (`base_uri`)
+        <root>/skgg/<filter>/edb     the generated EDB (`edb_uri`)
+        <root>/skgg/<filter>         the EDB plus what completion derives from it
+                                     (`synthetic_uri`)
+        <root>/skgg/<filter>/filled  a copy of the synthetic graph plus the
+                                     triples that the optional fill step adds
+                                     (`--fill` in `cli/main.py`, `filled_uri`)
+
+    Configs with the same namespace share these graphs.
 
     Attributes:
         name: Human-readable name for the graph/experiment.
         triple_file: Filename (relative to `data.input_dir`) of the base graph, an
             .nt or .tsv file, consumed by `cli/graph.py upload`.
-        namespace: Default namespace URI used to resolve unprefixed terms.
-        base_uri: Named-graph URI for the raw, uploaded base graph.
-        edb_uri: Named-graph URI for the generated Extensional Database.
-        synthetic_uri: Named-graph URI for the synthetic graph: the EDB plus what
-            completion derives from it.
-        filled_uri: Named-graph URI for the synthetic graph after the optional
-            fill step (`--fill` in `cli/main.py`): a copy of `synthetic_uri` plus
-            the triples that fill adds.
+        namespace: Default namespace URI used to resolve unprefixed terms, and
+            the root of the graph URIs.
         term_namespaces: Optional bare-term -> namespace-URI overrides, merged
             over `utils.DEFAULT_PREFIXES` and under the `namespace` default
             when resolving unprefixed terms (see `utils.build_term_mapping`).
@@ -87,11 +95,38 @@ class GraphConfig:
     name: str
     triple_file: str
     namespace: str
-    base_uri: str
-    edb_uri: str
-    synthetic_uri: str
-    filled_uri: str
     term_namespaces: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def root_uri(self) -> str:
+        """The namespace without its trailing `/` or `#`, which every graph URI of
+        the dataset starts with."""
+        return self.namespace.rstrip("/#")
+
+    @property
+    def base_uri(self) -> str:
+        """Named-graph URI of the uploaded source graph."""
+        return f"{self.root_uri}/base"
+
+    @property
+    def skgg_uri(self) -> str:
+        """Prefix of the pipeline's graph URIs. No graph is stored at it."""
+        return f"{self.root_uri}/skgg"
+
+    def synthetic_uri(self, rule_filter: str) -> str:
+        """Named-graph URI of the synthetic graph (EDB + completion) of a run whose
+        rule filter is labeled `rule_filter`."""
+        return f"{self.skgg_uri}/{rule_filter}"
+
+    def edb_uri(self, rule_filter: str) -> str:
+        """Named-graph URI of the EDB of a run whose rule filter is labeled
+        `rule_filter`."""
+        return f"{self.synthetic_uri(rule_filter)}/edb"
+
+    def filled_uri(self, rule_filter: str) -> str:
+        """Named-graph URI of the filled copy of the synthetic graph of a run whose
+        rule filter is labeled `rule_filter`."""
+        return f"{self.synthetic_uri(rule_filter)}/filled"
 
 
 @dataclass(frozen=True)

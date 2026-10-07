@@ -41,10 +41,10 @@ Rule quality metrics carried alongside each rule (from the CSV, used to filter w
 
 ## Extensional database (EDB) and Intensional database (IDB)
 
-Standard Datalog terminology, used directly as named-graph URIs in each config (`graph.edb_uri`, `graph.synthetic_uri`):
+Standard Datalog terminology. A run stores its EDB in the named graph `<root>/skgg/<filter>/edb` and its IDB in `<root>/skgg/<filter>` (see [Graph layout](architecture.md#graph-layout)):
 
 - **Extensional predicate** — never appears as a rule's head; its truth is asserted directly as ground facts (there's no rule to derive it from). The **Extensional Database (EDB)** is the set of such ground facts — `engine/edb.py` generates it to satisfy both the predicate profiles and any rule bodies that reference these predicates.
-- **Intensional predicate** — appears as some rule's head; its truth is *derived* by applying rules over already-known facts. The **Intensional Database (IDB)** is the EDB plus everything derivable from it by forward-chaining the rules — this is the final synthetic graph (`graph.synthetic_uri`), built by `engine/completion.py`'s `complete_graph` starting from the EDB. The pipeline removes every [cyclic rule](#cyclic-rule) first, so completion can derive every intensional predicate from the EDB.
+- **Intensional predicate** — appears as some rule's head; its truth is *derived* by applying rules over already-known facts. The **Intensional Database (IDB)** is the EDB plus everything derivable from it by forward-chaining the rules — this is the final synthetic graph (`<root>/skgg/<filter>`), built by `engine/completion.py`'s `complete_graph` starting from the EDB. The pipeline removes every [cyclic rule](#cyclic-rule) first, so completion can derive every intensional predicate from the EDB.
 
 ## Closure
 
@@ -87,9 +87,9 @@ A rule with an edge `body predicate -> head predicate` on a cycle of the relatio
 
 ## Filling open relations
 
-After completion a predicate can still be short of its target frequency, and a rule short of its support. Phase 4 of `cli/main.py` (`engine/fill.py`'s `fill_open_predicates`) adds the missing triples of every open predicate. It only runs with `--fill`, on a copy of `graph.synthetic_uri` at `graph.filled_uri`. The method is described in [section 4.1 of `algorithm.md`](algorithm.md#41-filling-open-relations); this entry covers the terms and the checks.
+After completion a predicate can still be short of its target frequency, and a rule short of its support. Phase 4 of `cli/main.py` (`engine/fill.py`'s `fill_open_predicates`) adds the missing triples of every open predicate. It only runs with `--fill`, on a copy of the synthetic graph at `<root>/skgg/<filter>/filled`. The method is described in [section 4.1 of `algorithm.md`](algorithm.md#41-filling-open-relations); this entry covers the terms and the checks.
 
-On `fr.no-literals.csv` at PCA 0.9, completion leaves `father` at 100/561, `parent` at 508/946, `predecessor` at 354/358 and `spouse` at 108/865, and rules 10 (`father => parent`, 100/431), 19 and 24 (`father & mother => spouse`, 54/215 and 54/200) open.
+On `french_royalty.csv` at PCA 0.9, completion leaves `father` at 100/561, `parent` at 508/946, `predecessor` at 354/358 and `spouse` at 108/865, and rules 10 (`father => parent`, 100/431), 19 and 24 (`father & mother => spouse`, 54/215 and 54/200) open.
 
 **Protected and open rules.** Only the kept rules are considered; rules dropped by the confidence filter or by cycle removal are not. A rule closed when phase 4 starts keeps its support exactly. An open rule may gain support up to its target, and is marked closed (`HornRule.closed`) when it reaches it. The graph stays closed under every kept rule: no body grounding is left without its head, so completing it again adds nothing.
 
