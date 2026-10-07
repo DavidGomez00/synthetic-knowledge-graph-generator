@@ -19,15 +19,11 @@ from pathlib import Path
 from SPARQLWrapper import SPARQLWrapper
 from yarl import URL
 
-from skgg.core.config import DatabaseAuthConfig, DataConfig, RunConfig
+from skgg.cli.common import add_config_args, load_config
+from skgg.core.config import DatabaseAuthConfig, DataConfig
 from skgg.core.queries import get_triple_count
 from skgg.core.rules import DEFAULT_STD_THRESHOLD, HornRule, parse_rule_set
-from skgg.core.utils import (
-    build_sparql_client,
-    load_term_mapping,
-    resolve_config_path,
-    setup_logging,
-)
+from skgg.core.utils import build_sparql_client, load_term_mapping, setup_logging
 from skgg.engine.completion import complete_graph
 
 logger = logging.getLogger(__name__)
@@ -88,13 +84,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "If the source is --complete-uri, it is completed in place. "
         "Flags override the config file's values."
     )
-    parser.add_argument(
-        "-f",
-        "--config-file",
-        default=None,
-        help="Config file under configurations/ (e.g. family.source), or a path "
-        "to one; the .json extension is optional. Supplies every setting below.",
-    )
+    add_config_args(parser, required=False, config_help="Supplies every setting below.")
     parser.add_argument(
         "--source",
         default=None,
@@ -156,12 +146,6 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Database password (config: db_config.password).",
     )
-    parser.add_argument(
-        "--log-level",
-        default=None,
-        help="Logging level, e.g. DEBUG, INFO, WARNING (config: logging.level; "
-        "default INFO).",
-    )
     return parser
 
 
@@ -169,14 +153,9 @@ def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
 
-    config = (
-        RunConfig.from_json(resolve_config_path(args.config_file))
-        if args.config_file is not None
-        else None
-    )
-    setup_logging(
-        level=args.log_level or (config.logging.level if config else logging.INFO)
-    )
+    config = load_config(args) if args.config_file is not None else None
+    if config is None:
+        setup_logging(level=args.log_level or logging.INFO)
 
     source: str | None = args.source or (config.graph.base_uri if config else None)
     complete_uri: str | None = args.complete_uri or (

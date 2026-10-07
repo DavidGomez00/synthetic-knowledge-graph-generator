@@ -20,6 +20,7 @@ from yarl import URL
 
 from skgg.core.rules import Atom, HornRule, RuleSignature
 from skgg.core.shapes import SparqlConstraint
+from skgg.core.triples import read_tsv, tsv_triple_to_nt
 from skgg.core.utils import format_term, format_triple
 
 logger = logging.getLogger(__name__)
@@ -492,12 +493,14 @@ def insert_graph(
         triple_file: The local file path to the .nt or .tsv file.
         term_mapping: Mapping of bare terms to their namespace URIs (see
             `utils.format_term`). Required when `triple_file` is a .tsv file,
-            whose subject/predicate/object columns are unqualified terms;
-            ignored for .nt files, which are already fully qualified.
+            whose subject/predicate/object columns are unqualified terms, turned
+            into IRIs by `triples.tsv_term_to_nt`; ignored for .nt files, which
+            are already fully qualified.
 
     Raises:
-        ValueError: If `triple_file` does not point to an existing file, or is
-            a .tsv file and no `term_mapping` is given.
+        ValueError: If `triple_file` does not point to an existing file, is a
+            .tsv file and no `term_mapping` is given, or has a .tsv line without
+            three non-empty fields.
     """
 
     triple_file = Path(triple_file)
@@ -521,13 +524,12 @@ def insert_graph(
     def _tsv_stream(file_path: Path, mapping: dict[str, str]) -> Iterator[str]:
         """Streams triples from a tab-separated (subject, predicate, object)
         file, resolving each bare term to a full URI via `mapping`."""
-        with file_path.open(encoding="utf-8") as f:
-            for line in f:
-                stripped = line.strip()
-                if not stripped or stripped.startswith("#"):
-                    continue
-                subject, predicate, obj = stripped.split("\t")
-                yield format_triple(subject, predicate, obj, mapping)
+        for number, triple in read_tsv(file_path):
+            if triple is None:
+                raise ValueError(
+                    f"{file_path}:{number}: expected 3 non-empty tab-separated fields."
+                )
+            yield tsv_triple_to_nt(triple, mapping)
 
     iterator = (
         _tsv_stream(triple_file, cast(dict[str, str], term_mapping))

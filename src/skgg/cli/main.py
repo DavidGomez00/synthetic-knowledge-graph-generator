@@ -12,7 +12,9 @@ from pathlib import Path
 
 from SPARQLWrapper import SPARQLWrapper
 
-from skgg.core.config import CYCLE_REMOVAL_STRATEGIES, RunConfig
+from skgg.cli.common import add_config_args
+from skgg.core.config import RunConfig
+from skgg.core.cycles import get_relation_graph, remove_minimal_cyclic_rules
 from skgg.core.queries import (
     copy_graph,
     get_predicate_frequencies,
@@ -24,15 +26,12 @@ from skgg.core.rules import (
     Atom,
     HornRule,
     get_impacted_rules,
-    get_relation_graph,
     parse_rule_set,
-    remove_cyclic_rules,
-    remove_minimal_cyclic_rules,
     rule_sort_key,
     write_used_rules,
 )
 from skgg.core.utils import (
-    build_term_mapping,
+    config_term_mapping,
     create_sparql_client,
     resolve_config_path,
     setup_logging,
@@ -227,8 +226,8 @@ def _format_summary_block(
     synthetic (delta) and open/closed status (read directly off
     PredicateProfile.closed / HornRule.closed, the authoritative closure
     state maintained throughout generation -- not re-derived here). Rules
-    removed by `remove_cyclic_rules` follow in their own section, without a
-    status."""
+    removed by `remove_minimal_cyclic_rules` follow in their own section, without
+    a status."""
     triple_delta = syn_triple_count - og_triple_count
     pct = f", {triple_delta / og_triple_count:+.1%}" if og_triple_count else ""
     lines = [
@@ -322,8 +321,8 @@ def log_summary(
     """Logs one consolidated report comparing the synthetic graph against the
     original: total triples, per-predicate frequency, and per-rule support,
     each as original -> synthetic (delta) plus open/closed status, then the
-    support of each rule in `removed_rules` (see `remove_cyclic_rules`). Replaces
-    the previous summarize_progress()/summary() pair, which queried
+    support of each rule in `removed_rules` (see `remove_minimal_cyclic_rules`).
+    Replaces the previous summarize_progress()/summary() pair, which queried
     overlapping data twice and logged two separate, overlapping reports.
     """
     og_triple_count = get_triple_count(client, original_uri)
@@ -361,7 +360,6 @@ def run_synthetic_graph_experiment(
     skip_edb_generation: bool = False,
     log_level: int | str | None = None,
     pca_threshold: float | None = None,
-    cycle_removal: str | None = None,
     fill: bool = False,
 ) -> None:
     """Runs a Synthetic Graph generation experiment.
@@ -375,11 +373,9 @@ def run_synthetic_graph_experiment(
     this run's rule filtering only. If neither is set, the rules with std
     confidence >= `DEFAULT_STD_THRESHOLD` (1) are kept instead.
 
-    After the confidence filter, cyclic rules are removed so that the relation
-    graph has no cycle and completion can derive every intensional predicate from
-    the EDB. `cycle_removal`, if given, overrides `config.rules.cycle_removal`:
-    `"minimal"` removes the fewest rules (`remove_minimal_cyclic_rules`), `"all"`
-    every rule on a cycle (`remove_cyclic_rules`).
+    After the confidence filter, the fewest rules that leave the relation graph
+    with no cycle are removed (`remove_minimal_cyclic_rules`), so completion can
+    derive every intensional predicate from the EDB.
 
     `config.graph.synthetic_uri` always holds the EDB plus what completion derives.
     If `fill` is True, it is copied to `config.graph.filled_uri` and the relations
@@ -405,10 +401,7 @@ def run_synthetic_graph_experiment(
     graph_metrics = GraphMetrics.from_uri(client, config.graph.base_uri)
 
     ## ------ Previous evaluation of rules ------
-    term_mapping = build_term_mapping(
-        term_namespaces=config.graph.term_namespaces,
-        default_namespace=config.graph.namespace,
-    )
+    term_mapping = config_term_mapping(config)
 
     if pca_threshold is None:
         pca_threshold = config.rules.pca_threshold
@@ -431,12 +424,7 @@ def run_synthetic_graph_experiment(
         title=f"{config.graph.name} — relation graph",
     )
     # Before EDB generation, so a removed rule's head predicate is extensional.
-    if cycle_removal is None:
-        cycle_removal = config.rules.cycle_removal
-    if cycle_removal == "all":
-        removed_rules = remove_cyclic_rules(rules)
-    else:
-        removed_rules = remove_minimal_cyclic_rules(rules)
+    removed_rules = remove_minimal_cyclic_rules(rules)
 
     # A predicate is intensional iff a remaining rule derives it.
     intensional_preds = {r.head.predicate for r in rules.values()}
@@ -567,13 +555,7 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run a Synthetic Knowledge Graph generation experiment."
     )
-    parser.add_argument(
-        "-f",
-        "--config-file",
-        required=True,
-        help="Config file under configurations/ (e.g. fr.no-literals), or a path "
-        "to one. The .json extension is optional.",
-    )
+    add_config_args(parser)
     parser.add_argument(
         "--skip-edb",
         action="store_true",
@@ -586,25 +568,12 @@ def _parse_args() -> argparse.Namespace:
         "synthetic graph at the config's graph.filled_uri.",
     )
     parser.add_argument(
-        "--log-level",
-        default=None,
-        help="Override the config file's logging level (e.g. DEBUG, INFO, WARNING).",
-    )
-    parser.add_argument(
         "--pca-conf",
         type=float,
         default=None,
         help="Keep the rules with at least this PCA confidence, overriding the "
         "config file's rules.pca_threshold for this run only. Without either, the "
         "rules with std confidence 1 are kept.",
-    )
-    parser.add_argument(
-        "--cycle-removal",
-        choices=CYCLE_REMOVAL_STRATEGIES,
-        default=None,
-        help="How cyclic rules are removed, overriding the config file's "
-        "rules.cycle_removal for this run only: 'minimal' (the default) removes the "
-        "fewest rules that break every cycle, 'all' every rule on a cycle.",
     )
     return parser.parse_args()
 
@@ -616,6 +585,5 @@ if __name__ == "__main__":
         skip_edb_generation=args.skip_edb,
         log_level=args.log_level,
         pca_threshold=args.pca_conf,
-        cycle_removal=args.cycle_removal,
         fill=args.fill,
     )

@@ -194,10 +194,9 @@ def sample_groundings(
     missing_heads: int,
     term_mapping: dict[str, str],
     chunk_size: int,
-    fixed_bindings: list[dict[str, str]] | None = None,
 ) -> list[str]:
     """Returns the new triples of `sample_grounding_groups`'s groundings, as one
-    list. Takes the same arguments."""
+    list. Takes the same arguments, without `fixed_bindings`."""
     return [
         triple
         for group in sample_grounding_groups(
@@ -209,7 +208,6 @@ def sample_groundings(
             missing_heads,
             term_mapping,
             chunk_size,
-            fixed_bindings,
         )
         for triple in group
     ]
@@ -426,10 +424,9 @@ def apply_rule(
     rule: HornRule,
     term_mapping: dict[str, str],
     chunk_size: int,
-    profile: PredicateProfile | None = None,
 ) -> int:
-    """Inserts novel triples generated from the rule to 'graph_uri'. If a profile is
-    provided, restricts triple generation to profile constraints.
+    """Inserts novel triples generated from the rule to 'graph_uri'. The head
+    predicate's profile doesn't cap them.
 
     Args:
         client: SPARQLWrapper client.
@@ -437,7 +434,6 @@ def apply_rule(
         rule: Rule represented as a Horn Rule.
         term_mapping: Mapping from a term to its corresponding prefix.
         chunk_size: Maximum number of triples to insert per SPARQL query.
-        profile: Contains the constraints of the head predicate.
 
     Returns:
         Number of novel triples inserted to the graph.
@@ -462,26 +458,14 @@ def apply_rule(
     )
 
     def filter_triples() -> Iterator[str]:
-        """Helper generator. Yields novel and constraint-valid triples."""
+        """Helper generator. Yields the triples not already in the graph."""
         for triple in triples_from_bindings(
             bindings=raw_bindings,
             atoms=[rule.head],
             term_mapping=term_mapping,
         ):
-            if triple in existing_triples:
-                continue
-
-            if profile is not None:
-                subject, _predicate, obj = triple.strip(" .").split(sep=" ")
-                if (
-                    profile.frequency <= 0
-                    or profile.domain.get(subject, 0) <= 0
-                    or profile.range.get(obj, 0) <= 0
-                    or not is_assignment_solvable(profile, subject, obj)
-                ):
-                    continue
-
-            yield triple
+            if triple not in existing_triples:
+                yield triple
 
     # Yield triples that do not exist already in the graph
     return insert_triples_sparql(

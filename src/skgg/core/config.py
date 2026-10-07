@@ -11,9 +11,6 @@ from yarl import URL
 
 T = TypeVar("T")
 
-# Values of `RulesConfig.cycle_removal`.
-CYCLE_REMOVAL_STRATEGIES = ("minimal", "all")
-
 
 @dataclass
 class DataConfig:
@@ -71,8 +68,8 @@ class GraphConfig:
 
     Attributes:
         name: Human-readable name for the graph/experiment.
-        triple_file: Filename (relative to `data.input_dir`) of the base graph in
-            N-Triples format, consumed by `cli/upload.py`.
+        triple_file: Filename (relative to `data.input_dir`) of the base graph, an
+            .nt or .tsv file, consumed by `cli/graph.py upload`.
         namespace: Default namespace URI used to resolve unprefixed terms.
         base_uri: Named-graph URI for the raw, uploaded base graph.
         edb_uri: Named-graph URI for the generated Extensional Database.
@@ -111,24 +108,10 @@ class RulesConfig:
             or missing the confidence it filters on, so only the remaining
             rules flow into EDB generation and completion. Overridable per run
             with `--pca-conf` on the CLI.
-        cycle_removal: How cyclic rules are removed before EDB generation.
-            `"minimal"` (the default) keeps the largest rule set with no cycle
-            (`core.rules.remove_minimal_cyclic_rules`); `"all"` removes every
-            rule on a cycle (`core.rules.remove_cyclic_rules`). Overridable per
-            run with `--cycle-removal` on the CLI.
     """
 
     rules_file: str
     pca_threshold: float | None = None
-    cycle_removal: Literal["minimal", "all"] = "minimal"
-
-    def __post_init__(self) -> None:
-        """Validates `cycle_removal`."""
-        if self.cycle_removal not in CYCLE_REMOVAL_STRATEGIES:
-            raise ValueError(
-                f"Configuration Error: rules.cycle_removal must be one of "
-                f"{', '.join(CYCLE_REMOVAL_STRATEGIES)}, got {self.cycle_removal!r}"
-            )
 
 
 @dataclass(frozen=True)

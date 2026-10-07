@@ -6,11 +6,9 @@ and range distributions used to drive synthetic triple generation (`engine/edb.p
 import json
 import logging
 import re
-from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from rdflib import Graph
 from SPARQLWrapper import SPARQLWrapper
 
 from skgg.core.queries import (
@@ -66,7 +64,6 @@ class GraphMetrics:
     """A structured container for RDF graph metrics and properties."""
 
     profiles: dict[str, PredicateProfile]
-    triple_count: int
 
     @classmethod
     def from_uri(cls, client: SPARQLWrapper, graph_uri: str) -> "GraphMetrics":
@@ -107,48 +104,6 @@ class GraphMetrics:
             if "?f" in profile.domain.keys():
                 raise ValueError(f"Error ?f en {predicate} domain.")
 
-        metrics = cls(profiles=profiles, triple_count=triple_count)
+        metrics = cls(profiles=profiles)
         _dump_metrics_for_debugging(metrics, graph_uri)
-        return metrics
-
-    @classmethod
-    def from_rdflib(cls, graph: Graph) -> "GraphMetrics":
-        """Calculates frequency and cardinality metrics for a graph.
-
-        Args:
-            kg_file: Path to file with KG triples.
-
-        Returns:
-            GraphMetrics dataclass containing cardinalities and frequency distributions.
-        """
-
-        # Counters and mappings
-        profiles: dict[str, PredicateProfile] = defaultdict(PredicateProfile)
-        triple_count = 0
-
-        # Single pass through the graph
-        for s, p, o in graph:
-            s_str = str(s)
-            p_str = f"<{str(p)}>"
-            o_str = str(o)
-
-            triple_count += 1
-            profiles[p_str].frequency += 1
-            profiles[p_str].domain[s_str] += 1
-            profiles[p_str].range[o_str] += 1
-
-            if s_str == o_str:
-                profiles[p_str].reflexivity += 1
-
-        metrics = GraphMetrics(
-            profiles=dict(profiles),
-            triple_count=triple_count,
-        )
-
-        reflexive_preds = 0
-        for _, profile in profiles.items():
-            if profile.reflexivity > 0:
-                reflexive_preds += 1
-
-        logger.debug("Loaded graph metrics for %d predicates.", len(profiles))
         return metrics

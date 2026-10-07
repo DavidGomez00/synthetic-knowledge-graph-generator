@@ -15,6 +15,7 @@ from collections.abc import Collection, Iterator
 from pathlib import Path
 from urllib.parse import unquote
 
+from skgg.core.triples import Triple, read_nt, read_tsv
 from skgg.core.utils import setup_logging, short_term
 
 logger = logging.getLogger(__name__)
@@ -55,25 +56,21 @@ def _clean_term(term: str) -> str:
     return term.replace("/", "_")
 
 
-def _iter_triples(path: Path) -> Iterator[tuple[str, str, str]]:
+def _iter_triples(path: Path) -> Iterator[Triple]:
     """Yields `(subject, predicate, object)` for every triple in an .nt/.tsv
-    file, skipping blank and comment lines."""
+    file, skipping blank and comment lines.
+
+    Raises:
+        ValueError: If the file isn't a .nt/.tsv file, or a line isn't a triple.
+    """
     suffix = path.suffix.lower()
     if suffix not in (".nt", ".tsv"):
         raise ValueError(f"Invalid input file '{path}'. Expected a .nt/.tsv file.")
 
-    with path.open(encoding="utf-8") as f:
-        for line in f:
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            if suffix == ".tsv":
-                subject, predicate, obj = stripped.split("\t")
-            else:
-                # The object may be a literal containing spaces.
-                subject, predicate, rest = stripped.split(" ", 2)
-                obj = rest.removesuffix(".").rstrip()
-            yield subject, predicate, obj
+    for number, triple in read_tsv(path) if suffix == ".tsv" else read_nt(path):
+        if triple is None:
+            raise ValueError(f"{path}:{number} is not a triple.")
+        yield triple
 
 
 def _single_class(subjects: set[str], classes: dict[str, set[str]]) -> str:
@@ -156,7 +153,7 @@ def clean(
     # Cleaned term -> the term it came from, to catch two terms cleaned into one.
     originals: dict[str, str] = {}
 
-    def _clean_triples() -> Iterator[tuple[str, str, str]]:
+    def _clean_triples() -> Iterator[Triple]:
         """The input triples, with '/' in their terms' names replaced."""
         for raw in _iter_triples(input_file):
             subject, predicate, obj = map(_clean_term, raw)
@@ -179,7 +176,7 @@ def clean(
     entity_class = _single_class(subjects, classes) if drop_types else None
 
     kept = duplicates = removed = literal_predicate_triples = type_triples = 0
-    seen: set[tuple[str, str, str]] = set()
+    seen: set[Triple] = set()
     literals: set[str] = set()
     # .nt -> .tsv: short term -> the IRI it came from, to catch collisions.
     short_terms: dict[str, str] = {}

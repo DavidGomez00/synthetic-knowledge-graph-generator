@@ -20,7 +20,7 @@ A `PredicateProfile` (`engine/metrics.py`) is the per-predicate summary the whol
 - **reflexivity** — how many triples have the same subject and object.
 - **closed** — whether this predicate has reached its target `frequency` (see [Closure](#closure)); `False` until then.
 
-`GraphMetrics` (same module) is just a `{predicate → PredicateProfile}` map plus a total triple count, extracted from a graph either over SPARQL (`from_uri`, the production path) or from an in-memory `rdflib.Graph` (`from_rdflib`, used elsewhere for small/offline graphs).
+`GraphMetrics` (same module) is just a `{predicate → PredicateProfile}` map, extracted from a graph over SPARQL by `from_uri`.
 
 ## Horn Rules
 
@@ -59,7 +59,7 @@ Both EDB generation and synthetic-graph completion loop until everything relevan
 
 `engine/completion.py`'s `complete_graph` does not order rules at all: every pass it attempts every rule in the set (`generator.apply_rule`), and repeats until a pass adds nothing. Whichever rules can fire, fire, in whatever order the rule dict happens to iterate in — the loop's repetition substitutes for explicit ordering (e.g. a rule whose body depends on another rule's head simply produces nothing until a later pass, once that head exists). Multiple rules sharing a head predicate, or a recursive rule (head predicate also in its own body), are not gated on each other in any way; whichever fires first in a pass, fires.
 
-`complete_graph` also calls `apply_rule` without a `profile`, so this loop is not budget-constrained by a predicate's target `frequency` either — it runs to full saturation (every triple every rule can derive) each time it's invoked, and target `support`/`frequency` are only checked *afterward* (see [Closure](#closure)) to report what's closed, not to cap generation.
+`apply_rule` has no profile cap, so this loop is not budget-constrained by a predicate's target `frequency` either — it runs to full saturation (every triple every rule can derive) each time it's invoked, and target `support`/`frequency` are only checked *afterward* (see [Closure](#closure)) to report what's closed, not to cap generation.
 
 Only EDB generation still orders work explicitly: `core/rules.get_extensional_dependencies` makes a less restrictive rule wait for a more restrictive one that shares an extensional predicate, so satisfying the looser rule first can't consume bindings the stricter rule still needs — see [`algorithm.md` §3.2.2](algorithm.md#322-mechanism-2-rule-driven-grounding). That ordering exists only because EDB generation is profile-budget-constrained in a way completion isn't, so it has no equivalent here.
 
@@ -75,15 +75,15 @@ RDF terms are written as bare short names in rules/data (`hasAge`) but need a fu
 
 ## Stale cycle
 
-EDB generation only seeds extensional predicates (never a rule head). If every rule producing a predicate depends on that predicate itself (`p -> p`, e.g. `spouse(a,b) => spouse(b,a)`) or on a rule that depends back on it (`A -> B -> A`), completion can never start: the predicates stay empty. A cycle of the relation graph (`core/rules.get_relation_graph`) none of whose predicates has triples after completion is *stale*.
+EDB generation only seeds extensional predicates (never a rule head). If every rule producing a predicate depends on that predicate itself (`p -> p`, e.g. `spouse(a,b) => spouse(b,a)`) or on a rule that depends back on it (`A -> B -> A`), completion can never start: the predicates stay empty. A cycle of the relation graph (`core/cycles.get_relation_graph`) none of whose predicates has triples after completion is *stale*.
 
-The pipeline avoids stale cycles by removing [cyclic rules](#cyclic-rule) before EDB generation until no cycle is left. `engine/cycles.break_cycles`, which the pipeline no longer calls, picks one rule of one stale cycle (fewest ungrounded body atoms, non-recursive first, most restrictive first), instantiates its ungrounded body atoms with `sample_groundings` as if they were extensional (joined via `fixed_bindings` with any body atoms already grounded), inserts them into the synthetic graph only, and returns; the caller then re-runs completion and calls it again until nothing more is seeded. Intensional dependencies do not gate the choice: the non-recursive rules a recursive rule would wait for can never fire inside a stale cycle.
+The pipeline avoids stale cycles by removing the fewest [cyclic rules](#cyclic-rule) that leave no cycle, before EDB generation. An earlier version seeded the body facts of one rule of each stale cycle instead, so forward chaining could start; [section 5.3 of `algorithm.md`](algorithm.md#53-an-earlier-approach-seeding-stale-cycles) explains why it was removed.
 
 ## Cyclic rule
 
-A rule with an edge `body predicate -> head predicate` on a cycle of the relation graph (`core/rules.get_relation_graph`), meaning both predicates are in the same strongly connected component. A recursive rule (`p -> p`) is cyclic, and so is a rule whose body predicate depends back on its head through other rules, even if only one of its body predicates does.
+A rule with an edge `body predicate -> head predicate` on a cycle of the relation graph (`core/cycles.get_relation_graph`), meaning both predicates are in the same strongly connected component. A recursive rule (`p -> p`) is cyclic, and so is a rule whose body predicate depends back on its head through other rules, even if only one of its body predicates does.
 
-`cli/main.py` removes cyclic rules right after the rule set is parsed and before EDB generation, so no [stale cycle](#stale-cycle) can occur. By default `core/rules.remove_minimal_cyclic_rules` removes the fewest rules that leave no cycle ([method](algorithm.md#52-removing-the-fewest-rules), [code](architecture.md#cyclic-rule-removal)); with `rules.cycle_removal: "all"` or `--cycle-removal all`, `core/rules.remove_cyclic_rules` removes every cyclic rule. The head predicate of a removed rule becomes extensional unless a remaining rule still derives it, and the summary lists the removed rules with their support, original -> synthetic.
+`cli/main.py` removes cyclic rules right after the rule set is parsed and before EDB generation, so no [stale cycle](#stale-cycle) can occur. `core/cycles.remove_minimal_cyclic_rules` removes the fewest rules that leave no cycle ([method](algorithm.md#52-removing-the-fewest-rules), [code](architecture.md#cyclic-rule-removal)); a strongly connected component with more than 20 predicates loses all its cyclic rules. The head predicate of a removed rule becomes extensional unless a remaining rule still derives it, and the summary lists the removed rules with their support, original -> synthetic.
 
 ## Filling open relations
 

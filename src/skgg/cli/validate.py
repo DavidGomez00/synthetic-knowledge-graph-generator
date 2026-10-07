@@ -16,7 +16,7 @@ from pathlib import Path
 
 from SPARQLWrapper import SPARQLWrapper
 
-from skgg.core.config import RunConfig
+from skgg.cli.common import add_config_args, load_config
 from skgg.core.queries import (
     build_shape_query,
     clear_graph,
@@ -25,41 +25,33 @@ from skgg.core.queries import (
     insert_graph,
 )
 from skgg.core.shapes import load_shapes, triples_in_row
-from skgg.core.utils import (
-    build_term_mapping,
-    create_sparql_client,
-    format_term,
-    resolve_config_path,
-    setup_logging,
-    short_term,
-)
+from skgg.core.triples import Triple, read_tsv, tsv_term_to_nt
+from skgg.core.utils import config_term_mapping, create_sparql_client, short_term
 
 logger = logging.getLogger(__name__)
 
 REPORT_HEADER = ("line", "subject", "predicate", "object", "shape", "message")
-
-Triple = tuple[str, str, str]
 
 
 def _index_tsv(
     tsv_file: Path, term_mapping: dict[str, str]
 ) -> dict[Triple, tuple[int, Triple]]:
     """Maps each triple of a .tsv file, as N-Triples terms, to its first line
-    number and its bare terms. Lines are read as `queries.insert_graph` reads
-    them, so the keys match the uploaded triples."""
+    number and its bare terms. Terms are turned into IRIs as `queries.insert_graph`
+    does it (`triples.tsv_term_to_nt`), so the keys match the uploaded triples."""
     index: dict[Triple, tuple[int, Triple]] = {}
-    with tsv_file.open(encoding="utf-8") as f:
-        for number, line in enumerate(f, start=1):
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            subject, predicate, obj = stripped.split("\t")
-            key = (
-                format_term(subject, term_mapping),
-                format_term(predicate, term_mapping),
-                format_term(obj, term_mapping),
+    for number, triple in read_tsv(tsv_file):
+        if triple is None:
+            raise ValueError(
+                f"{tsv_file}:{number}: expected 3 non-empty tab-separated fields."
             )
-            index.setdefault(key, (number, (subject, predicate, obj)))
+        subject, predicate, obj = triple
+        key = (
+            tsv_term_to_nt(subject, term_mapping),
+            tsv_term_to_nt(predicate, term_mapping),
+            tsv_term_to_nt(obj, term_mapping),
+        )
+        index.setdefault(key, (number, triple))
     return index
 
 
@@ -220,12 +212,9 @@ def _parse_args() -> argparse.Namespace:
         "shapes of a <dataset>.shapes.ttl file and report every triple that "
         "violates one."
     )
-    parser.add_argument(
-        "-f",
-        "--config-file",
-        required=True,
-        help="Config file under configurations/ (e.g. fr), or a path to one; the "
-        ".json extension is optional. Gives the database connection, the term mapping and the "
+    add_config_args(
+        parser,
+        config_help="Gives the database connection, the term mapping and the "
         "default source.",
     )
     parser.add_argument(
@@ -262,11 +251,6 @@ def _parse_args() -> argparse.Namespace:
         help="Leave the graph a .tsv source is loaded into in the store after "
         "the check.",
     )
-    parser.add_argument(
-        "--log-level",
-        default=None,
-        help="Override the config file's logging level (e.g. DEBUG, INFO, WARNING).",
-    )
     args = parser.parse_args()
     if args.source is not None:
         if is_tsv_source(args.source):
@@ -280,10 +264,7 @@ def _parse_args() -> argparse.Namespace:
 if __name__ == "__main__":
     args = _parse_args()
 
-    config = RunConfig.from_json(resolve_config_path(args.config_file))
-    setup_logging(
-        level=args.log_level if args.log_level is not None else config.logging.level
-    )
+    config = load_config(args)
 
     input_dir = config.data.input_dir
     shapes_file: Path = args.shapes or input_dir / f"{input_dir.name}.shapes.ttl"
@@ -320,7 +301,7 @@ if __name__ == "__main__":
         client=create_sparql_client(config),
         source=source,
         shapes_file=shapes_file,
-        term_mapping=build_term_mapping(graph.term_namespaces, graph.namespace),
+        term_mapping=config_term_mapping(config),
         graph_uri=graph_uri,
         chunk_size=config.db_config.chunk_size,
         output=args.output or default_output,

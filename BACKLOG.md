@@ -19,8 +19,7 @@ Known issues and pending features. Resolved items are archived in `BACKLOG_ARCHI
   - [ ] Cost: every candidate triple runs one or more SPARQL queries per rule its predicate occurs in, and every rejected grounding is inserted and deleted again. Check the run time on larger rule sets and batch the checks if needed.
   - [ ] `cli/complete.py` doesn't apply the confidence filter of `--pca-conf` together with the cycle removal of a run, so it can't re-check that a synthetic graph is closed under the rules a run used. Add an option to load the same rule set as `cli/main.py` (or read `<rules>_used.csv`).
   - [ ] `get_domain`/`get_range` log a warning ("Retrieved None ...") for a predicate with no triple in the graph, which fill hits when a synthetic predicate is still empty. Return an empty dict quietly there.
-- [ ] **`cycles.py`/`generator.py`** *(low priority)*: 
-  - [ ] `apply_rule` in completion is not profile-capped, so a seeded cycle can overshoot its target frequency. Add a parameter to cap it or not.
+- [ ] **`generator.py`** *(low priority)*: `apply_rule` inserts every new head triple, so completion can overshoot the head predicate's target frequency. A cap must check each triple against the head predicate's remaining profile (`is_assignment_solvable`) and also spend it (frequency, domain and range counts), which the unused `profile` parameter removed from `apply_rule` didn't do.
 - [ ] **`metrics.py`** *(low priority)*: `GraphMetrics.from_uri` dumps its result to `logs/metrics/<uri>.json` for debugging. There's still no path to make the pipeline consume that JSON instead of re-querying the graph over SPARQL.
 
 ## Graph layout (`core/config.py`, `cli/`, `engine/`)

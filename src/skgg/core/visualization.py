@@ -1,5 +1,5 @@
 """Visualization helpers for graph structures used in this project (currently
-just the predicate `relation_graph` from `core.rules`).
+just the predicate relation graph from `core.cycles.get_relation_graph`).
 
 Uses `matplotlib` + `networkx`'s drawing helpers — both already pinned in
 `requirements.txt` — so no new dependency is introduced. The `Agg` backend is
@@ -8,7 +8,6 @@ experiments typically run against a Dockerized graph DB on a server/CI box.
 """
 
 import logging
-import re
 from pathlib import Path
 
 import matplotlib
@@ -18,18 +17,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402 (backend must be set first)
 import networkx as nx  # noqa: E402
 
+from skgg.core.cycles import cycle_predicates  # noqa: E402
 from skgg.core.rules import rule_sort_key  # noqa: E402
+from skgg.core.utils import short_term  # noqa: E402
 
 logger = logging.getLogger(__name__)
-
-
-def _local_name(predicate: str) -> str:
-    """Returns the last path/fragment segment of a predicate URI, stripped of
-    its surrounding '<...>' brackets, for compact display labels (e.g.
-    '<http://xmlns.com/foaf/0.1/knows>' -> 'knows'). Falls back to the
-    stripped URI itself if it has no '/' or '#' to split on."""
-    uri = predicate.strip("<>")
-    return re.split(r"[/#]", uri)[-1] or uri
 
 
 def plot_relation_graph(
@@ -37,7 +29,7 @@ def plot_relation_graph(
     output_path: Path,
     title: str | None = None,
 ) -> Path:
-    """Renders a predicate relation graph (e.g. from `core.rules.relation_graph`)
+    """Renders a predicate relation graph (`core.cycles.get_relation_graph`)
     to a PNG file, coloring any predicate involved in a cycle in red so cyclic
     rule dependencies — including self-loops from recursive rules — are
     immediately visible. Each edge is labeled with the id(s) of the rule(s)
@@ -45,7 +37,7 @@ def plot_relation_graph(
 
     Args:
         graph: A predicate dependency graph, as built by
-            `core.rules.relation_graph`: nodes are predicates, edges go from a
+            `core.cycles.get_relation_graph`: nodes are predicates, edges go from a
             rule's body predicate(s) to its head predicate, and each edge
             carries a `rule_ids` attribute.
         output_path: Where to save the rendered PNG. Parent directories are
@@ -58,7 +50,7 @@ def plot_relation_graph(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    cycle_nodes = {node for cycle in nx.simple_cycles(graph) for node in cycle}
+    cycle_nodes = cycle_predicates(graph)
 
     node_count = graph.number_of_nodes()
     fig_size = max(6.0, min(node_count * 0.8, 20.0))
@@ -68,7 +60,7 @@ def plot_relation_graph(
     node_colors = ["#f28b82" if n in cycle_nodes else "#cfe8ff" for n in graph.nodes]
 
     nx.draw_networkx_nodes(graph, pos, ax=ax, node_color=node_colors, node_size=1800)
-    labels = {node: _local_name(node) for node in graph.nodes}
+    labels = {node: short_term(node) for node in graph.nodes}
     nx.draw_networkx_labels(graph, pos, ax=ax, labels=labels, font_size=8)
     nx.draw_networkx_edges(
         graph,

@@ -63,22 +63,22 @@ For an `.nt` input the term mapping is optional. With one, an IRI is shortened t
 
 ### Upload the source graph
 
-`skgg.cli.upload` inserts a `.nt`/`.tsv` triple file into the graph database, in the named graph `graph.base_uri`. Terms in a `.tsv` file are resolved to full URIs through the config's `graph.namespace` and `graph.term_namespaces`.
+`skgg.cli.graph upload` inserts a `.nt`/`.tsv` triple file into the graph database, in the named graph `graph.base_uri`, sending `db_config.chunk_size` triples per request. Terms in a `.tsv` file are resolved to full URIs through the config's `graph.namespace` and `graph.term_namespaces`, the same way `skgg.cli.convert` resolves them.
 
 ```bash
-python -m skgg.cli.upload -f fr.no-literals.json --triple-file data/fr/fr.no-literals.tsv
-python -m skgg.cli.upload -f fr.no-literals.json   # uploads graph.triple_file
+python -m skgg.cli.graph upload -f fr.no-literals.json --triple-file data/fr/fr.no-literals.tsv
+python -m skgg.cli.graph upload -f fr.no-literals.json   # uploads graph.triple_file
 ```
 
 To upload the file written by `clean`, pass it with `--triple-file` or set `graph.triple_file` to it. A bare filename resolves under `data.input_dir`, and a path containing `/` is used as given. `--graph-uri` uploads to a different named graph, e.g. to re-insert an already generated synthetic graph into `graph.synthetic_uri`. `--log-level` overrides the config's `logging.level` for the run.
 
 ### Download a graph
 
-`skgg.cli.download` writes a named graph from the database to `<output>.nt` and `<output>.tsv`, using the connection in the config passed with `-f`. It downloads `graph.base_uri` unless `--graph-uri` names another graph. `-o` sets the output path without suffix and defaults to `data.input_dir` plus the graph URI's last segment.
+`skgg.cli.graph download` writes a named graph from the database to `<output>.nt` and `<output>.tsv`, using the connection in the config passed with `-f`. It downloads `graph.base_uri` unless `--graph-uri` names another graph. `-o` sets the output path without suffix and defaults to `data.input_dir` plus the graph URI's last segment.
 
 ```bash
-python -m skgg.cli.download -f family.source.json --graph-uri http://Family.org/skgg   # -> data/family/skgg.{nt,tsv}
-python -m skgg.cli.download -f family.source.json -o path/to/family                   # graph.base_uri -> path/to/family.{nt,tsv}
+python -m skgg.cli.graph download -f family.source.json --graph-uri http://Family.org/skgg   # -> data/family/skgg.{nt,tsv}
+python -m skgg.cli.graph download -f family.source.json -o path/to/family                   # graph.base_uri -> path/to/family.{nt,tsv}
 ```
 
 On GraphDB the whole graph comes from one request to the repository's `/statements` endpoint, with inferred triples excluded. Virtuoso's Graph Store endpoint returns at most `ResultSetMaxRows` triples, so on Virtuoso the script sends sorted CONSTRUCT queries of `db_config.chunk_size` triples each. Either way, the script fails if it wrote a different number of triples than the graph holds. The `.tsv` is converted from the `.nt` as `skgg.cli.convert` does with the config's term mapping, so it can be uploaded again with the same config.
@@ -139,7 +139,6 @@ configurations/    # per-experiment JSON configs
 schemas/           # schema template (.ttl) for declaring a graph's classes and relations
 data/<dataset>/    # source graph data (.nt/.tsv/.ttl/.csv) referenced by configs, e.g. data/fr/
 docs/              # architecture, concepts glossary, getting-started guide
-notebooks/         # exploratory/prototype work
 logs/              # per-run logs (gitignored)
 ```
 

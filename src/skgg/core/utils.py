@@ -153,6 +153,12 @@ def build_term_mapping(
     return term_mapping
 
 
+def config_term_mapping(config: RunConfig) -> dict[str, str]:
+    """Builds the term mapping of a run config's `graph` section
+    (`build_term_mapping` of `graph.term_namespaces` under `graph.namespace`)."""
+    return build_term_mapping(config.graph.term_namespaces, config.graph.namespace)
+
+
 def load_term_mapping(
     config_file: str | None, namespace: str | None
 ) -> dict[str, str] | None:
