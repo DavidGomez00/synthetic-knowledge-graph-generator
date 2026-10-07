@@ -13,7 +13,12 @@ from pathlib import Path
 from SPARQLWrapper import SPARQLWrapper
 
 from skgg.core.config import CYCLE_REMOVAL_STRATEGIES, RunConfig
-from skgg.core.queries import get_predicate_frequencies, get_support, get_triple_count
+from skgg.core.queries import (
+    copy_graph,
+    get_predicate_frequencies,
+    get_support,
+    get_triple_count,
+)
 from skgg.core.rules import (
     DEFAULT_STD_THRESHOLD,
     Atom,
@@ -334,7 +339,9 @@ def log_summary(
     }
 
     logger.info(
-        "Experiment summary:\n%s",
+        "Experiment summary, <%s> -> <%s>:\n%s",
+        original_uri,
+        synthetic_uri,
         _format_summary_block(
             og_triple_count,
             syn_triple_count,
@@ -355,6 +362,7 @@ def run_synthetic_graph_experiment(
     log_level: int | str | None = None,
     pca_threshold: float | None = None,
     cycle_removal: str | None = None,
+    fill: bool = False,
 ) -> None:
     """Runs a Synthetic Graph generation experiment.
 
@@ -372,6 +380,11 @@ def run_synthetic_graph_experiment(
     the EDB. `cycle_removal`, if given, overrides `config.rules.cycle_removal`:
     `"minimal"` removes the fewest rules (`remove_minimal_cyclic_rules`), `"all"`
     every rule on a cycle (`remove_cyclic_rules`).
+
+    `config.graph.synthetic_uri` always holds the EDB plus what completion derives.
+    If `fill` is True, it is copied to `config.graph.filled_uri` and the relations
+    still open are filled there (`_fill_open_relations`); the summary then compares
+    the filled graph with the source instead of the synthetic one.
     """
 
     ## ------ Setup ------
@@ -511,22 +524,37 @@ def run_synthetic_graph_experiment(
     progress.log("initial", synthetic_uri)
 
     _log_phase(4, "Filling open relations")
-    _fill_open_relations(
-        client,
-        rules,
-        progress,
-        config.graph.base_uri,
-        synthetic_uri,
-        term_mapping,
-        chunk_size,
-    )
-    progress.log("fill", synthetic_uri)
+    final_uri = synthetic_uri
+    if fill:
+        final_uri = config.graph.filled_uri
+        copy_graph(client, synthetic_uri, final_uri)
+        logger.info(
+            "Copied <%s> to <%s> (%d triples) to fill it.",
+            synthetic_uri,
+            final_uri,
+            get_triple_count(client, final_uri),
+        )
+        _fill_open_relations(
+            client,
+            rules,
+            progress,
+            config.graph.base_uri,
+            final_uri,
+            term_mapping,
+            chunk_size,
+        )
+        progress.log("fill", final_uri)
+    else:
+        logger.info(
+            "Skipping the fill step (pass --fill to run it); synthetic graph at <%s>.",
+            synthetic_uri,
+        )
 
     _log_phase(5, "Summary")
     log_summary(
         client,
         config.graph.base_uri,
-        synthetic_uri,
+        final_uri,
         rules,
         graph_metrics.profiles,
         removed_rules,
@@ -550,6 +578,12 @@ def _parse_args() -> argparse.Namespace:
         "--skip-edb",
         action="store_true",
         help="Skip EDB generation and reuse the existing EDB graph.",
+    )
+    parser.add_argument(
+        "--fill",
+        action="store_true",
+        help="Fill the relations still open after completion, in a copy of the "
+        "synthetic graph at the config's graph.filled_uri.",
     )
     parser.add_argument(
         "--log-level",
@@ -583,4 +617,5 @@ if __name__ == "__main__":
         log_level=args.log_level,
         pca_threshold=args.pca_conf,
         cycle_removal=args.cycle_removal,
+        fill=args.fill,
     )

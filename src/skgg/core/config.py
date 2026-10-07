@@ -76,7 +76,11 @@ class GraphConfig:
         namespace: Default namespace URI used to resolve unprefixed terms.
         base_uri: Named-graph URI for the raw, uploaded base graph.
         edb_uri: Named-graph URI for the generated Extensional Database.
-        synthetic_uri: Named-graph URI for the final synthetic graph (EDB + IDB).
+        synthetic_uri: Named-graph URI for the synthetic graph: the EDB plus what
+            completion derives from it.
+        filled_uri: Named-graph URI for the synthetic graph after the optional
+            fill step (`--fill` in `cli/main.py`): a copy of `synthetic_uri` plus
+            the triples that fill adds.
         term_namespaces: Optional bare-term -> namespace-URI overrides, merged
             over `utils.DEFAULT_PREFIXES` and under the `namespace` default
             when resolving unprefixed terms (see `utils.build_term_mapping`).
@@ -89,6 +93,7 @@ class GraphConfig:
     base_uri: str
     edb_uri: str
     synthetic_uri: str
+    filled_uri: str
     term_namespaces: dict[str, str] = field(default_factory=dict)
 
 

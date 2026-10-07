@@ -87,7 +87,7 @@ A rule with an edge `body predicate -> head predicate` on a cycle of the relatio
 
 ## Filling open relations
 
-After completion a predicate can still be short of its target frequency, and a rule short of its support. Phase 4 of `cli/main.py` (`engine/fill.py`'s `fill_open_predicates`) adds the missing triples of every open predicate. The method is described in [section 4.1 of `algorithm.md`](algorithm.md#41-filling-open-relations); this entry covers the terms and the checks.
+After completion a predicate can still be short of its target frequency, and a rule short of its support. Phase 4 of `cli/main.py` (`engine/fill.py`'s `fill_open_predicates`) adds the missing triples of every open predicate. It only runs with `--fill`, on a copy of `graph.synthetic_uri` at `graph.filled_uri`. The method is described in [section 4.1 of `algorithm.md`](algorithm.md#41-filling-open-relations); this entry covers the terms and the checks.
 
 On `fr.no-literals.csv` at PCA 0.9, completion leaves `father` at 100/561, `parent` at 508/946, `predecessor` at 354/358 and `spouse` at 108/865, and rules 10 (`father => parent`, 100/431), 19 and 24 (`father & mother => spouse`, 54/215 and 54/200) open.
 

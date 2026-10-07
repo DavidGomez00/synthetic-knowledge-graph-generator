@@ -295,7 +295,13 @@ if __name__ == "__main__":
     graph_uri: str | None = None
     if is_tsv_source(source):
         graph_uri = args.graph_uri or graph.namespace.rstrip("/#") + "/validation"
-        if graph_uri in (graph.base_uri, graph.edb_uri, graph.synthetic_uri):
+        config_graphs = (
+            graph.base_uri,
+            graph.edb_uri,
+            graph.synthetic_uri,
+            graph.filled_uri,
+        )
+        if graph_uri in config_graphs:
             raise SystemExit(
                 f"--graph-uri <{graph_uri}> is one of the config's graphs; it would "
                 "be overwritten and cleared."
