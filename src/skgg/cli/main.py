@@ -362,6 +362,7 @@ def run_synthetic_graph_experiment(
     log_level: int | str | None = None,
     pca_threshold: float | None = None,
     fill: bool = False,
+    synthetic_uri: str | None = None,
 ) -> None:
     """Runs a Synthetic Graph generation experiment.
 
@@ -371,24 +372,27 @@ def run_synthetic_graph_experiment(
     confidence >= `DEFAULT_STD_THRESHOLD` (1) are kept instead.
 
     The run's graphs are named after its rule filter (`rule_filter_label`, e.g.
-    `pca=0.9`), so runs at different thresholds keep separate graphs: the EDB at
-    `config.graph.edb_uri(...)`, and the EDB plus what completion derives at
-    `config.graph.synthetic_uri(...)`. If `fill` is True, the synthetic graph is
-    copied to `config.graph.filled_uri(...)` and the relations still open are
-    filled there (`_fill_open_relations`); the summary then compares the filled
-    graph with the source instead of the synthetic one.
+    `pca=0.9`), so runs at different thresholds keep separate graphs: the EDB plus
+    what completion derives at `config.graph.synthetic_uri(...)`, and the EDB at
+    `config.graph.edb_uri(...)` below it. `synthetic_uri`, if given, replaces the
+    synthetic graph's URI, and the EDB and filled graphs move below it, so a test
+    run leaves the graphs of earlier runs alone. If `fill` is True, the synthetic
+    graph is copied to `config.graph.filled_uri(...)` and the relations still
+    open are filled there (`_fill_open_relations`); the summary then compares the
+    filled graph with the source instead of the synthetic one.
 
     If `skip_edb_generation` is True, EDB generation is skipped entirely and
     the IDB step reuses whatever triples already sit at the EDB graph of this
-    rule filter (e.g. from a previous run) instead of regenerating them.
+    run (e.g. from a previous run) instead of regenerating them.
 
     After the confidence filter, the fewest rules that leave the relation graph
     with no cycle are removed (`remove_minimal_cyclic_rules`), so completion can
     derive every intensional predicate from the EDB.
 
     Raises:
+        ValueError: If one of the run's graphs is the base graph.
         RuntimeError: If `skip_edb_generation` is True and the EDB graph of this
-            rule filter is empty.
+            run is empty.
     """
 
     ## ------ Setup ------
@@ -406,17 +410,17 @@ def run_synthetic_graph_experiment(
     ## ------ Extraction of predicate profiles from original graph -------
     _log_phase(1, "Extracting metrics and rules")
 
-    graph_metrics = GraphMetrics.from_uri(client, config.graph.base_uri)
-
-    ## ------ Previous evaluation of rules ------
-    term_mapping = config_term_mapping(config)
-
     if pca_threshold is None:
         pca_threshold = config.rules.pca_threshold
     rule_filter = rule_filter_label(pca_threshold)
-    edb_uri = config.graph.edb_uri(rule_filter)
-    synthetic_uri = config.graph.synthetic_uri(rule_filter)
-    filled_uri = config.graph.filled_uri(rule_filter)
+    if synthetic_uri is None:
+        synthetic_uri = config.graph.synthetic_uri(rule_filter)
+    edb_uri = config.graph.edb_uri(synthetic_uri)
+    filled_uri = config.graph.filled_uri(synthetic_uri)
+    if config.graph.base_uri in (edb_uri, synthetic_uri, filled_uri):
+        raise ValueError(
+            f"The run's graphs can't include the base graph <{config.graph.base_uri}>."
+        )
     logger.info(
         "Rule filter %s: EDB at <%s>, synthetic graph at <%s>%s.",
         rule_filter,
@@ -424,6 +428,12 @@ def run_synthetic_graph_experiment(
         synthetic_uri,
         f", filled graph at <{filled_uri}>" if fill else "",
     )
+
+    graph_metrics = GraphMetrics.from_uri(client, config.graph.base_uri)
+
+    ## ------ Previous evaluation of rules ------
+    term_mapping = config_term_mapping(config)
+
     if pca_threshold is not None:
         rules = parse_rule_set(
             rules_file=rules_file,
@@ -478,7 +488,7 @@ def run_synthetic_graph_experiment(
         if edb_triples == 0:
             raise RuntimeError(
                 f"No EDB at <{edb_uri}> to reuse: run once without --skip-edb at "
-                f"rule filter {rule_filter}."
+                f"rule filter {rule_filter}, with the same --synthetic-uri if any."
             )
         logger.info(
             "Skipping EDB generation, reusing existing EDB at <%s> with %d triples",
@@ -582,8 +592,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--skip-edb",
         action="store_true",
-        help="Skip EDB generation and reuse the EDB graph of this run's rule "
-        "filter, e.g. http://FrenchRoyalty.org/skgg/pca=0.9/edb.",
+        help="Skip EDB generation and reuse the EDB graph of this run, e.g. "
+        "http://FrenchRoyalty.org/skgg/pca=0.9/edb.",
     )
     parser.add_argument(
         "--fill",
@@ -600,6 +610,14 @@ def _parse_args() -> argparse.Namespace:
         "rules with std confidence 1 are kept. The rule filter names the run's "
         "graphs, e.g. http://FrenchRoyalty.org/skgg/pca=0.9 or .../skgg/std=1.",
     )
+    parser.add_argument(
+        "--synthetic-uri",
+        default=None,
+        help="Write the synthetic graph to this URI instead of the one named after "
+        "the rule filter, with the EDB at <uri>/edb and the filled graph at "
+        "<uri>/filled, e.g. http://FrenchRoyalty.org/skgg/test. --skip-edb then "
+        "reuses <uri>/edb.",
+    )
     return parser.parse_args()
 
 
@@ -611,4 +629,5 @@ if __name__ == "__main__":
         log_level=args.log_level,
         pca_threshold=args.pca_conf,
         fill=args.fill,
+        synthetic_uri=args.synthetic_uri,
     )

@@ -132,7 +132,7 @@ This loads the config, computes graph metrics over SPARQL, parses the ontology a
 
 The run's graphs are named after its rule filter, so runs at different thresholds keep separate graphs. With no PCA threshold (the rules with std confidence 1) a run on `french_royalty.json` writes the EDB to `http://FrenchRoyalty.org/skgg/std=1/edb` and the synthetic graph to `http://FrenchRoyalty.org/skgg/std=1`. With `--pca-conf 0.9` it writes `.../skgg/pca=0.9/edb` and `.../skgg/pca=0.9`, and `--fill` adds `.../skgg/pca=0.9/filled`. The base graph, `http://FrenchRoyalty.org/base`, is shared by every run.
 
-`-f`/`--config-file` resolves a bare filename under `configurations/`, with or without the `.json` extension (`-f french_royalty` works too, in every `cli/` script); `--skip-edb` reuses the EDB graph of the run's rule filter instead of regenerating it; `--log-level` overrides the config's `logging.level` for that run. For a full walkthrough, see [`docs/getting-started.md`](docs/getting-started.md).
+`-f`/`--config-file` resolves a bare filename under `configurations/`, with or without the `.json` extension (`-f french_royalty` works too, in every `cli/` script); `--skip-edb` reuses the EDB graph of the run's rule filter instead of regenerating it; `--log-level` overrides the config's `logging.level` for that run; `--synthetic-uri URI` writes the synthetic graph to `URI` and the EDB to `URI/edb` instead, leaving earlier runs' graphs alone. For a full walkthrough, see [`docs/getting-started.md`](docs/getting-started.md).
 
 ## Project layout
 

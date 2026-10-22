@@ -78,7 +78,9 @@ class GraphConfig:
                                      triples that the optional fill step adds
                                      (`--fill` in `cli/main.py`, `filled_uri`)
 
-    Configs with the same namespace share these graphs.
+    Configs with the same namespace share these graphs. `--synthetic-uri` in
+    `cli/main.py` replaces `<root>/skgg/<filter>` for one run, and the EDB and
+    filled graphs move below it.
 
     Attributes:
         name: Human-readable name for the graph/experiment.
@@ -118,15 +120,17 @@ class GraphConfig:
         rule filter is labeled `rule_filter`."""
         return f"{self.skgg_uri}/{rule_filter}"
 
-    def edb_uri(self, rule_filter: str) -> str:
-        """Named-graph URI of the EDB of a run whose rule filter is labeled
-        `rule_filter`."""
-        return f"{self.synthetic_uri(rule_filter)}/edb"
+    @staticmethod
+    def edb_uri(synthetic_uri: str) -> str:
+        """Named-graph URI of the EDB of a run whose synthetic graph is
+        `synthetic_uri`."""
+        return f"{synthetic_uri}/edb"
 
-    def filled_uri(self, rule_filter: str) -> str:
-        """Named-graph URI of the filled copy of the synthetic graph of a run whose
-        rule filter is labeled `rule_filter`."""
-        return f"{self.synthetic_uri(rule_filter)}/filled"
+    @staticmethod
+    def filled_uri(synthetic_uri: str) -> str:
+        """Named-graph URI of the filled copy of the synthetic graph
+        `synthetic_uri`."""
+        return f"{synthetic_uri}/filled"
 
 
 @dataclass(frozen=True)

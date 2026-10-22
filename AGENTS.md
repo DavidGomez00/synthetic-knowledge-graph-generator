@@ -53,9 +53,10 @@ python -m skgg.cli.main -f french_royalty.json
 python -m skgg.cli.main -f french_royalty.json --skip-edb --log-level DEBUG
 python -m skgg.cli.main -f french_royalty.json --pca-conf 0.95
 python -m skgg.cli.main -f french_royalty.json --pca-conf 0.9 --fill   # also fills open relations into <root>/skgg/pca=0.9/filled
+python -m skgg.cli.main -f french_royalty.json --synthetic-uri http://FrenchRoyalty.org/skgg/test   # EDB at .../skgg/test/edb, earlier runs' graphs untouched
 ```
 
-`-f`/`--config-file` (required) accepts a bare filename resolved under `configurations/` (or a path, used as-is, if it contains a `/`), with or without the `.json` extension (`-f french_royalty` works too, in every `cli/` script); `--skip-edb` skips EDB generation and reuses whatever triples already sit at the EDB graph of the run's rule filter, and fails if that graph is empty; `--log-level` overrides the config's `logging.level` for that run only, without editing the JSON file; `--pca-conf` overrides the config's optional `rules.pca_threshold` for that run only, which also picks the graphs the run writes (`<root>/skgg/pca=0.95` for `--pca-conf 0.95`); `--fill` runs the optional fill step (phase 4), which copies the synthetic graph to the filled graph and fills the relations still open there, leaving the synthetic graph as EDB + completion.
+`-f`/`--config-file` (required) accepts a bare filename resolved under `configurations/` (or a path, used as-is, if it contains a `/`), with or without the `.json` extension (`-f french_royalty` works too, in every `cli/` script); `--skip-edb` skips EDB generation and reuses whatever triples already sit at the EDB graph of the run's rule filter, and fails if that graph is empty; `--log-level` overrides the config's `logging.level` for that run only, without editing the JSON file; `--pca-conf` overrides the config's optional `rules.pca_threshold` for that run only, which also picks the graphs the run writes (`<root>/skgg/pca=0.95` for `--pca-conf 0.95`); `--fill` runs the optional fill step (phase 4), which copies the synthetic graph to the filled graph and fills the relations still open there, leaving the synthetic graph as EDB + completion; `--synthetic-uri URI` writes the synthetic graph to `URI` instead of `<root>/skgg/<filter>`, the EDB to `URI/edb` and the filled graph to `URI/filled`, so a test run leaves the graphs of earlier runs alone. `--skip-edb` then reuses `URI/edb`, and the run fails before writing anything if one of these graphs would be the base graph.
 
 Typical experiment flow (see `cli/main.py`):
 1. Load `RunConfig` from JSON and set up logging.
@@ -124,7 +125,7 @@ python -m skgg.cli.validate -f french_royalty.json --source data/french_royalty/
 python -m skgg.cli.validate -f french_royalty.json --source path/to/graph.tsv --shapes path/to/x.shapes.ttl -o path/to/report.tsv --keep-graph
 ```
 
-`cli/main.py`'s `__main__` block parses `-f`/`--config-file`, `--skip-edb`, `--fill`, `--log-level` and `--pca-conf` from the CLI (see the `bash` example above) and calls `run_synthetic_graph_experiment` end-to-end; confirmed working (verified via `python -m skgg.cli.main -f french_royalty.json`, at std=1 and at PCA 0.9; see `BACKLOG.md`). Check `BACKLOG.md` for the current TODO list before assuming any other code path is exercised/working.
+`cli/main.py`'s `__main__` block parses `-f`/`--config-file`, `--skip-edb`, `--fill`, `--log-level`, `--pca-conf` and `--synthetic-uri` from the CLI (see the `bash` example above) and calls `run_synthetic_graph_experiment` end-to-end; confirmed working (verified via `python -m skgg.cli.main -f french_royalty.json`, at std=1 and at PCA 0.9; see `BACKLOG.md`). Check `BACKLOG.md` for the current TODO list before assuming any other code path is exercised/working.
 
 ## Architecture
 

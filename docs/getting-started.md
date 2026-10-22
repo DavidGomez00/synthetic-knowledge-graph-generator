@@ -68,6 +68,7 @@ The CLI also accepts:
 - `--skip-edb` — skip EDB generation and reuse whatever triples already sit in the EDB graph of the run's rule filter (e.g. from a previous run). The run fails if that graph is empty.
 - `--log-level DEBUG` (or `INFO`/`WARNING`/...) — override the config's `logging.level` for this run only, without editing the JSON file.
 - `--pca-conf 0.9` — keep only the rules with PCA confidence >= 0.9 for this run, overriding the config's `rules.pca_threshold`. Without either, the rules with std confidence 1 are kept. Excluded rules are left out of every pipeline step. The threshold also names the run's graphs (`.../skgg/pca=0.9`).
+- `--synthetic-uri http://FrenchRoyalty.org/skgg/test` — write the synthetic graph to this URI instead, the EDB to `.../skgg/test/edb` and the filled graph to `.../skgg/test/filled`, so a test run doesn't overwrite the graphs of an earlier run at the same threshold. `--skip-edb` then reuses `.../skgg/test/edb`.
 
 ```bash
 python -m skgg.cli.main -f french_royalty.json --skip-edb --log-level DEBUG
