@@ -260,7 +260,7 @@ def _parse_horn_rule(
 # Rule set handling
 # ---------------------------------------------------------------------------
 def rule_sort_key(rule_id: str) -> tuple[int, int, str]:
-    """Sort key for rule IDs: numeric IDs first in numeric order, then the rest as text."""
+    """Sort rule ID keys: numeric IDs first in numeric order, then the rest as text."""
     if rule_id.isdigit():
         return (0, int(rule_id), "")
     return (1, 0, rule_id)

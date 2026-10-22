@@ -293,8 +293,6 @@ def sample_grounding_groups(
 
         rows = random.choices(usable_rows, k=batch_size) if usable_rows else []
         draws = {
-            # NOTE: Weightinh values per availability may have effects on the behaviour
-            # of the algorithm.
             var: random.choices(
                 list(pools[var]), weights=list(pools[var].values()), k=batch_size
             )
