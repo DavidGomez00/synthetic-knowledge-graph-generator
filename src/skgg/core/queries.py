@@ -150,23 +150,31 @@ def build_rule_query(rule: RuleSignature, graph_uri: str) -> str:
 
     patterns_str = "\n      ".join([f"{atom} ." for atom in sorted(rule.body)])
 
-    unique_values_str = ""
-    if len(rule.get_variables()) > 1:
-        expressions = [
-            f"{v1} != {v2}"
-            for v1, v2 in itertools.combinations(sorted(set(rule.get_variables())), 2)
-        ]
-        unique_values_str = f"FILTER ({' && '.join(expressions)})"
+    # unique_values_str = ""
+    # if len(rule.get_variables()) > 1:
+    #     expressions = [
+    #         f"{v1} != {v2}"
+    #         for v1, v2 in itertools.combinations(sorted(set(rule.get_variables())), 2)
+    #     ]
+    #     unique_values_str = f"FILTER ({' && '.join(expressions)})"
 
     source_str = f"FROM <{graph_uri}>"
 
+    # query = f"""
+    # SELECT DISTINCT ?rule_id {proj}
+    # {source_str}
+    # WHERE {{
+    #   BIND ("{rule.rule_id}" AS ?rule_id)
+    #   {patterns_str}
+    #   {unique_values_str}
+    # }}
+    # """
     query = f"""
     SELECT DISTINCT ?rule_id {proj}
     {source_str}
     WHERE {{
-      BIND ("{rule.rule_id}" AS ?rule_id)
-      {patterns_str}
-      {unique_values_str}
+        BIND ("{rule.rule_id}" AS ?rule_id)
+        {patterns_str}
     }}
     """
     return query
@@ -961,9 +969,7 @@ def get_unsupported_head_bindings(
 
     Values come back as bracketed terms, as in `get_atom_bindings`.
     """
-    patterns = "\n          ".join(
-        [f"{atom} ." for atom in atoms] + [f"{rule.head} ."]
-    )
+    patterns = "\n          ".join([f"{atom} ." for atom in atoms] + [f"{rule.head} ."])
     supported = "\n          ".join(_supported_patterns(rule))
     proj = " ".join(sorted(set(variables)))
 
