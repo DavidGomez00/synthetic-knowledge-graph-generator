@@ -115,6 +115,8 @@ class HornRule:
         pca_confidence: PCA confidence score of this rule.
         support: Support of this rule.
         head_coverage: Head coverage of the rule.
+        functional_variable: The head variable AMIE computed the PCA confidence
+            on (e.g. `?b`), or None if the rules CSV doesn't give it.
     """
 
     signature: RuleSignature
@@ -122,6 +124,7 @@ class HornRule:
     head_coverage: float | None = None
     std_confidence: float | None = None
     pca_confidence: float | None = None
+    functional_variable: str | None = None
     classification: str = "UNKNOWN"
     closed: bool = False
 
@@ -240,6 +243,9 @@ def _parse_horn_rule(
         """Returns float or Python None for Pandas/Numpy NaNs securely."""
         return 0.0 if (pd.isna(value) or value is None) else float(value)
 
+    # Optional column: rules CSVs not written by run_amie.py may lack it.
+    functional_variable = getattr(row, "functional_variable", None)
+
     rule = HornRule(
         signature=RuleSignature(
             rule_id=row.rule_id.strip(),
@@ -250,6 +256,11 @@ def _parse_horn_rule(
         head_coverage=_parse_metric(row.head_coverage),
         std_confidence=_parse_metric(row.std_confidence),
         pca_confidence=_parse_metric(row.pca_confidence),
+        functional_variable=(
+            None
+            if pd.isna(functional_variable)
+            else str(functional_variable).strip() or None
+        ),
         classification=row.classification,
     )
 

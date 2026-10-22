@@ -735,28 +735,78 @@ def get_reflexivity(client: SPARQLWrapper, graph_uri: str, predicate: str) -> in
     return 0
 
 
-def get_support(client: SPARQLWrapper, rule: HornRule, graph_uri: str) -> int:
-    """Returns the support for the rule in the graph."""
-
-    patterns = "\n          ".join(
-        [f"{atom} ." for atom in rule.body] + [f"{rule.head} ."]
-    )
+def _count_head_bindings(
+    client: SPARQLWrapper,
+    rule: HornRule,
+    patterns: Iterable[Atom | str],
+    graph_uri: str,
+    count_name: str,
+) -> int:
+    """Returns the number of distinct bindings of the rule's head variables that
+    match the triple `patterns` in the graph, logging a warning that names
+    `count_name` if the query returns nothing."""
+    where = "\n          ".join(f"{pattern} ." for pattern in patterns)
     proj = " ".join(sorted(rule.get_head_variables()))
 
     query = f"""
-    SELECT (COUNT(*) AS ?supp) WHERE {{
+    SELECT (COUNT(*) AS ?count) WHERE {{
       SELECT DISTINCT {proj} WHERE {{
         GRAPH <{graph_uri}> {{
-          {patterns}
+          {where}
         }}
       }}
     }}"""
 
     if results := execute_select_query(client, query):
-        return int(results[0]["supp"]["value"])
+        return int(results[0]["count"]["value"])
 
-    logger.warning("Retrieved None for %s support in %s.", rule.rule_id, graph_uri)
+    logger.warning(
+        "Retrieved None for %s %s in %s.", rule.rule_id, count_name, graph_uri
+    )
     return 0
+
+
+def get_support(client: SPARQLWrapper, rule: HornRule, graph_uri: str) -> int:
+    """Returns the support for the rule in the graph: the head bindings for which
+    the body and the head hold."""
+    return _count_head_bindings(
+        client, rule, [*rule.body, rule.head], graph_uri, "support"
+    )
+
+
+def get_body_size(client: SPARQLWrapper, rule: HornRule, graph_uri: str) -> int:
+    """Returns the rule's body size in the graph, the denominator of its std
+    confidence: the head bindings for which the body holds."""
+    return _count_head_bindings(client, rule, rule.body, graph_uri, "body size")
+
+
+def get_pca_body_size(
+    client: SPARQLWrapper, rule: HornRule, graph_uri: str
+) -> int | None:
+    """Returns the rule's PCA body size in the graph, the denominator of its PCA
+    confidence: the head bindings for which the body holds and the rule's
+    functional variable has some value for the head predicate (AMIE's partial
+    completeness assumption). Returns None if the rule has no functional
+    variable.
+
+    Raises:
+        ValueError: If the functional variable is not a term of the head.
+    """
+    head, variable = rule.head, rule.functional_variable
+    if variable is None:
+        return None
+    if variable == head.subject:
+        pca_head = f"{head.subject} {head.predicate} []"
+    elif variable == head.obj:
+        pca_head = f"[] {head.predicate} {head.obj}"
+    else:
+        raise ValueError(
+            f"Functional variable {variable} of rule {rule.rule_id} is not in its "
+            f"head {head}."
+        )
+    return _count_head_bindings(
+        client, rule, [*rule.body, pca_head], graph_uri, "PCA body size"
+    )
 
 
 def _bind_atom(atom: Atom, subject: str, obj: str) -> dict[str, str] | None:

@@ -17,6 +17,8 @@ from skgg.core.config import RunConfig
 from skgg.core.cycles import get_relation_graph, remove_minimal_cyclic_rules
 from skgg.core.queries import (
     copy_graph,
+    get_body_size,
+    get_pca_body_size,
     get_predicate_frequencies,
     get_support,
     get_triple_count,
@@ -221,14 +223,18 @@ def _format_summary_block(
     removed_rules: dict[str, HornRule],
     og_supports: dict[str, int],
     syn_supports: dict[str, int],
+    og_confidences: dict[str, tuple[float | None, float | None]],
+    syn_confidences: dict[str, tuple[float | None, float | None]],
 ) -> str:
     """Formats one aligned report of the whole experiment: total triples,
     then one row per predicate and one row per rule showing original ->
     synthetic (delta) and open/closed status (read directly off
     PredicateProfile.closed / HornRule.closed, the authoritative closure
-    state maintained throughout generation -- not re-derived here). Rules
-    removed by `remove_minimal_cyclic_rules` follow in their own section, without
-    a status."""
+    state maintained throughout generation -- not re-derived here). Each rule
+    row also shows the rule's std and PCA confidence original -> synthetic
+    (delta), from `og_confidences` and `syn_confidences`. Rules removed by
+    `remove_minimal_cyclic_rules` follow in their own section, without a
+    status."""
     triple_delta = syn_triple_count - og_triple_count
     pct = f", {triple_delta / og_triple_count:+.1%}" if og_triple_count else ""
     lines = [
@@ -286,17 +292,34 @@ def _format_summary_block(
         default=1,
     )
 
+    def confidence(og: float | None, syn: float | None) -> str:
+        """Formats a confidence original -> synthetic (delta) with 3 decimals,
+        with `n/a` for a missing value and its delta."""
+
+        def value(conf: float | None) -> str:
+            return "n/a".rjust(5) if conf is None else f"{conf:.3f}"
+
+        delta = "n/a".rjust(6) if og is None or syn is None else f"{syn - og:+.3f}"
+        return f"{value(og)} -> {value(syn)} ({delta})"
+
     def rule_row(rid: str) -> str:
-        """Formats a rule's id, text and support original -> synthetic (delta)."""
+        """Formats a rule's id, text, and support, std confidence and PCA
+        confidence, each original -> synthetic (delta)."""
         og_sup, syn_sup = og_supports[rid], syn_supports[rid]
+        (og_std, og_pca), (syn_std, syn_pca) = og_confidences[rid], syn_confidences[rid]
         return (
             f"  {rid.ljust(rule_id_width)}  {rule_texts[rid].ljust(rule_width)}  "
             f"{og_sup:>{og_sup_width}} -> {syn_sup:<{syn_sup_width}}"
             f"  ({syn_sup - og_sup:+{sup_delta_width}d})"
+            f"  std {confidence(og_std, syn_std)}  pca {confidence(og_pca, syn_pca)}"
         )
 
     rule_ids = sorted(rules, key=rule_sort_key)
-    lines += ["", f"Rules ({len(rule_ids)}):"]
+    lines += [
+        "",
+        f"Rules ({len(rule_ids)}), support, std and PCA confidence, "
+        "original -> synthetic:",
+    ]
     for rid in rule_ids:
         status = "CLOSED" if rules[rid].closed else "OPEN"
         lines.append(f"{rule_row(rid)}  [{status}]")
@@ -311,6 +334,21 @@ def _format_summary_block(
     return "\n".join(lines)
 
 
+def _get_confidences(
+    client: SPARQLWrapper, rule: HornRule, graph_uri: str, support: int
+) -> tuple[float | None, float | None]:
+    """Returns the rule's std and PCA confidence in the graph, given its
+    `support` there, as AMIE defines them: the support divided by the body size
+    and by the PCA body size. A confidence is None if its denominator is 0, or
+    for PCA if the rule has no functional variable."""
+    body_size = get_body_size(client, rule, graph_uri)
+    pca_body_size = get_pca_body_size(client, rule, graph_uri)
+    return (
+        support / body_size if body_size else None,
+        support / pca_body_size if pca_body_size else None,
+    )
+
+
 def log_summary(
     client: SPARQLWrapper,
     original_uri: str,
@@ -323,6 +361,9 @@ def log_summary(
     original: total triples, per-predicate frequency, and per-rule support,
     each as original -> synthetic (delta) plus open/closed status, then the
     support of each rule in `removed_rules` (see `remove_minimal_cyclic_rules`).
+    Every rule row also shows the rule's std and PCA confidence, original ->
+    synthetic (delta), to see whether the synthetic graph preserves them
+    (`_get_confidences`).
     Replaces the previous summarize_progress()/summary() pair, which queried
     overlapping data twice and logged two separate, overlapping reports.
     """
@@ -336,6 +377,14 @@ def log_summary(
     }
     syn_supports = {
         rid: get_support(client, rule, synthetic_uri) for rid, rule in all_rules.items()
+    }
+    og_confidences = {
+        rid: _get_confidences(client, rule, original_uri, og_supports[rid])
+        for rid, rule in all_rules.items()
+    }
+    syn_confidences = {
+        rid: _get_confidences(client, rule, synthetic_uri, syn_supports[rid])
+        for rid, rule in all_rules.items()
     }
 
     logger.info(
@@ -352,6 +401,8 @@ def log_summary(
             removed_rules,
             og_supports,
             syn_supports,
+            og_confidences,
+            syn_confidences,
         ),
     )
 
