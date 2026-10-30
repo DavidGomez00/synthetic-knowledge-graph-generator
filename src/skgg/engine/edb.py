@@ -139,7 +139,7 @@ def check_triples_from_rule(
     ]
     if unprofiled := {a.predicate for a in candidate_atoms} - profiles.keys():
         logger.warning(
-            "Checking triples from rule: No profile for %s (absent from the source ",
+            "Checking triples from rule %s: No profile for %s (absent from the source "
             "graph or a predicate format mismatch); ignoring those atoms.",
             rule.rule_id,
             sorted(unprofiled),
