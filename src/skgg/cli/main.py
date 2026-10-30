@@ -34,7 +34,7 @@ from skgg.core.rules import (
     write_used_rules,
 )
 from skgg.core.utils import (
-    config_term_mapping,
+    build_term_mapping,
     create_sparql_client,
     resolve_config_path,
     setup_logging,
@@ -414,6 +414,8 @@ def run_synthetic_graph_experiment(
     pca_threshold: float | None = None,
     fill: bool = False,
     synthetic_uri: str | None = None,
+    base_uri: str | None = None,
+    namespace: str | None = None,
 ) -> None:
     """Runs a Synthetic Graph generation experiment.
 
@@ -430,7 +432,12 @@ def run_synthetic_graph_experiment(
     run leaves the graphs of earlier runs alone. If `fill` is True, the synthetic
     graph is copied to `config.graph.filled_uri(...)` and the relations still
     open are filled there (`_fill_open_relations`); the summary then compares the
-    filled graph with the source instead of the synthetic one.
+    filled graph with the source instead of the synthetic one. `base_uri`, if
+    given, replaces `config.graph.base_uri` as the source graph that the metrics,
+    the fill step and the summary read. `namespace`, if given, replaces
+    `config.graph.namespace` as the namespace of the rules' bare terms, e.g. for
+    a base graph whose IRIs aren't under the config's namespace; the graph URIs
+    are still derived from `config.graph.namespace`.
 
     If `skip_edb_generation` is True, EDB generation is skipped entirely and
     the IDB step reuses whatever triples already sit at the EDB graph of this
@@ -441,7 +448,8 @@ def run_synthetic_graph_experiment(
     derive every intensional predicate from the EDB.
 
     Raises:
-        ValueError: If one of the run's graphs is the base graph.
+        ValueError: If one of the run's graphs is the base graph, or a rule
+            predicate has no profile in the base graph.
         RuntimeError: If `skip_edb_generation` is True and the EDB graph of this
             run is empty.
     """
@@ -468,10 +476,10 @@ def run_synthetic_graph_experiment(
         synthetic_uri = config.graph.synthetic_uri(rule_filter)
     edb_uri = config.graph.edb_uri(synthetic_uri)
     filled_uri = config.graph.filled_uri(synthetic_uri)
-    if config.graph.base_uri in (edb_uri, synthetic_uri, filled_uri):
-        raise ValueError(
-            f"The run's graphs can't include the base graph <{config.graph.base_uri}>."
-        )
+    if base_uri is None:
+        base_uri = config.graph.base_uri
+    if base_uri in (edb_uri, synthetic_uri, filled_uri):
+        raise ValueError(f"The run's graphs can't include the base graph <{base_uri}>.")
     logger.info(
         "Rule filter %s: EDB at <%s>, synthetic graph at <%s>%s.",
         rule_filter,
@@ -480,10 +488,12 @@ def run_synthetic_graph_experiment(
         f", filled graph at <{filled_uri}>" if fill else "",
     )
 
-    graph_metrics = GraphMetrics.from_uri(client, config.graph.base_uri)
+    graph_metrics = GraphMetrics.from_uri(client, base_uri)
 
     ## ------ Previous evaluation of rules ------
-    term_mapping = config_term_mapping(config)
+    if namespace is None:
+        namespace = config.graph.namespace
+    term_mapping = build_term_mapping(config.graph.term_namespaces, namespace)
 
     if pca_threshold is not None:
         rules = parse_rule_set(
@@ -496,6 +506,17 @@ def run_synthetic_graph_experiment(
             rules_file=rules_file,
             term_mapping=term_mapping,
             std_threshold=DEFAULT_STD_THRESHOLD,
+        )
+    unprofiled = (
+        set().union(*(r.get_predicates() for r in rules.values()))
+        - graph_metrics.profiles.keys()
+    )
+    if unprofiled:
+        raise ValueError(
+            f"No profile in the base graph <{base_uri}> for the rule "
+            f"predicates {sorted(unprofiled)}: check that graph.namespace (or "
+            "--namespace) matches the base graph's IRIs, or upload the base graph "
+            "again."
         )
     # Drawn before the cyclic rules are removed, so the PNG shows their cycles.
     plot_relation_graph(
@@ -610,7 +631,7 @@ def run_synthetic_graph_experiment(
             client,
             rules,
             progress,
-            config.graph.base_uri,
+            base_uri,
             final_uri,
             term_mapping,
             chunk_size,
@@ -625,7 +646,7 @@ def run_synthetic_graph_experiment(
     _log_phase(5, "Summary")
     log_summary(
         client,
-        config.graph.base_uri,
+        base_uri,
         final_uri,
         rules,
         graph_metrics.profiles,
@@ -669,6 +690,19 @@ def _parse_args() -> argparse.Namespace:
         "<uri>/filled, e.g. http://FrenchRoyalty.org/skgg/test. --skip-edb then "
         "reuses <uri>/edb.",
     )
+    parser.add_argument(
+        "--base-uri",
+        default=None,
+        help="Read the source graph from this URI instead of the config's base "
+        "graph, e.g. http://FrenchRoyalty.org/complete. Default <root>/base.",
+    )
+    parser.add_argument(
+        "--namespace",
+        default=None,
+        help="Default namespace for bare terms in the rules (overrides the config's "
+        "graph.namespace), e.g. http://FrenchRoyalty.org/ for a --base-uri graph "
+        "whose IRIs are under it. The graph URIs still come from graph.namespace.",
+    )
     return parser.parse_args()
 
 
@@ -681,4 +715,6 @@ if __name__ == "__main__":
         pca_threshold=args.pca_conf,
         fill=args.fill,
         synthetic_uri=args.synthetic_uri,
+        base_uri=args.base_uri,
+        namespace=args.namespace,
     )

@@ -69,6 +69,8 @@ The CLI also accepts:
 - `--log-level DEBUG` (or `INFO`/`WARNING`/...) — override the config's `logging.level` for this run only, without editing the JSON file.
 - `--pca-conf 0.9` — keep only the rules with PCA confidence >= 0.9 for this run, overriding the config's `rules.pca_threshold`. Without either, the rules with std confidence 1 are kept. Excluded rules are left out of every pipeline step. The threshold also names the run's graphs (`.../skgg/pca=0.9`).
 - `--synthetic-uri http://FrenchRoyalty.org/skgg/test` — write the synthetic graph to this URI instead, the EDB to `.../skgg/test/edb` and the filled graph to `.../skgg/test/filled`, so a test run doesn't overwrite the graphs of an earlier run at the same threshold. `--skip-edb` then reuses `.../skgg/test/edb`.
+- `--base-uri http://FrenchRoyalty.org/complete` — read the source graph from this URI instead of `http://FrenchRoyalty.org/base`. The metrics, the fill step and the summary read it; the run's own graphs keep their URIs.
+- `--namespace http://FrenchRoyalty.org/` — put the rules' bare terms under this namespace instead of the config's `graph.namespace`, for a `--base-uri` graph whose IRIs are under another namespace. The graph URIs are still derived from `graph.namespace`.
 
 ```bash
 python -m skgg.cli.main -f french_royalty.json --skip-edb --log-level DEBUG
