@@ -70,7 +70,7 @@ python -m skgg.cli.graph upload -f french_royalty.json   # uploads graph.triple_
 python -m skgg.cli.graph upload -f french_royalty.json --triple-file data/french_royalty/skgg/french_royalty.skgg.std=1.tsv --graph-uri http://FrenchRoyalty.org/skgg/std=1
 ```
 
-`graph.triple_file` is the dataset's cleaned graph, and `--triple-file` uploads another file instead. A bare filename resolves under `data.input_dir`, and a path containing `/` is used as given. `--graph-uri` uploads to a different named graph, e.g. to re-insert a downloaded synthetic graph into `http://FrenchRoyalty.org/skgg/pca=0.9`. `--log-level` overrides the config's `logging.level` for the run.
+`graph.triple_file` is the dataset's cleaned graph, and `--triple-file` uploads another file instead. A bare filename resolves under `data.input_dir`, and a path containing `/` is used as given. `--graph-uri` uploads to a different named graph, e.g. to re-insert a downloaded synthetic graph into `http://FrenchRoyalty.org/skgg/pca=0.9`. `--namespace` puts the `.tsv` file's bare terms under another namespace than `graph.namespace`, and the default graph URI is still derived from `graph.namespace`. `--log-level` overrides the config's `logging.level` for the run.
 
 ### Download a graph
 
@@ -80,9 +80,10 @@ python -m skgg.cli.graph upload -f french_royalty.json --triple-file data/french
 python -m skgg.cli.graph download -f french_royalty.json --graph-uri http://FrenchRoyalty.org/skgg/std=1   # -> data/french_royalty/french_royalty.skgg.std=1.{nt,tsv}
 python -m skgg.cli.graph download -f french_royalty.json --graph-uri http://FrenchRoyalty.org/skgg/std=1 -o data/french_royalty/skgg/french_royalty.skgg.std=1   # into the skgg/ folder
 python -m skgg.cli.graph download -f french_royalty.json -o path/to/french_royalty                         # base graph -> path/to/french_royalty.{nt,tsv}
+python -m skgg.cli.graph download -f french_royalty_complete_test --graph-uri http://FrenchRoyalty.org/complete-test/pca=0.9 --namespace http://FrenchRoyalty.org/   # IRIs under http://FrenchRoyalty.org/ become bare terms
 ```
 
-On GraphDB the whole graph comes from one request to the repository's `/statements` endpoint, with inferred triples excluded. Virtuoso's Graph Store endpoint returns at most `ResultSetMaxRows` triples, so on Virtuoso the script sends sorted CONSTRUCT queries of `db_config.chunk_size` triples each. Either way, the script fails if it wrote a different number of triples than the graph holds. The `.tsv` is converted from the `.nt` as `skgg.cli.convert` does with the config's term mapping, so it can be uploaded again with the same config.
+On GraphDB the whole graph comes from one request to the repository's `/statements` endpoint, with inferred triples excluded. Virtuoso's Graph Store endpoint returns at most `ResultSetMaxRows` triples, so on Virtuoso the script sends sorted CONSTRUCT queries of `db_config.chunk_size` triples each. Either way, the script fails if it wrote a different number of triples than the graph holds. The `.tsv` is converted from the `.nt` as `skgg.cli.convert` does with the config's term mapping, so it can be uploaded again with the same config. An IRI outside the term mapping's namespaces stays in full in the `.tsv`, so for a graph whose IRIs are not under `graph.namespace`, pass their namespace with `--namespace`, and pass it again when uploading the `.tsv`.
 
 ### Complete a graph with its rules
 
