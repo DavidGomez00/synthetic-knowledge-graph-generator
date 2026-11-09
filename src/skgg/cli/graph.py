@@ -3,7 +3,8 @@
 `upload` overwrites a graph (by default the base graph, `GraphConfig.base_uri`)
 with an .nt/.tsv file (by default `graph.triple_file`); `download` writes a graph
 to an .nt and a .tsv file, through the store's native export endpoint (see
-`queries.export_graph_nt`).
+`queries.export_graph_nt`). Both map bare .tsv terms to IRIs under
+`graph.namespace`, or under `--namespace` for a graph whose IRIs are elsewhere.
 """
 
 import argparse
@@ -15,7 +16,7 @@ from SPARQLWrapper import SPARQLWrapper
 from skgg.cli.common import add_config_args, load_config
 from skgg.core.queries import export_graph_nt, get_triple_count, initialize_graph
 from skgg.core.triples import convert
-from skgg.core.utils import config_term_mapping, create_sparql_client, graph_file_stem
+from skgg.core.utils import build_term_mapping, create_sparql_client, graph_file_stem
 
 logger = logging.getLogger(__name__)
 
@@ -146,13 +147,25 @@ def _parse_args() -> argparse.Namespace:
         "pca=0.9 for "
         "http://FrenchRoyalty.org/skgg/pca=0.9).",
     )
+
+    for command in (upload, download):
+        command.add_argument(
+            "--namespace",
+            default=None,
+            help="Default namespace for bare terms in the .tsv file (overrides the "
+            "config's graph.namespace), e.g. http://FrenchRoyalty.org/ for a graph "
+            "whose IRIs are under it. The graph URIs still come from "
+            "graph.namespace.",
+        )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = _parse_args()
     config = load_config(args)
-    term_mapping = config_term_mapping(config)
+    term_mapping = build_term_mapping(
+        config.graph.term_namespaces, args.namespace or config.graph.namespace
+    )
     client = create_sparql_client(config)
     graph_uri = args.graph_uri or config.graph.base_uri
 
