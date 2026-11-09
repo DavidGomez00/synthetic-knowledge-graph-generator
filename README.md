@@ -145,6 +145,15 @@ The run's graphs are named after its rule filter, so runs at different threshold
 
 `-f`/`--config-file` resolves a bare filename under `configurations/`, with or without the `.json` extension (`-f french_royalty` works too, in every `cli/` script); `--skip-edb` reuses the EDB graph of the run's rule filter instead of regenerating it; `--log-level` overrides the config's `logging.level` for that run; `--synthetic-uri URI` writes the synthetic graph to `URI` and the EDB to `URI/edb` instead, leaving earlier runs' graphs alone; `--base-uri URI` reads the source graph from `URI` instead of the base graph; `--namespace NS` puts the rules' bare terms under `NS` instead of `graph.namespace`, without changing the graph URIs. For a full walkthrough, see [`docs/getting-started.md`](docs/getting-started.md).
 
+### Generate every benchmark dataset
+
+`cli/generate_datasets.py` runs the pipeline on every folder under `exp_datasets/` that has a `<folder>.unified.tsv` and a `<folder>.csv`, and saves the synthetic graph to `<folder>_ours/<folder>_ours.tsv`. It needs a running GraphDB, where it creates one temporary repository per dataset and deletes it afterwards. It uses the default rule filter (std confidence 1) and no fill step. A dataset that already has its `.tsv` is skipped unless `--force` is given, so an interrupted batch can be resumed. Each dataset's output goes to `logs/ours/<folder>.log`, at INFO level by default; `--log-level WARNING` leaves out the pipeline's phases and run summary.
+
+```bash
+python -m skgg.cli.generate_datasets                                    # every dataset under exp_datasets/
+python -m skgg.cli.generate_datasets --datasets french WN18RR --force
+```
+
 ## Project layout
 
 ```
