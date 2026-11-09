@@ -26,6 +26,8 @@ docker compose --profile virtuoso up   # Virtuoso (8890) + YASGUI SPARQL UI (808
 docker compose --profile all up        # both
 ```
 
+GraphDB keeps its home in `/mnt/Pandora/graphdb-home` by default. To use another folder on your machine, put `GRAPHDB_HOME=/path/to/graphdb-home` in a `.env` file next to `docker-compose.yml`. Git ignores that file.
+
 ## Running an experiment
 
 Experiments are driven by JSON config files in `configurations/` (e.g. `french_royalty.json`).

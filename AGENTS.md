@@ -22,6 +22,8 @@ Graphs are never loaded into memory-intensive libraries like RDFlib for bulk wor
 - `docker compose --profile graphdb up` — GraphDB 10.7 (port 7200).
 - `--profile all` starts everything.
 
+GraphDB keeps its home in the host folder named by `GRAPHDB_HOME`, default `/mnt/Pandora/graphdb-home`. To use another folder on one machine, set `GRAPHDB_HOME=/path/to/graphdb-home` in a `.env` file next to `docker-compose.yml`. `.gitignore` ignores `.env`, so other machines keep the default.
+
 `DatabaseAuthConfig.auth_type` must match the store in use: `DIGEST` for Virtuoso, `BASIC` for GraphDB (or `NONE`). Each experiment config's `data.database_url` / `sparql_endpoint` selects which running store and repository/endpoint to talk to (see Configuration below).
 
 A dataset keeps all its named graphs in one repository, under a root taken from the config's `graph.namespace` without its trailing `/` or `#` (e.g. `http://FrenchRoyalty.org`). Configs don't list graph URIs: `GraphConfig` (`core/config.py`) derives them, and names a pipeline run's graphs after its rule filter (`core/rules.rule_filter_label`: `pca=0.9`, `pca=1`, or `std=1` when no PCA threshold is set), so runs at different thresholds keep separate graphs:

@@ -19,6 +19,8 @@ Requires Python >= 3.10.
 docker compose --profile graphdb up
 ```
 
+The GraphDB home defaults to `/mnt/Pandora/graphdb-home`. To keep it in another folder, put `GRAPHDB_HOME=/path/to/graphdb-home` in a `.env` file next to `docker-compose.yml` before starting GraphDB. Git ignores that file.
+
 GraphDB doesn't auto-create repositories from a client connection the way Virtuoso auto-creates graphs — before running anything, open the GraphDB Workbench at `http://localhost:7200` and create a repository whose ID matches the config's `sparql_endpoint` (for `french_royalty.json`: `repositories/FrenchRoyalty` → repository ID `FrenchRoyalty`).
 
 If you'd rather use Virtuoso instead, `docker compose --profile virtuoso up` brings up Virtuoso (port 8890) + a YASGUI SPARQL UI (port 8080); point a config's `data.database_url`/`sparql_endpoint` at it and set `db_config.auth_type` to `"DIGEST"` (GraphDB uses `"BASIC"`).
