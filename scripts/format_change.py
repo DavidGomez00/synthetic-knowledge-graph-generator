@@ -71,12 +71,18 @@ def build_term_mapping(namespace: str) -> dict[str, str]:
     return {**DEFAULT_PREFIXES, "default": namespace}
 
 
+def is_http_iri(term: str) -> bool:
+    """Whether a bare term is a full HTTP(S) IRI. A term that only starts with
+    the letters "http", such as `http%3A//twitter.com/`, is a name, not an IRI."""
+    return term.startswith(("http://", "https://"))
+
+
 def short_term(term: str) -> str:
     """Shortens an IRI (bare or in brackets) to its last path/fragment segment,
     e.g. `<http://FrenchRoyalty.org/child>` -> `child`. Other terms are returned
     unchanged."""
     bare = term[1:-1] if term.startswith("<") and term.endswith(">") else term
-    if not bare.startswith("http"):
+    if not is_http_iri(bare):
         return term
     return bare.rstrip("/#").rsplit("/", 1)[-1].rsplit("#", 1)[-1]
 
@@ -85,7 +91,7 @@ def format_term(term: str, term_mapping: dict[str, str]) -> str:
     """A term as a bracketed IRI, under its namespace when it is a bare term."""
     if term.startswith("<") and term.endswith(">"):
         return term
-    if term.startswith("http"):
+    if is_http_iri(term):
         return f"<{term}>"
     return f"<{term_mapping.get(term, term_mapping['default'])}{term}>"
 
@@ -133,7 +139,7 @@ def tsv_term_to_nt(term: str, term_mapping: dict[str, str]) -> str:
     term is percent-encoded (see `IRI_ESCAPES`) under its namespace."""
     if term.startswith("_:"):
         return term
-    if not term.startswith("http"):
+    if not is_http_iri(term):
         term = term.translate(IRI_ESCAPES)
     return format_term(term, term_mapping)
 

@@ -12,7 +12,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import unquote
 
-from skgg.core.utils import format_term, short_term
+from skgg.core.utils import format_term, is_http_iri, short_term
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ def tsv_term_to_nt(term: str, term_mapping: dict[str, str]) -> str:
     term is percent-encoded (see `IRI_ESCAPES`) under its namespace."""
     if term.startswith("_:"):
         return term
-    if not term.startswith("http"):
+    if not is_http_iri(term):
         term = term.translate(IRI_ESCAPES)
     return format_term(term, term_mapping)
 

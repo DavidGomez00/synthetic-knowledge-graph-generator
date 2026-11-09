@@ -28,12 +28,18 @@ def resolve_config_path(name: str) -> Path:
     return path if "/" in name else Path("configurations") / path
 
 
+def is_http_iri(term: str) -> bool:
+    """Whether a bare term is a full HTTP(S) IRI. A term that only starts with
+    the letters "http", such as `http%3A//twitter.com/`, is a name, not an IRI."""
+    return term.startswith(("http://", "https://"))
+
+
 def short_term(term: str) -> str:
     """Shortens a URI term (bare or in brackets) to its last path/fragment segment,
     e.g. `<http://FrenchRoyalty.org/child>` -> `child`. Variables and other terms are
     returned unchanged."""
     bare = term[1:-1] if term.startswith("<") and term.endswith(">") else term
-    if not bare.startswith("http"):
+    if not is_http_iri(bare):
         return term
     return bare.rstrip("/#").rsplit("/", 1)[-1].rsplit("#", 1)[-1]
 
@@ -127,7 +133,7 @@ def format_term(
     if (term.startswith("<") and term.endswith(">")) or term.startswith("?"):
         return term
 
-    if term.startswith("http"):
+    if is_http_iri(term):
         return f"<{term}>"
 
     if term_mapping is not None:

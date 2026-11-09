@@ -54,7 +54,7 @@ python -m skgg.cli.convert path/to/graph.nt -o path/to/out.tsv                # 
 A `.tsv` input needs a term mapping, from `--namespace` or from a config passed with `-f`. Each row must hold three tab-separated values, which become N-Triples terms as follows:
 
 - `type` in the predicate column becomes `rdf:type`.
-- A value starting with `http` is kept as a full IRI, and one starting with `_:` as a blank node.
+- A value starting with `http://` or `https://` is kept as a full IRI, and one starting with `_:` as a blank node.
 - Any other value is appended to its namespace. Spaces, `%`, `/`, `#` and the other characters N-Triples forbids in IRIs are percent-encoded.
 
 For example, the row `Louis_XIV<TAB>spouse<TAB>Maria_Theresa_of_Spain` with `--namespace http://FrenchRoyalty.org/` becomes `<http://FrenchRoyalty.org/Louis_XIV> <http://FrenchRoyalty.org/spouse> <http://FrenchRoyalty.org/Maria_Theresa_of_Spain> .`. Objects always become IRIs, so a `.tsv` file cannot hold literals.

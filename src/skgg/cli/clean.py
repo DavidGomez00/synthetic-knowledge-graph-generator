@@ -16,7 +16,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from skgg.core.triples import Triple, read_nt, read_tsv
-from skgg.core.utils import setup_logging, short_term
+from skgg.core.utils import is_http_iri, setup_logging, short_term
 
 logger = logging.getLogger(__name__)
 
@@ -43,13 +43,13 @@ def _clean_term(term: str) -> str:
     """Replaces every '/' in a term's own name with '_'.
 
     A bare .tsv term is all name, so each of its '/' is replaced. In an IRI
-    (`<...>`, or a .tsv term starting with 'http') only the last segment is
+    (`<...>`, or a .tsv term starting with 'http://' or 'https://') only the last segment is
     the name, where a '/' is written as '%2F'. Literals and blank nodes are
     returned unchanged.
     """
     if term.startswith("<") and term.endswith(">"):
         return f"<{_clean_iri(term[1:-1])}>"
-    if term.startswith("http"):
+    if is_http_iri(term):
         return _clean_iri(term)
     if term.startswith(('"', "_:")):
         return term
