@@ -68,11 +68,17 @@ def check_direct_matches(
     term_mapping: dict[str, str],
     chunk_size: int,
     buffer: TripleBuffer,
+    checked: dict[str, int],
 ) -> int:
     """Retrieves the triples that must be added to the EDB from a set of rules and
     profiles and buffers them for insertion into the EDB (see `TripleBuffer`) —
     deciding them never requires a DB read, so they don't need to land
     immediately.
+
+    `checked` holds each predicate's remaining frequency at the last check that
+    found nothing. A predicate's matches depend only on its own domain and range,
+    and every triple spent lowers its frequency, so a predicate still at that
+    frequency is skipped. Pass the same dict to every call of a run.
 
     Returns the number of triples buffered for the EDB."""
 
@@ -82,30 +88,32 @@ def check_direct_matches(
             progress_made = False
 
             for predicate, profile in profiles.items():
-                if profile.closed:
+                if profile.closed or checked.get(predicate) == profile.frequency:
                     continue
+                remaining = profile.frequency
 
                 # Check for direct matches on domain
                 for subject, frequency in list(profile.domain.items()):
-                    obj_choices = list(profile.range.keys() - {subject})
-                    if frequency == len(obj_choices):
-                        for obj in obj_choices:
+                    if frequency == len(profile.range) - (subject in profile.range):
+                        for obj in list(profile.range.keys() - {subject}):
                             yield format_triple(subject, predicate, obj, term_mapping)
                             decrement_counts(profile.range, obj)
                             profile.frequency -= 1
                         del profile.domain[subject]
-                        progress_made = True
 
                 # Check for direct matches on range
                 for obj, frequency in list(profile.range.items()):
-                    subj_choices = list(profile.domain.keys() - {obj})
-                    if frequency == len(subj_choices):
-                        for subject in subj_choices:
+                    if frequency == len(profile.domain) - (obj in profile.domain):
+                        for subject in list(profile.domain.keys() - {obj}):
                             yield format_triple(subject, predicate, obj, term_mapping)
                             decrement_counts(profile.domain, subject)
                             profile.frequency -= 1
                         del profile.range[obj]
-                        progress_made = True
+
+                if profile.frequency == remaining:
+                    checked[predicate] = remaining
+                else:
+                    progress_made = True
 
             if not progress_made:
                 break
@@ -589,6 +597,7 @@ def generate_extensional_predicates(
     directed_profiles = {
         p: pr for p, pr in profiles.items() if p not in symmetric_preds
     }
+    direct_checked: dict[str, int] = {}
 
     # Warm-up: Direct matches for any predicate untill no new triples.
     logger.info("Start warm-up.")
@@ -601,6 +610,7 @@ def generate_extensional_predicates(
             term_mapping=term_mapping,
             chunk_size=chunk_size,
             buffer=buffer,
+            checked=direct_checked,
         ):
             logger.info("[Warm-up] Added %d direct matches to EDB.", count)
         else:
@@ -669,6 +679,7 @@ def generate_extensional_predicates(
             term_mapping=term_mapping,
             chunk_size=chunk_size,
             buffer=buffer,
+            checked=direct_checked,
         ):
             progress = True
             logger.debug("[Step %d] Added %d triples directly.", step, direct_count)
