@@ -111,6 +111,13 @@ python -m skgg.cli.convert path/to/graph.nt -o path/to/out.tsv                # 
 python scripts/format_change.py path/to/graph.tsv --namespace http://example.org/  # -> path/to/graph.nt
 ```
 
+`scripts/merge_splits.py` is another standard-library script. For each folder directly under its root argument (default `exp_datasets`) that has `train`, `valid` and `test` files, it writes `<folder>/<folder>.unified.tsv` with their triples in that order, keeping the first occurrence of a repeated triple and normalizing line endings to LF. A first line reading `0 1 2` is a saved column header (the first line of every split of `Family1_N`, `FamilyM_N`, `FamilyN_1`, `french1_N`, `frenchN_1` and `frenchN_M`) and is skipped. It leaves every other file alone. It also checks that train and test share no triple: a dataset that fails the check still gets its file, the shared triples are logged as errors, and the script exits with status 1 after the last dataset.
+
+```bash
+python scripts/merge_splits.py                # every dataset under exp_datasets/
+python scripts/merge_splits.py path/to/root
+```
+
 `cli/complete.py` completes a real graph with a rule set (importable as `complete(client, rules, term_mapping, source, complete_uri, chunk_size)`). It copies the source into `--complete-uri` (default the base graph, `<root>/base`), replacing that graph's contents, and runs `engine/completion.complete_graph` on it until a pass adds nothing. If the source is `--complete-uri` itself, nothing is copied and the rules only add the derived triples to it. The source is a graph URI, or a `.nt`/`.tsv` file that `core/queries.initialize_graph` loads directly into `--complete-uri`. By default it applies only the rules with std confidence 1 (`parse_rule_set`'s `std_threshold`); `--pca-conf X` applies the rules with PCA confidence >= X instead. The config's `rules.pca_threshold` is not used. The base graph is only completed with std confidence 1 rules: `--pca-conf` is refused when `--complete-uri` is the config's base graph. Every other setting can come from `-f` (source the base graph, rules `data.input_dir / rules.rules_file`, the namespace, and the database connection from `data`/`db_config`), and flags override it: `--source`, `--rules-file`, `--namespace`, `--database-url`, `--sparql-endpoint`, `--auth-type`, `--user`, `--password`, `--log-level`. Without `-f`, `--source`, `--rules-file` and `--namespace` are required, and the connection falls back to the `DataConfig`/`DatabaseAuthConfig` defaults (Virtuoso on port 8890). `--complete-uri` is required only without `-f`. No profiles are used and no cyclic rule is removed.
 
 ```bash
