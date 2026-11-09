@@ -6,7 +6,7 @@ metrics and logical rules to produce a complete, synthetic N-Triples dataset.
 
 import logging
 import random
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 
 from SPARQLWrapper import SPARQLWrapper
 
@@ -194,6 +194,7 @@ def sample_groundings(
     missing_heads: int,
     term_mapping: dict[str, str],
     chunk_size: int,
+    undirected: Collection[str] = (),
 ) -> list[str]:
     """Returns the new triples of `sample_grounding_groups`'s groundings, as one
     list. Takes the same arguments, without `fixed_bindings`."""
@@ -208,6 +209,7 @@ def sample_groundings(
             missing_heads,
             term_mapping,
             chunk_size,
+            undirected=undirected,
         )
         for triple in group
     ]
@@ -223,6 +225,7 @@ def sample_grounding_groups(
     term_mapping: dict[str, str],
     chunk_size: int,
     fixed_bindings: list[dict[str, str]] | None = None,
+    undirected: Collection[str] = (),
 ) -> list[list[str]]:
     """Constructs groundings of a rule body directly from predicate profiles.
 
@@ -249,6 +252,11 @@ def sample_grounding_groups(
             random row, and only the remaining variables are drawn from the profiles,
             so the new triples join with what already exists. Those variables also
             count in the head projection. No usable row means nothing is built.
+        undirected: Predicates generated as undirected edges (see
+            `edb.get_undirected_rule_ids`). A grounding adds both directions of
+            their triples and spends the budget of both. It can't bind their
+            subject and object to the same value: `_undirected_edges` places the
+            self-loops.
 
     Returns:
         The new triples of each accepted grounding, in the order of `atoms`. Fewer
@@ -306,18 +314,29 @@ def sample_grounding_groups(
             binding = {var: draws[var][i] for var in var_order}
             if usable_rows:
                 binding.update(rows[i])
+            if any(
+                atom.predicate in undirected
+                and binding.get(atom.subject, atom.subject)
+                == binding.get(atom.obj, atom.obj)
+                for atom in atoms
+            ):
+                continue
             grounded = []
             for atom in atoms:
                 s = binding.get(atom.subject, atom.subject)
                 o = binding.get(atom.obj, atom.obj)
-                grounded.append(
-                    (
-                        format_triple(s, atom.predicate, o, term_mapping),
-                        atom.predicate,
-                        s,
-                        o,
+                directions = [(s, o)]
+                if atom.predicate in undirected:
+                    directions.append((o, s))
+                for subject, obj in directions:
+                    grounded.append(
+                        (
+                            format_triple(subject, atom.predicate, obj, term_mapping),
+                            atom.predicate,
+                            subject,
+                            obj,
+                        )
                     )
-                )
             candidates.append(grounded)
             keys.append(tuple(binding[v] for v in projection))
 

@@ -28,6 +28,7 @@ from skgg.core.rules import (
     Atom,
     HornRule,
     get_impacted_rules,
+    get_intensional_preds,
     parse_rule_set,
     rule_filter_label,
     rule_sort_key,
@@ -42,7 +43,11 @@ from skgg.core.utils import (
 )
 from skgg.core.visualization import plot_relation_graph
 from skgg.engine.completion import complete_graph
-from skgg.engine.edb import generate_extensional_predicates
+from skgg.engine.edb import (
+    generate_extensional_predicates,
+    get_undirected_rule_ids,
+    sample_derived_undirected_relations,
+)
 from skgg.engine.fill import fill_open_predicates
 from skgg.engine.generator import get_closed_preds, get_closed_rules
 from skgg.engine.metrics import GraphMetrics, PredicateProfile
@@ -86,7 +91,7 @@ class _ClosureProgress:
 
     def __post_init__(self) -> None:
         self.targets = {p: pr.frequency for p, pr in self.profiles.items()}
-        self.intensional_preds = {r.head.predicate for r in self.rules.values()}
+        self.intensional_preds = get_intensional_preds(self.rules)
 
     def log(self, stage: str, graph_uri: str) -> None:
         """Logs the closure state after `stage`, measuring open predicates'
@@ -253,8 +258,8 @@ def _format_summary_block(
         default=1,
     )
 
-    # A predicate is intensional iff some rule derives it (appears as a head).
-    intensional_preds = {r.head.predicate for r in rules.values()}
+    # A predicate is intensional iff a rule other than its symmetric one derives it.
+    intensional_preds = get_intensional_preds(rules)
 
     lines.append(f"Predicates ({len(known_preds)}):")
     for pred in known_preds:
@@ -445,7 +450,8 @@ def run_synthetic_graph_experiment(
 
     After the confidence filter, the fewest rules that leave the relation graph
     with no cycle are removed (`remove_minimal_cyclic_rules`), so completion can
-    derive every intensional predicate from the EDB.
+    derive every intensional predicate from the EDB. A symmetric rule stays if its
+    relation can be generated as undirected edges (`get_undirected_rule_ids`).
 
     Raises:
         ValueError: If one of the run's graphs is the base graph, or a rule
@@ -525,10 +531,13 @@ def run_synthetic_graph_experiment(
         title=f"{config.graph.name} — relation graph",
     )
     # Before EDB generation, so a removed rule's head predicate is extensional.
-    removed_rules = remove_minimal_cyclic_rules(rules)
+    removed_rules = remove_minimal_cyclic_rules(
+        rules, exempt=get_undirected_rule_ids(rules, graph_metrics.profiles)
+    )
 
-    # A predicate is intensional iff a remaining rule derives it.
-    intensional_preds = {r.head.predicate for r in rules.values()}
+    # A predicate is intensional iff a remaining rule other than its symmetric one
+    # derives it.
+    intensional_preds = get_intensional_preds(rules)
     targets = {p: pr.frequency for p, pr in graph_metrics.profiles.items()}
     for kind, preds in (
         ("Extensional", targets.keys() - intensional_preds),
@@ -614,6 +623,25 @@ def run_synthetic_graph_experiment(
         profiles=graph_metrics.profiles,
         label="initial",
     )
+    if sample_derived_undirected_relations(
+        client=client,
+        rules=rules,
+        profiles=graph_metrics.profiles,
+        graph_uri=synthetic_uri,
+        term_mapping=term_mapping,
+        chunk_size=chunk_size,
+    ):
+        # The sampled triples can fire the rules with those relations in their body.
+        complete_graph(
+            client=client,
+            rules=rules,
+            term_mapping=term_mapping,
+            source=synthetic_uri,
+            target_uri=synthetic_uri,
+            chunk_size=chunk_size,
+            profiles=graph_metrics.profiles,
+            label="symmetric",
+        )
     progress.log("initial", synthetic_uri)
 
     _log_phase(4, "Filling open relations")

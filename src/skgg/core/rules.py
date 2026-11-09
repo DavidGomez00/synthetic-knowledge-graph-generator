@@ -105,6 +105,21 @@ class RuleSignature:
             if atom.predicate not in intensional_preds
         }
 
+    def is_symmetric(self) -> bool:
+        """Returns whether the rule has the shape `p(x,y) => p(y,x)`, with `x` and
+        `y` two different variables."""
+        if len(self.body) != 1:
+            return False
+        atom = next(iter(self.body))
+        return (
+            atom.predicate == self.head.predicate
+            and atom.subject == self.head.obj
+            and atom.obj == self.head.subject
+            and atom.subject != atom.obj
+            and atom.subject.startswith("?")
+            and atom.obj.startswith("?")
+        )
+
 
 @dataclass(slots=True)
 class HornRule:
@@ -166,6 +181,10 @@ class HornRule:
     def get_extensional_preds(self, intensional_preds: set[str]) -> set[str]:
         """Returns body predicates excluding the ones in 'intensional_preds'."""
         return self.signature.get_extensional_preds(intensional_preds)
+
+    def is_symmetric(self) -> bool:
+        """Returns whether the rule has the shape `p(x,y) => p(y,x)`."""
+        return self.signature.is_symmetric()
 
     def __len__(self) -> int:
         """Returns the number of atoms in the rule's body."""
@@ -424,6 +443,13 @@ def get_impacted_rules(
     return impacted
 
 
+def get_intensional_preds(rules: dict[str, HornRule]) -> set[str]:
+    """Returns the head predicates of the rules that are not symmetric. A symmetric
+    rule can't produce the first triple of its relation, so a relation that only
+    its symmetric rule derives is extensional."""
+    return {rule.head.predicate for rule in rules.values() if not rule.is_symmetric()}
+
+
 def get_extensional_dependencies(
     rules: dict[str, HornRule],
 ) -> dict[str, set[str]]:
@@ -434,7 +460,7 @@ def get_extensional_dependencies(
     restrictive.
     """
 
-    intensional_preds = {rule.head.predicate for rule in rules.values()}
+    intensional_preds = get_intensional_preds(rules)
 
     rule_dependency: dict[str, set[str]] = {r_id: set() for r_id in rules}
 
