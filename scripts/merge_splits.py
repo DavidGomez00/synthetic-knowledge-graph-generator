@@ -4,7 +4,12 @@ For every folder directly under the root (default `exp_datasets`), writes
 `<folder>/<folder>.unified.tsv` with the triples of `train`, `valid` and `test`, in
 that order, keeping the first occurrence of a repeated triple. Line endings are
 normalized to LF. A first line reading `0 1 2` is a saved column header, and is
-skipped. Files already in the folder are left alone.
+skipped, a term wrapped as `<http:DATASET/name>` is written as `name`, and
+`http://YAGO3.org/name` is written as `name`. A `subject predicate object` row is a
+header left in the data, and is skipped on any line. If the folder has an
+`id_to_name.json` file, its integer IDs are replaced by names. The `type` triples of
+a folder whose name starts with `french` are left out. Files already in the folder
+are left alone.
 
 Also checks that train and test share no triple. A dataset that fails the check
 still gets its file, and the script exits with status 1 once every dataset is done.
@@ -13,7 +18,9 @@ Only needs the Python standard library.
 """
 
 import argparse
+import json
 import logging
+import re
 import sys
 from pathlib import Path
 
@@ -23,16 +30,53 @@ SPLITS = ("train", "valid", "test")
 MAX_LOGGED_TRIPLES = 10
 # Column names of a split saved with its header, found as the first line of some.
 HEADER_ROW = ["0", "1", "2"]
+# A header row left in the data, on line 119225 of YAGO3-10_1_1/train.
+NAMED_HEADER_ROW = ["subject", "predicate", "object"]
+# Names of a dataset's integer IDs: {"entity_ids": {id: name}, "relation_ids": ...}.
+ID_NAMES_FILE = "id_to_name.json"
+# The french datasets type every person and relation, which is not part of the graph
+# that rules are mined from.
+TYPED_DATASET_PREFIX = "french"
+TYPE_RELATION = "type"
+# A term wrapped in a placeholder namespace, e.g. `<http:WN18RR/_hypernym>`. A real
+# IRI (`<http://...>`) does not match.
+WRAPPED_TERM = re.compile(r"<http:[^/>]+/(.+)>")
+# Namespace of the IRIs in YAGO3-10_N_M. Only this exact prefix is removed: the rest
+# of a term can hold more `/` (`de/SC_Leipzig`), and cutting it to its last segment
+# would merge different entities.
+YAGO_NAMESPACE = "http://YAGO3.org/"
 
 Triple = tuple[str, str, str]
+IdNames = tuple[dict[str, str], dict[str, str]]
 
 
-def read_split(path: Path) -> list[Triple]:
-    """Returns the triples of a split file, skipping blank lines and a header
-    row on the first line.
+def read_id_names(folder: Path) -> IdNames | None:
+    """Returns the entity and relation names of a folder's IDs, if it has any."""
+    path = folder / ID_NAMES_FILE
+    if not path.is_file():
+        return None
+    with path.open(encoding="utf-8") as f:
+        names = json.load(f)
+    return names["entity_ids"], names["relation_ids"]
+
+
+def _unwrap(term: str) -> str:
+    """A term without its placeholder wrapper or YAGO namespace, if it has one."""
+    match = WRAPPED_TERM.fullmatch(term)
+    return match[1] if match else term.removeprefix(YAGO_NAMESPACE)
+
+
+def read_split(path: Path, id_names: IdNames | None = None) -> list[Triple]:
+    """Returns the triples of a split file, skipping blank lines and header rows,
+    and removing the wrapper of wrapped terms.
+
+    Args:
+        path: The split file.
+        id_names: Entity and relation names that replace the file's integer IDs.
 
     Raises:
         ValueError: If a line doesn't have three non-empty tab-separated fields.
+        KeyError: If an ID has no name in `id_names`.
     """
     triples: list[Triple] = []
     with path.open(encoding="utf-8") as f:
@@ -40,12 +84,20 @@ def read_split(path: Path) -> list[Triple]:
             if not line.strip():
                 continue
             fields = line.rstrip("\n").split("\t")
-            if number == 1 and fields == HEADER_ROW:
-                logger.warning("Skipping the header row of %s.", path)
+            if (number == 1 and fields == HEADER_ROW) or fields == NAMED_HEADER_ROW:
+                logger.warning("Skipping the header row at %s:%d.", path, number)
                 continue
             if len(fields) != 3 or not all(fields):
                 raise ValueError(f"{path}:{number} is not a triple: {line!r}")
-            triples.append((fields[0], fields[1], fields[2]))
+            subject, predicate, obj = (_unwrap(field) for field in fields)
+            if id_names:
+                entities, relations = id_names
+                subject, predicate, obj = (
+                    entities[subject],
+                    relations[predicate],
+                    entities[obj],
+                )
+            triples.append((subject, predicate, obj))
     return triples
 
 
@@ -55,7 +107,13 @@ def merge_dataset(folder: Path) -> set[Triple]:
     Returns:
         The triples that train and test share.
     """
-    splits = {name: read_split(folder / name) for name in SPLITS}
+    id_names = read_id_names(folder)
+    splits = {name: read_split(folder / name, id_names) for name in SPLITS}
+    if folder.name.startswith(TYPED_DATASET_PREFIX):
+        splits = {
+            name: [triple for triple in triples if triple[1] != TYPE_RELATION]
+            for name, triples in splits.items()
+        }
     shared = set(splits["train"]) & set(splits["test"])
 
     total = sum(len(triples) for triples in splits.values())

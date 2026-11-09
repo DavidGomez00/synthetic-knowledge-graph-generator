@@ -115,6 +115,14 @@ python mine_rules/run_amie.py data/french_royalty/french_royalty.tsv   # -> data
 
 The CSV lists the rules by std confidence, then PCA confidence, both descending (ties keep AMIE's output order), and its `rule_id` column numbers them 1..N in that order. The pipeline names rules by this ID in its logs, run summary and relation-graph PNG, so a rule keeps its ID whatever confidence threshold a run filters the rules on. `--mins`, `--minis`, `--minhc`, `--minc`, `--minpca` and `--maxad` set AMIE's thresholds, and `--help` lists the other options.
 
+`mine_rules/mine_datasets.py` runs `run_amie.py` on the `<folder>.unified.tsv` of every folder under `exp_datasets/` and writes `<folder>/<folder>.csv`. AMIE runs with its default thresholds, and any option the script does not define is passed to `run_amie.py`. A dataset that already has its CSV is skipped unless `--force` is given. AMIE's output for each dataset goes to `logs/amie/<folder>.log`. The rules of the 24 datasets are already in `exp_datasets/`.
+
+```bash
+python mine_rules/mine_datasets.py                                      # every dataset under exp_datasets/
+python mine_rules/mine_datasets.py --datasets french family --force
+python mine_rules/mine_datasets.py --minhc 0.05 --xmx 24G --timeout 7200
+```
+
 ### Run the pipeline
 
 ```bash

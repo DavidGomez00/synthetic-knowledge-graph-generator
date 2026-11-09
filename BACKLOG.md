@@ -30,6 +30,13 @@ Known issues and pending features. Resolved items are archived in `BACKLOG_ARCHI
   - [ ] Read which relations are irreflexive (e.g. `owl:IrreflexiveProperty`) from the schema, for the "Irreflexive relations" item under `engine/`.
 - [ ] Use the SHACL shapes (`<dataset>.shapes.ttl`) in the pipeline. `cli/validate.py` only reports the triples of a graph or `.tsv` file that violate them; EDB generation and completion still insert such triples.
 
+## Benchmark datasets
+- [ ] **Name cleaning in the YAGO3-10 subsets** (`exp_datasets/`): the `1_1`, `1_N`, `N_1` and `N_M` subsets went through a cleaning step that `YAGO3-10` did not: punctuation and non-ASCII letters are gone (`101_Reykjavík` is `101_Reykjavk`, `10,000_BC_(film)` is `10000_BC_film`), so about 44,000 names per subset are not in `YAGO3-10`. The step also explains the case variants: `Kidal_(region)` and `Kidal_Region` are two names in `YAGO3-10` and became `Kidal_region` and `Kidal_Region`, so they stay separate entities (`YAGO3-10_N_M` has 60 such groups, `YAGO3-10` 14).
+  - [ ] Find out whether the cleaning merged different entities. The four subsets together have 122,824 entity names and `YAGO3-10` has 123,182. Ignoring punctuation makes 362 groups of `YAGO3-10` names identical, such as `Santos_F.C.` and `Santos_FC`. Ask the team which script did the cleaning.
+- [ ] **Cycle removal leaves some datasets without rules** (`core/cycles.py`): on the rules mined in `exp_datasets/`, 7 of the 24 datasets have rules with std confidence 1 and lose all of them in `remove_minimal_cyclic_rules`: `WN18RR` and `WN18RRN_M` (2 rules each), `YAGO3-10` and `YAGO3-10_N_M` (3 each), `YAGO3-10_1_N` (1), `french1_1` (6) and `frenchN_1` (2). The four `SGKG` datasets keep 1 rule each (from 4, 3, 3 and 6), `family` goes from 37 to 18 and `french` from 12 to 3. At PCA 0.9, `WN18RR`, `WN18RRN_M`, `WN18RR1_1`, `WN18RRN_1` and `YAGO3-10_1_1` lose all their rules. The 11 datasets with no std confidence 1 rule before the removal are an accepted outcome of the proposal; losing every rule in this step may be a limit of the approach.
+  - [ ] Find which rules are removed in these datasets and why.
+  - [ ] Decide whether the generator can keep more of them, for example by supporting recursive or cyclic rules during completion.
+
 
 # Future work
 - [ ] Add support for literals.

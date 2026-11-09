@@ -198,12 +198,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument(
         "--minc",
         default=None,
-        help="AMIE -minc (min-std-confidence). AMIE default: 0.0",
+        help="AMIE -minc (min-std-confidence). AMIE default: 0.1",
     )
     p.add_argument(
         "--minpca",
         default=None,
-        help="AMIE -minpca (min-pca-confidence). AMIE default: 0.0",
+        help="AMIE -minpca (min-pca-confidence). AMIE default: 0.1",
     )
     p.add_argument(
         "--maxad", default=None, help="AMIE -maxad (max rule length). AMIE default: 3"
