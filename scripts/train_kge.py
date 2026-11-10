@@ -53,7 +53,7 @@ import os
 import shutil
 import sys
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -194,7 +194,8 @@ def mark_finished(status: ModelStatus, results_file: Path) -> None:
     results = json.loads(results_file.read_text(encoding="utf-8"))
     realistic = results["metrics"]["both"]["realistic"]
     status.status = "finished"
-    status.epoch = status.num_epochs
+    # Early stopping can end a run before num_epochs.
+    status.epoch = len(results["losses"])
     status.losses = results["losses"]
     status.evaluate_seconds = results["times"]["evaluation"]
     status.metrics = {name: realistic[key] for name, key in REPORTED_METRICS.items()}
@@ -246,8 +247,9 @@ class AtomicCheckpointLoop(SLCWATrainingLoop):
         os.replace(temporary, path)
 
     def _load_state(self, *args: Any, **kwargs: Any) -> Any:
+        # Also called to restore the best epoch when early stopping is used.
         state = super()._load_state(*args, **kwargs)
-        logger.info("Resuming after epoch %d.", self._epoch)
+        logger.info("Loaded the state after epoch %d.", self._epoch)
         return state
 
 
@@ -283,7 +285,9 @@ def dataset_lock(path: Path) -> Iterator[None]:
         yield
 
 
-def check_settings(path: Path, settings: Settings, folder: Path) -> None:
+def check_settings(
+    path: Path, settings: Settings | Mapping[str, Any], folder: Path
+) -> None:
     """Records a dataset's settings, or checks them against the recorded ones.
 
     Resuming with other settings, or from changed split files, would mix runs that
@@ -292,8 +296,9 @@ def check_settings(path: Path, settings: Settings, folder: Path) -> None:
     Raises:
         ValueError: If the dataset was started with other settings or other splits.
     """
+    fields = asdict(settings) if isinstance(settings, Settings) else dict(settings)
     current = {
-        **asdict(settings),
+        **fields,
         "splits_sha256": {
             name: hashlib.sha256((folder / name).read_bytes()).hexdigest()
             for name in SPLITS
@@ -361,11 +366,20 @@ def train_model(
     settings: Settings,
     root: Path,
     status: ModelStatus,
-) -> None:
+    pipeline_kwargs: Mapping[str, Any] | None = None,
+) -> Any:
     """Trains and evaluates one model, resuming from its checkpoint if it has one.
 
     The results appear in `<output>/<model>/` all at once, when they are complete, so
     the presence of its results file is what marks a model as finished.
+
+    `pipeline_kwargs` replaces the arguments of PyKEEN's `pipeline` built from
+    `settings`, as tuned hyperparameters do. `training_kwargs` and
+    `negative_sampler_kwargs` are merged into the ones built here instead, so the
+    checkpoints and the status tracking stay in place.
+
+    Returns:
+        PyKEEN's pipeline result.
     """
     gc.collect()
     torch.cuda.empty_cache()
@@ -376,15 +390,15 @@ def train_model(
 
     training, validation, testing = splits
     checkpoint_name = f"{model}.pt"
-    result = pipeline(
-        training=training,
-        validation=validation,
-        testing=testing,
-        model=model,
-        training_loop=AtomicCheckpointLoop,
-        model_kwargs={"embedding_dim": settings.embedding_dim},
-        negative_sampler_kwargs={"filtered": settings.filtered_negative_sampling},
-        training_kwargs={
+    kwargs: dict[str, Any] = {
+        "training": training,
+        "validation": validation,
+        "testing": testing,
+        "model": model,
+        "training_loop": AtomicCheckpointLoop,
+        "model_kwargs": {"embedding_dim": settings.embedding_dim},
+        "negative_sampler_kwargs": {"filtered": settings.filtered_negative_sampling},
+        "training_kwargs": {
             "num_epochs": settings.num_epochs,
             "batch_size": settings.batch_size,
             "use_tqdm_batch": True,
@@ -394,8 +408,14 @@ def train_model(
             "checkpoint_frequency": 0,
             "callbacks": StatusCallback(root, status),
         },
-        random_seed=settings.random_seed,
-    )
+        "random_seed": settings.random_seed,
+    }
+    for key, value in (pipeline_kwargs or {}).items():
+        if key in ("training_kwargs", "negative_sampler_kwargs"):
+            kwargs[key] = {**kwargs[key], **value}
+        else:
+            kwargs[key] = value
+    result = pipeline(**kwargs)
 
     saving = checkpoints / f"{model}.saving"
     if saving.exists():
@@ -406,6 +426,7 @@ def train_model(
     (checkpoints / checkpoint_name).unlink()
     mark_finished(status, output / model / RESULTS_FILE)
     record_status(root, status)
+    return result
 
 
 def save_loss_plot(result: Any, path: Path) -> None:
@@ -425,12 +446,19 @@ def train_dataset(
     checkpoints: Path,
     models: list[str],
     settings: Settings,
+    pipeline_kwargs: Callable[[str, Splits], Mapping[str, Any]] | None = None,
+    recorded_settings: Mapping[str, Any] | None = None,
 ) -> list[str]:
-    """Trains the models a dataset is missing and returns the ones that failed."""
+    """Trains the models a dataset is missing and returns the ones that failed.
+
+    `pipeline_kwargs`, if given, returns each model's `train_model` overrides; an
+    error it raises fails only that model. `recorded_settings` replaces `settings` in
+    the dataset's settings file, for runs whose settings differ between models.
+    """
     output.mkdir(parents=True, exist_ok=True)
     checkpoints.mkdir(parents=True, exist_ok=True)
     with dataset_lock(checkpoints / LOCK_FILE):
-        check_settings(output / SETTINGS_FILE, settings, folder)
+        check_settings(output / SETTINGS_FILE, recorded_settings or settings, folder)
 
         pending = [m for m in models if not (output / m / RESULTS_FILE).is_file()]
         if not pending:
@@ -448,7 +476,17 @@ def train_dataset(
             root = output.parent
             status = load_status(root, output.name, model, settings.num_epochs)
             try:
-                train_model(model, splits, output, checkpoints, settings, root, status)
+                overrides = pipeline_kwargs(model, splits) if pipeline_kwargs else None
+                train_model(
+                    model,
+                    splits,
+                    output,
+                    checkpoints,
+                    settings,
+                    root,
+                    status,
+                    overrides,
+                )
             except Exception as error:
                 # One model running out of memory must not stop the other runs.
                 logger.exception("%s: %s failed.", output.name, model)
