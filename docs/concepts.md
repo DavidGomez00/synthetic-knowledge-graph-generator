@@ -17,7 +17,7 @@ A `PredicateProfile` (`engine/metrics.py`) is the per-predicate summary the whol
 - **frequency** — how many triples use this predicate.
 - **domain** — `{subject → count}`, how many triples each subject appears in as the subject of this predicate.
 - **range** — `{object → count}`, the same for objects.
-- **reflexivity** — how many triples have the same subject and object.
+- **reflexivity** — how many triples have the same subject and object. EDB generation places exactly this many self-loops for an extensional relation before any other triple, and makes no other self-loop (`edb.place_self_loops`).
 - **closed** — whether this predicate has reached its target `frequency` (see [Closure](#closure)); `False` until then.
 
 `GraphMetrics` (same module) is just a `{predicate → PredicateProfile}` map, extracted from a graph over SPARQL by `from_uri`.

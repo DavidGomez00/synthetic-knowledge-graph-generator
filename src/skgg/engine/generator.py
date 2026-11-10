@@ -57,37 +57,61 @@ def update_closed_preds(profiles: dict[str, PredicateProfile]) -> bool:
     return new
 
 
-def is_assignment_solvable(profile: PredicateProfile, subject: str, obj: str) -> bool:
+def is_assignment_solvable(
+    profile: PredicateProfile, subject: str, obj: str, loop_free: bool = True
+) -> bool:
     """Checks if assigning a (subject, object) pair maintains graph solvability.
 
-    Simulates the assigment to evaluate the Gale-Ryser / Havel-Hakimi conditions without
-    mutating or copying the profile object.
+    Simulates the assigment, without mutating or copying the profile object, and
+    checks the first Gale-Ryser condition on what is left: no subject needs more
+    distinct objects than there are, and no object more distinct subjects.
+
+    With `loop_free`, the rest of the relation can't have self-loops (`edb.py`
+    places them first, see `place_self_loops`), so an entity in both the domain and
+    the range has one partner fewer: itself. A self-loop assignment (`subject ==
+    obj`) is checked the same way.
 
     Args:
         profile: Predicate profile tracking available domains and ranges.
         subject: Subject term to be assigned.
         obj: Object term to be assigned.
+        loop_free: Whether the rest of the relation must be free of self-loops.
+            Relations generated as undirected edges still have theirs to place
+            (`edb._undirected_edges`), so they pass False.
 
     Returns:
         True if the assignment leaves the graph in a solvable state, False otherwise.
     """
-    if subject not in profile.domain or obj not in profile.range:
+    domain, range_ = profile.domain, profile.range
+    if subject not in domain or obj not in range_:
         logger.warning("Bad triple: (%s, %s).\n%s", subject, obj, profile)
         return False
 
-    s_domain_len = len(profile.domain) - (1 if profile.domain.get(subject) == 1 else 0)
-    s_range_len = len(profile.range) - (1 if profile.range.get(obj) == 1 else 0)
+    subject_left = domain[subject] - 1
+    obj_left = range_[obj] - 1
+    domain_len = len(domain) - (subject_left == 0)
+    range_len = len(range_) - (obj_left == 0)
 
     max_domain_freq = max(
-        (count - 1 if k == subject else count for k, count in profile.domain.items()),
+        (
+            (subject_left if k == subject else count)
+            + (loop_free and k in range_ and (k != obj or obj_left > 0))
+            for k, count in domain.items()
+            if k != subject or subject_left > 0
+        ),
         default=0,
     )
     max_range_freq = max(
-        (count - 1 if k == obj else count for k, count in profile.range.items()),
+        (
+            (obj_left if k == obj else count)
+            + (loop_free and k in domain and (k != subject or subject_left > 0))
+            for k, count in range_.items()
+            if k != obj or obj_left > 0
+        ),
         default=0,
     )
 
-    return max_domain_freq <= s_range_len and max_range_freq <= s_domain_len
+    return max_domain_freq <= range_len and max_range_freq <= domain_len
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +262,10 @@ def sample_grounding_groups(
 
     Accepted groundings decrement the domain/range/frequency budget of `profiles`.
 
+    A grounding never binds an atom's subject and object to the same value: the
+    self-loops of a relation are placed on their own, by `edb.place_self_loops`, or
+    by `edb._undirected_edges` for a relation generated as undirected edges.
+
     Args:
         client: An instantiated and configured SPARQLWrapper client.
         edb_uri: URI of the EDB, used to skip triples that already exist.
@@ -254,9 +282,7 @@ def sample_grounding_groups(
             count in the head projection. No usable row means nothing is built.
         undirected: Predicates generated as undirected edges (see
             `edb.get_undirected_rule_ids`). A grounding adds both directions of
-            their triples and spends the budget of both. It can't bind their
-            subject and object to the same value: `_undirected_edges` places the
-            self-loops.
+            their triples and spends the budget of both.
 
     Returns:
         The new triples of each accepted grounding, in the order of `atoms`. Fewer
@@ -315,8 +341,7 @@ def sample_grounding_groups(
             if usable_rows:
                 binding.update(rows[i])
             if any(
-                atom.predicate in undirected
-                and binding.get(atom.subject, atom.subject)
+                binding.get(atom.subject, atom.subject)
                 == binding.get(atom.obj, atom.obj)
                 for atom in atoms
             ):
@@ -372,7 +397,9 @@ def sample_grounding_groups(
                     profile.frequency <= 0
                     or s not in profile.domain
                     or o not in profile.range
-                    or not is_assignment_solvable(profile, s, o)
+                    or not is_assignment_solvable(
+                        profile, s, o, loop_free=predicate not in undirected
+                    )
                 ):
                     valid = False
                     break
