@@ -87,7 +87,7 @@ The final runs need only the record: `--phase train` reproduces them from `confi
 | `configurations/kge_hyperparameters.json` | the record: per search dataset and model, the best trial's pipeline configuration, score, trial counts, search space, protocol and library versions |
 | `docs/kge_hyperparameters.md` | the table generated from the record |
 | `exp_results_hpo/` | the final runs, in the layout of `exp_results`, so `report_results.py --root exp_results_hpo` reads them |
-| `logs/tune_kge.log` | the log of every run |
+| `logs/tune_kge.log` | the full log of every run, PyKEEN's and Optuna's messages included; the terminal shows only the script's own lines, one per trial, and warnings |
 
 ## GPU memory
 

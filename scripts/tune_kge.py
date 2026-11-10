@@ -367,12 +367,16 @@ def _run_hpo_trial(
         training_kwargs={
             "num_epochs": max_epochs,
             "batch_size": BATCH_SIZE,
-            "use_tqdm_batch": False,
+            # tune_kge logs one line per trial instead of a progress bar.
+            "use_tqdm": False,
         },
         stopper="early",
         stopper_kwargs=stopper_kwargs(),
         # Known answers of the whole validation split, not only of the sample.
-        evaluation_kwargs={"additional_filter_triples": [validation.mapped_triples]},
+        evaluation_kwargs={
+            "additional_filter_triples": [validation.mapped_triples],
+            "use_tqdm": False,
+        },
         metric=TRIAL_METRIC,
         direction="maximize",
         storage=storage,
@@ -418,6 +422,34 @@ def best_config(model: str, params: Mapping[str, Any]) -> dict[str, Any]:
     return config
 
 
+def log_trial(dataset: str, model: str, study: optuna.Study, trials: int) -> None:
+    """Logs one line with the outcome of the study's last trial."""
+    all_trials = study.trials
+    if not all_trials:
+        return
+    last = max(all_trials, key=lambda t: t.number)
+    counts = count_trials(study)
+    done = counts["complete"] + counts["pruned"]
+    # Epoch of the last check: where early stopping, pruning or the epoch cap ended it.
+    epoch = last.user_attrs.get("stopped_epoch")
+    if epoch is None and last.intermediate_values:
+        epoch = max(last.intermediate_values)
+    values = [t.value for t in all_trials if t.state == TrialState.COMPLETE]
+    best = max((v for v in values if v is not None), default=None)
+    logger.info(
+        "%s %s: trial %d/%d %s at epoch %s, MRR %s (best %s), %s.",
+        dataset,
+        model,
+        done,
+        trials,
+        last.state.name.lower(),
+        "-" if epoch is None else epoch,
+        "-" if last.value is None else f"{last.value:.4f}",
+        "-" if best is None else f"{best:.4f}",
+        str(last.duration).split(".")[0] if last.duration else "-",
+    )
+
+
 def tune_study(
     dataset: str,
     model: str,
@@ -451,7 +483,6 @@ def tune_study(
             failed_before = counts["failed"]
         if counts["failed"] - failed_before >= MAX_FAILED_TRIALS:
             raise RuntimeError(f"{MAX_FAILED_TRIALS} trials of the study failed.")
-        logger.info("%s: %s trial %d of %d.", dataset, model, done + 1, trials)
         try:
             run_trial(
                 splits,
@@ -469,6 +500,7 @@ def tune_study(
             torch.cuda.empty_cache()
             write_trials(study, folder / TRIALS_FILE)
             write_hpo_progress(hpo_output)
+        log_trial(dataset, model, study, trials)
 
     if counts["complete"] == 0:
         raise RuntimeError("No trial of the study completed.")
@@ -917,12 +949,28 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    # The terminal shows the script's own lines and every warning; the log file
+    # also keeps PyKEEN's and Optuna's messages.
+    console = logging.StreamHandler()
+    # PyKEEN warns at every trial that it picks a random seed; trials.tsv records it.
+    console.addFilter(
+        lambda record: (
+            record.name in ("tune_kge", "train_kge")
+            or (
+                record.levelno >= logging.WARNING
+                and not record.getMessage().startswith("No random seed")
+            )
+        )
+    )
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        handlers=[logging.StreamHandler(), logging.FileHandler(LOG_FILE)],
+        handlers=[console, logging.FileHandler(LOG_FILE)],
     )
     logging.getLogger("pykeen.training.training_loop").setLevel(logging.WARNING)
+    # Optuna prints to its own handler; send its lines through the ones above.
+    optuna.logging.disable_default_handler()
+    optuna.logging.enable_propagation()
     logger.info("Command: %s", " ".join(sys.argv))
     logger.info(
         "PyKEEN %s, PyTorch %s, Optuna %s, GPU: %s.",
