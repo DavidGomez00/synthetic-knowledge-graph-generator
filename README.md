@@ -34,7 +34,7 @@ Experiments are driven by JSON config files in `configurations/` (e.g. `french_r
 
 ### Prepare the data
 
-This method does not support literals yet, so the project keeps only the cleaned graph of each dataset, and that file is always the dataset's triple file: `data/french_royalty/french_royalty.tsv` for French Royalty. The original graph, with literals, stays outside the repository. `skgg.cli.clean` writes the cleaned copy as a `.tsv` file, without literals or duplicate triples. For more details, see the preparation step in [`docs/architecture.md`](docs/architecture.md#data-flow).
+This method does not support literals yet, so the project keeps only the cleaned graph of each dataset, and that file is always the dataset's triple file: `data/french_royalty/french_royalty.tsv` for French Royalty. The original graph, with literals, stays outside the repository. `configurations/french_royalty.json` doesn't read that file now: it reads the benchmark copy of French Royalty in `exp_datasets/french/` (`french.unified.tsv` and its rules, `french.csv`). `skgg.cli.clean` writes the cleaned copy as a `.tsv` file, without literals or duplicate triples. For more details, see the preparation step in [`docs/architecture.md`](docs/architecture.md#data-flow).
 
 ```bash
 python -m skgg.cli.clean path/to/original.tsv -o data/french_royalty/french_royalty.tsv  # the original stays outside the project
@@ -68,19 +68,19 @@ For an `.nt` input the term mapping is optional. With one, an IRI is shortened t
 `skgg.cli.graph upload` inserts a `.nt`/`.tsv` triple file into the graph database, in the base graph (the config's `graph.namespace` without its trailing `/`, plus `/base`, e.g. `http://FrenchRoyalty.org/base`), sending `db_config.chunk_size` triples per request. Terms in a `.tsv` file are resolved to full URIs through the config's `graph.namespace` and `graph.term_namespaces`, the same way `skgg.cli.convert` resolves them.
 
 ```bash
-python -m skgg.cli.graph upload -f french_royalty.json   # uploads graph.triple_file, data/french_royalty/french_royalty.tsv
-python -m skgg.cli.graph upload -f french_royalty.json --triple-file data/french_royalty/skgg/french_royalty.skgg.std=1.tsv --graph-uri http://FrenchRoyalty.org/skgg/std=1
+python -m skgg.cli.graph upload -f french_royalty.json   # uploads graph.triple_file, exp_datasets/french/french.unified.tsv
+python -m skgg.cli.graph upload -f french_royalty.json --triple-file french.unified.skgg.std=1.tsv --graph-uri http://FrenchRoyalty.org/skgg/std=1   # a file under data.input_dir, e.g. one written by download
 ```
 
 `graph.triple_file` is the dataset's cleaned graph, and `--triple-file` uploads another file instead. A bare filename resolves under `data.input_dir`, and a path containing `/` is used as given. `--graph-uri` uploads to a different named graph, e.g. to re-insert a downloaded synthetic graph into `http://FrenchRoyalty.org/skgg/pca=0.9`. `--namespace` puts the `.tsv` file's bare terms under another namespace than `graph.namespace`, and the default graph URI is still derived from `graph.namespace`. `--log-level` overrides the config's `logging.level` for the run.
 
 ### Download a graph
 
-`skgg.cli.graph download` writes a named graph from the database to `<output>.nt` and `<output>.tsv`, using the connection in the config passed with `-f`. It downloads the base graph unless `--graph-uri` names another graph. `-o` sets the output path without suffix. It defaults to `data.input_dir` plus the stem of `graph.triple_file` and the graph URI's path under the namespace, with dots for slashes: `http://FrenchRoyalty.org/skgg/pca=0.9/filled` goes to `data/french_royalty/french_royalty.skgg.pca=0.9.filled`.
+`skgg.cli.graph download` writes a named graph from the database to `<output>.nt` and `<output>.tsv`, using the connection in the config passed with `-f`. It downloads the base graph unless `--graph-uri` names another graph. `-o` sets the output path without suffix. It defaults to `data.input_dir` plus the stem of `graph.triple_file` and the graph URI's path under the namespace, with dots for slashes: with `french_royalty.json`, `http://FrenchRoyalty.org/skgg/pca=0.9/filled` goes to `exp_datasets/french/french.unified.skgg.pca=0.9.filled`.
 
 ```bash
-python -m skgg.cli.graph download -f french_royalty.json --graph-uri http://FrenchRoyalty.org/skgg/std=1   # -> data/french_royalty/french_royalty.skgg.std=1.{nt,tsv}
-python -m skgg.cli.graph download -f french_royalty.json --graph-uri http://FrenchRoyalty.org/skgg/std=1 -o data/french_royalty/skgg/french_royalty.skgg.std=1   # into the skgg/ folder
+python -m skgg.cli.graph download -f french_royalty.json --graph-uri http://FrenchRoyalty.org/skgg/std=1   # -> exp_datasets/french/french.unified.skgg.std=1.{nt,tsv}
+python -m skgg.cli.graph download -f french_royalty.json --graph-uri http://FrenchRoyalty.org/skgg/std=1 -o exp_datasets/french/skgg/french.skgg.std=1   # into a skgg/ folder, created if missing
 python -m skgg.cli.graph download -f french_royalty.json -o path/to/french_royalty                         # base graph -> path/to/french_royalty.{nt,tsv}
 python -m skgg.cli.graph download -f french_royalty_complete_test --graph-uri http://FrenchRoyalty.org/complete-test/pca=0.9 --namespace http://FrenchRoyalty.org/   # IRIs under http://FrenchRoyalty.org/ become bare terms
 ```
@@ -100,11 +100,11 @@ python -m skgg.cli.complete --source http://FrenchRoyalty.org/base --complete-ur
 
 ### Validate a graph against SHACL shapes
 
-`skgg.cli.validate` checks a graph against the `sh:sparql` constraints of a SHACL shapes file and writes every triple that violates one to a `.violations.tsv` report, with the triple's line in the `.tsv` file, its terms, the shape and the shape's `sh:message`. It checks the config's base graph unless `--source` names another graph URI or a `.tsv` file. A `.tsv` file is loaded into a temporary named graph (`--graph-uri`, default `http://FrenchRoyalty.org/validation` for `http://FrenchRoyalty.org/`), which is cleared after the check unless `--keep-graph` is given. The base graph and the pipeline's graphs are refused as `--graph-uri`. The shapes file defaults to `data.input_dir / <stem of graph.triple_file>.shapes.ttl`, e.g. `data/french_royalty/french_royalty.shapes.ttl`, and its `ex:` prefix must equal the config's `graph.namespace`. The source graph and file are not modified, and the pipeline does not use the shapes yet.
+`skgg.cli.validate` checks a graph against the `sh:sparql` constraints of a SHACL shapes file and writes every triple that violates one to a `.violations.tsv` report, with the triple's line in the `.tsv` file, its terms, the shape and the shape's `sh:message`. It checks the config's base graph unless `--source` names another graph URI or a `.tsv` file. A `.tsv` file is loaded into a temporary named graph (`--graph-uri`, default `http://FrenchRoyalty.org/validation` for `http://FrenchRoyalty.org/`), which is cleared after the check unless `--keep-graph` is given. The base graph and the pipeline's graphs are refused as `--graph-uri`. The shapes file defaults to `data.input_dir / <stem of graph.triple_file>.shapes.ttl`, and its `ex:` prefix must equal the config's `graph.namespace`. `french_royalty.json` reads `exp_datasets/french/`, which has no shapes file, so the examples below pass the French Royalty shapes, `data/french_royalty/french_royalty.shapes.ttl`, with `--shapes`. The source graph and file are not modified, and the pipeline does not use the shapes yet.
 
 ```bash
-python -m skgg.cli.validate -f french_royalty.json                                                           # base graph -> data/french_royalty/french_royalty.base.violations.tsv
-python -m skgg.cli.validate -f french_royalty.json --source data/french_royalty/skgg/french_royalty.skgg.std=1.tsv  # -> data/french_royalty/skgg/french_royalty.skgg.std=1.violations.tsv
+python -m skgg.cli.validate -f french_royalty.json --shapes data/french_royalty/french_royalty.shapes.ttl                                                       # base graph -> exp_datasets/french/french.unified.base.violations.tsv
+python -m skgg.cli.validate -f french_royalty.json --shapes data/french_royalty/french_royalty.shapes.ttl --source exp_datasets/french/french.unified.skgg.std=1.tsv  # -> exp_datasets/french/french.unified.skgg.std=1.violations.tsv
 ```
 
 ### Mine rules
