@@ -152,7 +152,10 @@ The run's graphs are named after its rule filter, so runs at different threshold
 ```bash
 python -m skgg.cli.generate_datasets                                    # every dataset under exp_datasets/
 python -m skgg.cli.generate_datasets --datasets french WN18RR --force
+python scripts/check_outputs.py                                         # compare each copy with its source
 ```
+
+`scripts/check_outputs.py` compares each copy with its source: triple counts, new entities, and, per relation, the frequency, the degrees and the number of self-loops. [`docs/generate-benchmarks.md`](docs/generate-benchmarks.md) lists the steps to run the batch on another machine, from the clone to bringing the copies back.
 
 ## Project layout
 
@@ -169,6 +172,7 @@ logs/              # per-run logs (gitignored)
 ## More
 
 - [`docs/getting-started.md`](docs/getting-started.md): full setup + first experiment walkthrough.
+- [`docs/generate-benchmarks.md`](docs/generate-benchmarks.md): generating the benchmark copies on another machine.
 - [`docs/architecture.md`](docs/architecture.md): components and data flow, with diagrams.
 - [`docs/concepts.md`](docs/concepts.md): glossary of domain terms (EDB/IDB, Horn rules, closure, ...).
 - [`AGENTS.md`](AGENTS.md): terse architecture reference for contributors and AI coding agents alike (`CLAUDE.md` imports this same file for Claude Code).
