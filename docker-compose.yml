@@ -8,4 +8,5 @@ services:
     ports:
       - "7200:7200"
     volumes:
-      - /mnt/Pandora/graphdb-home:/opt/graphdb/home
+      # Set GRAPHDB_HOME in a local .env file to use another folder on this machine.
+      - ${GRAPHDB_HOME:-/mnt/Pandora/graphdb-home}:/opt/graphdb/home

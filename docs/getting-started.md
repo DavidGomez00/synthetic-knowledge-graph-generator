@@ -19,13 +19,17 @@ Requires Python >= 3.10.
 docker compose --profile graphdb up
 ```
 
+The GraphDB home defaults to `/mnt/Pandora/graphdb-home`. To keep it in another folder, put `GRAPHDB_HOME=/path/to/graphdb-home` in a `.env` file next to `docker-compose.yml` before starting GraphDB. Git ignores that file.
+
 GraphDB doesn't auto-create repositories from a client connection the way Virtuoso auto-creates graphs — before running anything, open the GraphDB Workbench at `http://localhost:7200` and create a repository whose ID matches the config's `sparql_endpoint` (for `french_royalty.json`: `repositories/FrenchRoyalty` → repository ID `FrenchRoyalty`).
 
 If you'd rather use Virtuoso instead, `docker compose --profile virtuoso up` brings up Virtuoso (port 8890) + a YASGUI SPARQL UI (port 8080); point a config's `data.database_url`/`sparql_endpoint` at it and set `db_config.auth_type` to `"DIGEST"` (GraphDB uses `"BASIC"`).
 
 ## 3. Prepare the data
 
-The pipeline does not handle literals yet, so the project keeps only the cleaned graph of each dataset, and that file is always the dataset's triple file. French Royalty's, `data/french_royalty/french_royalty.tsv`, is already cleaned, so you can skip to step 4. The original graph, with literals, is kept outside the repository. To rebuild the triple file from it, or to add a dataset, clean the original with `cli/clean.py`, which works on local files only (no graph database needed):
+`french_royalty.json` reads the benchmark copy of French Royalty, `exp_datasets/french/french.unified.tsv`, with its rules in `exp_datasets/french/french.csv`. Both are in the repository, so you can skip to step 4.
+
+The pipeline does not handle literals yet, so the project keeps only the cleaned graph of each dataset under `data/`, and that file is always the dataset's triple file. The cleaned French Royalty graph is `data/french_royalty/french_royalty.tsv`, and the original graph, with literals, is kept outside the repository. To rebuild that file from it, or to add a dataset, clean the original with `cli/clean.py`, which works on local files only (no graph database needed):
 
 ```bash
 python -m skgg.cli.clean path/to/original.tsv -o data/french_royalty/french_royalty.tsv
@@ -43,7 +47,7 @@ The `upload` subcommand of `cli/graph.py` loads a triples file into the database
 python -m skgg.cli.graph upload -f french_royalty.json
 ```
 
-This uploads `data/french_royalty/french_royalty.tsv` (`graph.triple_file` in the config, resolved under `data.input_dir`) into the base graph, `http://FrenchRoyalty.org/base` (the config's `graph.namespace` plus `base`), the graph that metrics get extracted from in step 5. The subcommand only uploads; it runs no rule-based completion. `-f`/`--config-file` resolves a bare filename under `configurations/`, with or without the `.json` extension (same as step 5 below), `--triple-file` and `--graph-uri` override the input file and the target graph, and `--log-level` overrides the config's `logging.level` for the run.
+This uploads `exp_datasets/french/french.unified.tsv` (`graph.triple_file` in the config, resolved under `data.input_dir`) into the base graph, `http://FrenchRoyalty.org/base` (the config's `graph.namespace` plus `base`), the graph that metrics get extracted from in step 5. The subcommand only uploads; it runs no rule-based completion. `-f`/`--config-file` resolves a bare filename under `configurations/`, with or without the `.json` extension (same as step 5 below), `--triple-file` and `--graph-uri` override the input file and the target graph, and `--log-level` overrides the config's `logging.level` for the run.
 
 `graph.triple_file` accepts a `.tsv` file of bare `subject<TAB>predicate<TAB>object` terms — `french_royalty.json` uses this format; terms are resolved to full URIs via the term mapping before insertion (`core/triples.tsv_term_to_nt`, as in `cli/convert.py`). An `.nt` file works too.
 
@@ -81,6 +85,7 @@ python -m skgg.cli.main -f french_royalty.json --skip-edb --log-level DEBUG
 | What | Where |
 |---|---|
 | Dataset files: the cleaned graph (`<dataset>.tsv`), its rules (`<dataset>.csv`) and SHACL shapes (`<dataset>.shapes.ttl`) | `data/<dataset>/` (e.g. `data/french_royalty/`), referenced by `data.input_dir` in the matching config |
+| Benchmark datasets: the splits, `<dataset>.unified.tsv` and its rules (`<dataset>.csv`) | `exp_datasets/<dataset>/`; `french_royalty.json` reads `exp_datasets/french/` |
 | Downloaded synthetic graphs (`<dataset>.skgg.<filter>.tsv`, `.filled.tsv`) | `data/<dataset>/skgg/` (e.g. `data/french_royalty/skgg/`), written with `cli/graph.py download -o` |
 | Experiment configs | `configurations/*.json` |
 | Named graphs (base/EDB/synthetic/filled) | in the running Virtuoso/GraphDB instance, under URIs derived from the config's `graph.namespace` and the run's rule filter (see [Graph layout](architecture.md#graph-layout)). `cli/main.py` writes no graph to disk |

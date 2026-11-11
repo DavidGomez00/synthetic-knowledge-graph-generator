@@ -3,13 +3,14 @@ rules that leave it with no cycle.
 
 A rule set with a cycle in its relation graph (`p -> p`, `A -> B -> A`, ...) can
 leave predicates that completion never derives, so `cli/main.py` removes cyclic
-rules with `remove_minimal_cyclic_rules` before EDB generation. See section 5.2 of
+rules with `remove_minimal_cyclic_rules` before EDB generation. Symmetric rules whose
+relation is generated as undirected edges are exempt. See section 5 of
 `docs/algorithm.md` for the method.
 """
 
 import logging
 from collections import defaultdict
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 
 import networkx as nx
 
@@ -140,15 +141,19 @@ def _best_order(preds: list[str], rules: list[HornRule]) -> tuple[list[str], set
     return order, kept
 
 
-def remove_minimal_cyclic_rules(rules: dict[str, HornRule]) -> dict[str, HornRule]:
+def remove_minimal_cyclic_rules(
+    rules: dict[str, HornRule], exempt: Collection[str] = ()
+) -> dict[str, HornRule]:
     """Deletes from `rules`, in place, the fewest rules that leave the relation
     graph (`get_relation_graph`) with no cycle.
 
     The rules left are the largest rule set with no cycle; among sets of the same
     size, the one with the most total support, then a fixed predicate order, so the
     same rules always give the same result. A recursive rule (its head predicate in
-    its own body) is always removed. See "Removing the fewest rules" in
-    `docs/algorithm.md` for the method.
+    its own body) is always removed, unless it is in `exempt`: those rules are left
+    out of the relation graph, so they are neither candidates for removal nor part
+    of a cycle (`edb.get_undirected_rule_ids` lists the symmetric rules that can be
+    exempt). See "Removing the fewest rules" in `docs/algorithm.md` for the method.
 
     Each strongly connected component of the relation graph is solved on its own
     (`_best_order`), since only predicates in the same component constrain each
@@ -163,7 +168,14 @@ def remove_minimal_cyclic_rules(rules: dict[str, HornRule]) -> dict[str, HornRul
     Returns:
         The removed rules, identified by rule_id.
     """
-    graph = get_relation_graph(rules)
+    if exempt:
+        logger.info(
+            "Rules exempt from cycle removal: %s.",
+            ", ".join(sorted(exempt, key=rule_sort_key)),
+        )
+    graph = get_relation_graph(
+        {rule_id: rule for rule_id, rule in rules.items() if rule_id not in exempt}
+    )
     removed_ids: set[str] = set()
 
     for component, cyclic_ids in _cyclic_components(graph):
@@ -223,7 +235,8 @@ def _pop_rules(rules: dict[str, HornRule], rule_ids: set[str]) -> dict[str, Horn
 
     producers: dict[str, list[str]] = defaultdict(list)
     for rule in rules.values():
-        producers[rule.head.predicate].append(rule.rule_id)
+        if not rule.is_symmetric():
+            producers[rule.head.predicate].append(rule.rule_id)
     removed_heads = {rule.head.predicate for rule in removed.values()}
     extensional = sorted(short_term(p) for p in removed_heads if p not in producers)
     if extensional:

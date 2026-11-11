@@ -2,9 +2,10 @@
 predicates (those never inferred by a rule head) that satisfy both the source
 graph's predicate profiles and the rule bodies that will later drive IDB generation.
 
-`generate_extensional_predicates` iterates three strategies per predicate, in
-order, until every extensional predicate's target frequency is reached
-("closed"):
+`generate_extensional_predicates` first places each directed extensional relation's
+self-loops (`place_self_loops`), as many as the source has, and no later step makes
+another one. It then iterates three strategies per predicate, in order, until every
+extensional predicate's target frequency is reached ("closed"):
   1. `check_direct_matches`: deterministic matches forced by profile counts.
   2. `check_triples_from_rule`: bindings satisfying a rule's extensional body,
      constructed directly from the profiles (`generator.sample_groundings`) so a
@@ -13,25 +14,41 @@ order, until every extensional predicate's target frequency is reached
      by the first two steps, with subjects and objects drawn weighted by their
      remaining budget, still respecting the Gale-Ryser/Havel-Hakimi
      solvability check (`generator.is_assignment_solvable`).
+
+A relation whose symmetric rule is kept is written as undirected edges, both
+directions at once. Direct matches skip it, rule groundings insert both directions,
+and once every rule is grounded `generate_undirected_relations` samples the budget
+left. If another rule also derives the relation, the EDB leaves it empty and
+`sample_derived_undirected_relations` samples the budget left after completion.
 """
 
 import heapq
 import logging
 import random
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 
 from SPARQLWrapper import SPARQLWrapper
 
 from skgg.core.queries import (
     TripleBuffer,
     count_producible_heads,
+    get_atom_bindings,
+    get_domain,
+    get_frequency,
+    get_reflexivity,
     initialize_graph,
     insert_triples_sparql,
 )
-from skgg.core.rules import HornRule, get_extensional_dependencies
+from skgg.core.rules import (
+    Atom,
+    HornRule,
+    get_extensional_dependencies,
+    get_intensional_preds,
+)
 from skgg.core.utils import format_triple, short_term
 from skgg.engine.generator import (
     decrement_counts,
+    is_assignment_solvable,
     sample_groundings,
     update_closed_preds,
 )
@@ -44,6 +61,96 @@ MAX_RANDOM_DRAWS = 1000
 
 
 # ---------------------------------------------------------------------------
+# Self-loops, before any other triple.
+# ---------------------------------------------------------------------------
+def place_self_loops(
+    client: SPARQLWrapper,
+    edb_uri: str,
+    profiles: dict[str, PredicateProfile],
+    term_mapping: dict[str, str],
+    chunk_size: int,
+    buffer: TripleBuffer,
+) -> int:
+    """Buffers the self-loops of each relation of `profiles`, as many triples
+    `(e, p, e)` as its `PredicateProfile.reflexivity`, before any other triple is
+    generated. No later step makes a self-loop, so each relation ends with the
+    source's count.
+
+    A self-loop spends one domain count, one range count and one unit of frequency.
+    An entity that can only reach its counts with a self-loop (it needs every object,
+    or every subject, itself included) gets one first, with no check, since every
+    completion of the profile has it. The others are drawn uniformly from the
+    entities in both the domain and the range, as `_undirected_edges` does for
+    relations generated as undirected edges, and each of those self-loops must pass
+    `is_assignment_solvable`.
+
+    Args:
+        client: Wrapper for SPARQL queries.
+        edb_uri: The URI where the EDB triples will be inserted.
+        profiles: The directed extensional relations; mutated.
+        term_mapping: Mapping of terms to their string representations.
+        chunk_size: Maximum number of triples to insert per SPARQL query.
+        buffer: Shared buffer that accumulates triples across calls.
+
+    Returns:
+        The number of buffered triples.
+    """
+    placed: dict[str, int] = {}
+
+    def loops() -> Iterator[str]:
+        """Yields the self-loops of each relation, spending its profile."""
+        for predicate in sorted(profiles):
+            profile = profiles[predicate]
+            if profile.reflexivity <= 0:
+                continue
+            candidates = list(profile.domain.keys() & profile.range.keys())
+            random.shuffle(candidates)
+            placed[predicate] = 0
+            while placed[predicate] < profile.reflexivity and candidates:
+                forced = next(
+                    (
+                        i
+                        for i, entity in enumerate(candidates)
+                        if profile.domain[entity] >= len(profile.range)
+                        or profile.range[entity] >= len(profile.domain)
+                    ),
+                    None,
+                )
+                entity = candidates.pop(len(candidates) - 1 if forced is None else forced)
+                if forced is None and not is_assignment_solvable(
+                    profile, entity, entity
+                ):
+                    continue
+                decrement_counts(profile.domain, entity)
+                decrement_counts(profile.range, entity)
+                profile.frequency -= 1
+                placed[predicate] += 1
+                yield format_triple(entity, predicate, entity, term_mapping)
+
+    count = buffer.add(loops())
+    buffer.flush_if_full(client=client, graph_uri=edb_uri, chunk_size=chunk_size)
+
+    if placed:
+        logger.info(
+            "[Self-loops] Placed %d self-loops (placed/target): %s",
+            count,
+            ", ".join(
+                f"{short_term(p)} {n}/{profiles[p].reflexivity}"
+                for p, n in sorted(placed.items(), key=lambda item: short_term(item[0]))
+            ),
+        )
+    for predicate, n in placed.items():
+        if n < profiles[predicate].reflexivity:
+            logger.warning(
+                "[Self-loops] %s: placed %d of %d self-loops.",
+                short_term(predicate),
+                n,
+                profiles[predicate].reflexivity,
+            )
+    return count
+
+
+# ---------------------------------------------------------------------------
 # Step 1: Direct matching of triples.
 # ---------------------------------------------------------------------------
 def check_direct_matches(
@@ -53,11 +160,17 @@ def check_direct_matches(
     term_mapping: dict[str, str],
     chunk_size: int,
     buffer: TripleBuffer,
+    checked: dict[str, int],
 ) -> int:
     """Retrieves the triples that must be added to the EDB from a set of rules and
     profiles and buffers them for insertion into the EDB (see `TripleBuffer`) —
     deciding them never requires a DB read, so they don't need to land
     immediately.
+
+    `checked` holds each predicate's remaining frequency at the last check that
+    found nothing. A predicate's matches depend only on its own domain and range,
+    and every triple spent lowers its frequency, so a predicate still at that
+    frequency is skipped. Pass the same dict to every call of a run.
 
     Returns the number of triples buffered for the EDB."""
 
@@ -67,30 +180,32 @@ def check_direct_matches(
             progress_made = False
 
             for predicate, profile in profiles.items():
-                if profile.closed:
+                if profile.closed or checked.get(predicate) == profile.frequency:
                     continue
+                remaining = profile.frequency
 
                 # Check for direct matches on domain
                 for subject, frequency in list(profile.domain.items()):
-                    obj_choices = list(profile.range.keys() - {subject})
-                    if frequency == len(obj_choices):
-                        for obj in obj_choices:
+                    if frequency == len(profile.range) - (subject in profile.range):
+                        for obj in list(profile.range.keys() - {subject}):
                             yield format_triple(subject, predicate, obj, term_mapping)
                             decrement_counts(profile.range, obj)
                             profile.frequency -= 1
                         del profile.domain[subject]
-                        progress_made = True
 
                 # Check for direct matches on range
                 for obj, frequency in list(profile.range.items()):
-                    subj_choices = list(profile.domain.keys() - {obj})
-                    if frequency == len(subj_choices):
-                        for subject in subj_choices:
+                    if frequency == len(profile.domain) - (obj in profile.domain):
+                        for subject in list(profile.domain.keys() - {obj}):
                             yield format_triple(subject, predicate, obj, term_mapping)
                             decrement_counts(profile.domain, subject)
                             profile.frequency -= 1
                         del profile.range[obj]
-                        progress_made = True
+
+                if profile.frequency == remaining:
+                    checked[predicate] = remaining
+                else:
+                    progress_made = True
 
             if not progress_made:
                 break
@@ -111,6 +226,7 @@ def check_triples_from_rule(
     term_mapping: dict[str, str],
     edb_uri: str,
     chunk_size: int,
+    undirected_preds: Collection[str] = (),
 ) -> int:
     """Builds groundings of a rule's extensional body and inserts them into the EDB.
 
@@ -122,6 +238,7 @@ def check_triples_from_rule(
         term_mapping: Mapping of terms to their string representations.
         edb_uri: The URI of the target EDB.
         chunk_size: Maximum number of triples to insert per SPARQL query.
+        undirected_preds: Predicates whose triples are inserted in both directions.
 
     Returns:
         The number of successfully inserted triples.
@@ -168,6 +285,7 @@ def check_triples_from_rule(
         missing_heads=missing_heads,
         term_mapping=term_mapping,
         chunk_size=chunk_size,
+        undirected=undirected_preds,
     )
 
     return insert_triples_sparql(
@@ -181,11 +299,16 @@ def check_triples_from_rule(
 # ---------------------------------------------------------------------------
 # Step 3: Produce triples from a random subject.
 # ---------------------------------------------------------------------------
-def _weighted_sample(weights: dict[str, int], k: int) -> list[str]:
-    """Draws `k` distinct keys of `weights` without replacement, each with
-    probability proportional to its (positive) weight (Efraimidis-Spirakis)."""
+def _weighted_sample(
+    weights: dict[str, int], k: int, exclude: str | None = None
+) -> list[str]:
+    """Draws `k` distinct keys of `weights` other than `exclude` without
+    replacement, each with probability proportional to its (positive) weight
+    (Efraimidis-Spirakis)."""
     return heapq.nlargest(
-        k, weights, key=lambda key: random.random() ** (1 / weights[key])
+        k,
+        (key for key in weights if key != exclude),
+        key=lambda key: random.random() ** (1 / weights[key]),
     )
 
 
@@ -204,9 +327,11 @@ def insert_random_triples(
 
     The subject is drawn with probability proportional to its remaining domain
     count and gets all of its triples at once. Its objects are drawn without
-    replacement, with probability proportional to their remaining range count,
-    until a set passes the solvability check. Serving large demands while the
-    most partners remain means fewer sets fail that check.
+    replacement from the range without the subject itself (self-loops are placed
+    first, by `place_self_loops`), with probability proportional to their remaining
+    range count, until a set passes the solvability check. The check is the one of
+    `generator.is_assignment_solvable` for a relation without self-loops. Serving
+    large demands while the most partners remain means fewer sets fail that check.
 
     Args:
         client: Wrapper for SPARQL queries.
@@ -236,37 +361,52 @@ def insert_random_triples(
     )[0]
     required_count = profile.domain[subject]
 
-    available_objects = list(profile.range.keys())
-    if len(available_objects) < required_count:
+    # The subject can't be its own object: `place_self_loops` placed the self-loops.
+    available_objects = len(profile.range) - (subject in profile.range)
+    if available_objects < required_count:
         raise ValueError(
             f"Error assigning triples for {predicate}. "
             f"{subject} must be in {required_count} triples. "
-            f"There are only {len(available_objects)} different objects available."
+            f"There are only {available_objects} different objects available."
         )
 
-    # Pre-calculate simulated domain metrics (remains constant for this choice)
-    sim_domain_len = len(profile.domain) - 1
-    max_domain = max((v for k, v in profile.domain.items() if k != subject), default=0)
+    # The other subjects keep their counts. Each needs that many objects other than
+    # itself, so one that is also an object needs one more than its count.
+    domain, range_ = profile.domain, profile.range
+    sim_domain_len = len(domain) - 1
+    max_need = max(
+        (count + (k in range_) for k, count in domain.items() if k != subject),
+        default=0,
+    )
     chosen_objects: list[str] = []
 
     for draw in range(1, MAX_RANDOM_DRAWS + 1):
-        chosen_objects = _weighted_sample(profile.range, required_count)
+        chosen_objects = _weighted_sample(range_, required_count, exclude=subject)
         chosen_set = set(chosen_objects)
 
-        # Simulate the range length: Count the objects that won't drop to 0
-        sim_range_len = sum(
-            1
-            for obj, count in profile.range.items()
-            if not (count == 1 and obj in chosen_set)
-        )
+        # The objects left once the chosen ones lose a count, and the largest need
+        # among them, one more for an object that stays a subject.
+        sim_range_len = 0
+        max_range = 0
+        for obj, count in range_.items():
+            if left := count - (obj in chosen_set):
+                sim_range_len += 1
+                need = left + (obj in domain and obj != subject)
+                if need > max_range:
+                    max_range = need
 
-        max_range = max(
-            (
-                count - 1 if obj in chosen_set else count
-                for obj, count in profile.range.items()
-            ),
-            default=0,
-        )
+        # A subject stops being an object when this one takes its last range count,
+        # which lowers its need. Only worth computing when `max_need` doesn't fit.
+        max_domain = max_need
+        if max_need > sim_range_len:
+            max_domain = max(
+                (
+                    count + (k in range_ and not (range_[k] == 1 and k in chosen_set))
+                    for k, count in domain.items()
+                    if k != subject
+                ),
+                default=0,
+            )
 
         if max_domain <= sim_range_len and max_range <= sim_domain_len:
             if draw > 1:
@@ -292,6 +432,216 @@ def insert_random_triples(
     count = buffer.add(random_matches())
     buffer.flush_if_full(client=client, graph_uri=edb_uri, chunk_size=chunk_size)
     return count
+
+
+# ---------------------------------------------------------------------------
+# Symmetric relations: undirected edges.
+# ---------------------------------------------------------------------------
+def get_undirected_rule_ids(
+    rules: dict[str, HornRule], profiles: dict[str, PredicateProfile]
+) -> set[str]:
+    """Returns the IDs of the symmetric rules whose relation can be generated as
+    undirected edges: every entity has the same domain and range count."""
+    return {
+        r_id
+        for r_id, rule in rules.items()
+        if rule.is_symmetric()
+        and profiles[rule.head.predicate].domain == profiles[rule.head.predicate].range
+    }
+
+
+def _edge_key(a: str, b: str) -> tuple[str, str]:
+    """Returns the key of the undirected edge between two entities."""
+    return (a, b) if a < b else (b, a)
+
+
+def _undirected_edges(
+    degrees: dict[str, int], reflexive: int, existing: set[tuple[str, str]]
+) -> tuple[list[str], list[tuple[str, str]]]:
+    """Draws a random simple undirected graph with the given degrees by stub
+    matching: each entity gets one stub per degree, and shuffled stubs are paired.
+
+    A self-loop, or a pair that is already an edge, is repaired by swapping it with
+    a random new edge `(c, d)` into `(a, c)` and `(b, d)`. Swaps only touch new edges,
+    so `existing` stays as it is. A pair that `MAX_RANDOM_DRAWS` swaps can't repair
+    is dropped, and so is an odd stub left over, so the graph can end short of
+    `degrees`.
+
+    Args:
+        degrees: Degree still to assign per entity.
+        reflexive: Self-loops to place, one per entity, each spending one degree.
+        existing: Keys (`_edge_key`) of the edges already in the graph.
+
+    Returns:
+        The entities with a new self-loop, and the new edges.
+    """
+    remaining = dict(degrees)
+    candidates = [e for e in remaining if _edge_key(e, e) not in existing]
+    loops = random.sample(candidates, min(reflexive, len(candidates)))
+    for entity in loops:
+        remaining[entity] -= 1
+
+    stubs = [entity for entity, count in remaining.items() for _ in range(count)]
+    random.shuffle(stubs)
+
+    placed = set(existing)
+    edges: list[tuple[str, str]] = []
+    clashes: list[tuple[str, str]] = []
+    for a, b in zip(stubs[::2], stubs[1::2], strict=False):
+        if a == b or _edge_key(a, b) in placed:
+            clashes.append((a, b))
+        else:
+            placed.add(_edge_key(a, b))
+            edges.append((a, b))
+
+    for a, b in clashes:
+        for _ in range(MAX_RANDOM_DRAWS if edges else 0):
+            index = random.randrange(len(edges))
+            c, d = edges[index]
+            if random.random() < 0.5:
+                c, d = d, c
+            first, second = _edge_key(a, c), _edge_key(b, d)
+            if a == c or b == d or first == second or {first, second} & placed:
+                continue
+            placed.remove(_edge_key(c, d))
+            placed.update((first, second))
+            edges[index] = (a, c)
+            edges.append((b, d))
+            break
+
+    return loops, edges
+
+
+def _sample_undirected(
+    client: SPARQLWrapper,
+    predicate: str,
+    profile: PredicateProfile,
+    degrees: dict[str, int],
+    reflexive: int,
+    graph_uri: str,
+    term_mapping: dict[str, str],
+    chunk_size: int,
+) -> int:
+    """Samples undirected edges for `degrees`, around the edges of `predicate`
+    already in the graph, inserts both directions of each one and closes the
+    profile, so the fill step leaves the relation alone.
+
+    Returns:
+        The number of triples inserted.
+    """
+    frequency = get_frequency(client, predicate, graph_uri)
+    existing = {
+        _edge_key(row["?s"], row["?o"])
+        for row in get_atom_bindings(
+            client, [Atom("?s", predicate, "?o")], ["?s", "?o"], graph_uri, frequency
+        )
+    }
+    loops, edges = _undirected_edges(degrees, reflexive, existing)
+
+    def triples() -> Iterator[str]:
+        """Yields each self-loop once and each edge in both directions."""
+        for entity in loops:
+            yield format_triple(entity, predicate, entity, term_mapping)
+        for a, b in edges:
+            yield format_triple(a, predicate, b, term_mapping)
+            yield format_triple(b, predicate, a, term_mapping)
+
+    inserted = insert_triples_sparql(
+        client=client,
+        graph_uri=graph_uri,
+        triple_stream=triples(),
+        chunk_size=chunk_size,
+    )
+    profile.closed = True
+
+    budget = sum(degrees.values())
+    logger.info(
+        "[Symmetric] %s: sampled %d of the %d triples left (%d edges, %d self-loops).",
+        short_term(predicate),
+        inserted,
+        budget,
+        len(edges),
+        len(loops),
+    )
+    if inserted < budget:
+        logger.warning(
+            "[Symmetric] %s ends %d triples short: no valid pairing left for them.",
+            short_term(predicate),
+            budget - inserted,
+        )
+    return inserted
+
+
+def generate_undirected_relations(
+    client: SPARQLWrapper,
+    predicates: Collection[str],
+    profiles: dict[str, PredicateProfile],
+    edb_uri: str,
+    term_mapping: dict[str, str],
+    chunk_size: int,
+) -> None:
+    """Samples, in the EDB, the budget that rule groundings left of each open
+    relation of `predicates`, which only its symmetric rule derives."""
+    for predicate in sorted(predicates):
+        profile = profiles[predicate]
+        if profile.closed:
+            continue
+        profile.frequency -= _sample_undirected(
+            client,
+            predicate,
+            profile,
+            profile.domain,
+            profile.reflexivity,
+            edb_uri,
+            term_mapping,
+            chunk_size,
+        )
+        profile.domain.clear()
+        profile.range.clear()
+
+
+def sample_derived_undirected_relations(
+    client: SPARQLWrapper,
+    rules: dict[str, HornRule],
+    profiles: dict[str, PredicateProfile],
+    graph_uri: str,
+    term_mapping: dict[str, str],
+    chunk_size: int,
+) -> int:
+    """Samples what completion left short of each open symmetric relation that
+    another rule also derives, in the completed graph `graph_uri`. An entity already
+    at or past its source degree gets no new edge.
+
+    The profiles of these relations are unspent: direct matches skip them and rule
+    groundings leave out intensional predicates.
+
+    Returns:
+        The number of triples inserted.
+    """
+    symmetric_preds = {r.head.predicate for r in rules.values() if r.is_symmetric()}
+    inserted = 0
+    for predicate in sorted(symmetric_preds & get_intensional_preds(rules)):
+        profile = profiles[predicate]
+        if profile.closed:
+            continue
+        current = get_domain(client, graph_uri, predicate)
+        degrees = {
+            entity: count - current.get(entity, 0)
+            for entity, count in profile.domain.items()
+            if count > current.get(entity, 0)
+        }
+        reflexive = profile.reflexivity - get_reflexivity(client, graph_uri, predicate)
+        inserted += _sample_undirected(
+            client,
+            predicate,
+            profile,
+            degrees,
+            max(reflexive, 0),
+            graph_uri,
+            term_mapping,
+            chunk_size,
+        )
+    return inserted
 
 
 # ---------------------------------------------------------------------------
@@ -353,7 +703,29 @@ def generate_extensional_predicates(
     # Target frequency per predicate, copied before the steps below spend
     # `PredicateProfile.frequency` as a remaining budget.
     targets = {p: pr.frequency for p, pr in profiles.items()}
-    intensional_preds = {r.head.predicate for r in rules.values()}
+    intensional_preds = get_intensional_preds(rules)
+    symmetric_preds = {r.head.predicate for r in rules.values() if r.is_symmetric()}
+    # Relations that only their symmetric rule derives.
+    undirected_preds = symmetric_preds - intensional_preds
+    # A direct match would write only one direction of a symmetric relation.
+    directed_profiles = {
+        p: pr for p, pr in profiles.items() if p not in symmetric_preds
+    }
+    direct_checked: dict[str, int] = {}
+
+    # Self-loops first: no later step makes one. Relations generated as undirected
+    # edges place theirs when they are sampled.
+    place_self_loops(
+        client=client,
+        edb_uri=edb_uri,
+        profiles={
+            p: pr for p, pr in directed_profiles.items() if p not in intensional_preds
+        },
+        term_mapping=term_mapping,
+        chunk_size=chunk_size,
+        buffer=buffer,
+    )
+    before_warm_up = {p: pr.frequency for p, pr in profiles.items()}
 
     # Warm-up: Direct matches for any predicate untill no new triples.
     logger.info("Start warm-up.")
@@ -362,10 +734,11 @@ def generate_extensional_predicates(
         if count := check_direct_matches(
             client=client,
             edb_uri=edb_uri,
-            profiles=profiles,
+            profiles=directed_profiles,
             term_mapping=term_mapping,
             chunk_size=chunk_size,
             buffer=buffer,
+            checked=direct_checked,
         ):
             logger.info("[Warm-up] Added %d direct matches to EDB.", count)
         else:
@@ -374,7 +747,9 @@ def generate_extensional_predicates(
     update_closed_preds(profiles=profiles)
 
     # Direct matches cover every predicate, so intensional ones may get triples too.
-    if warm_preds := {p for p, pr in profiles.items() if pr.frequency < targets[p]}:
+    if warm_preds := {
+        p for p, pr in profiles.items() if pr.frequency < before_warm_up[p]
+    }:
         logger.info(
             "[Warm-up] Relations with direct matches (%d, added/target): %s",
             len(warm_preds),
@@ -430,10 +805,11 @@ def generate_extensional_predicates(
         if direct_count := check_direct_matches(
             client=client,
             edb_uri=edb_uri,
-            profiles=profiles,
+            profiles=directed_profiles,
             term_mapping=term_mapping,
             chunk_size=chunk_size,
             buffer=buffer,
+            checked=direct_checked,
         ):
             progress = True
             logger.debug("[Step %d] Added %d triples directly.", step, direct_count)
@@ -477,6 +853,7 @@ def generate_extensional_predicates(
                     term_mapping=term_mapping,
                     edb_uri=edb_uri,
                     chunk_size=chunk_size,
+                    undirected_preds=undirected_preds,
                 )
                 checked_rules.add(r_id)
 
@@ -495,7 +872,29 @@ def generate_extensional_predicates(
 
         # Step 3: Assign randomly
         if not progress:
-            open_preds = [p for p, pr in extensional_profiles.items() if not pr.closed]
+            # Symmetric relations wait for every rule's groundings to spend their
+            # budget first.
+            if len(checked_rules) >= len(rules) and any(
+                not profiles[p].closed for p in undirected_preds
+            ):
+                buffer.flush(client=client, graph_uri=edb_uri, chunk_size=chunk_size)
+                generate_undirected_relations(
+                    client=client,
+                    predicates=undirected_preds,
+                    profiles=profiles,
+                    edb_uri=edb_uri,
+                    term_mapping=term_mapping,
+                    chunk_size=chunk_size,
+                )
+                continue
+
+            open_preds = [
+                p
+                for p, pr in extensional_profiles.items()
+                if not pr.closed and p not in undirected_preds
+            ]
+            if not open_preds:
+                continue
             predicate = random.choice(open_preds)
             profile = profiles[predicate]
 

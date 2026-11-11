@@ -53,6 +53,8 @@ The generator therefore accepts a candidate fact $p(s,o)$ for predicate $p$ only
 
 $$\operatorname{solvableProfile}(P) = (\max e \in Dom  \le |Ran|) \land (\max  e\in Ran \le |Dom|)$$
 
+The self-loops of a relation are placed before any other fact (Section 3.2), so the rest of the relation has none, and an entity in both $Dom$ and $Ran$ can't be its own partner. The test the generator uses counts this: $Dom(e) + [e \in Ran] \le |Ran|$ for every subject $e$, and $Ran(e) + [e \in Dom] \le |Dom|$ for every object $e$. Relations generated as undirected edges (Section 5.4) place their self-loops last and keep the test above.
+
 This is the $k=1$ instance of Gale–Ryser applied to the residual profile after each tentative commitment. It is a **necessary** condition, cheap enough to check for every candidate, and it rules out the failures that occur in practice. It is not sufficient, so the method does not formally guarantee that every intermediate state is completable. Section 9 returns to this.
 
 ## 3. Extensional database (EDB)
@@ -68,11 +70,13 @@ Our aim is to generate **correlated** facts across the relations that co-occur i
 
 Committing a fact $(s,p,o)$ decrements the amount of triples to achieve the target frequency of relation $p$, and the remaining available entities in the range and domain counters of $P_p$. A relation $p$ is **closed** when the amount of triples needed to achieve its target frequency is 0. EDB generaation ends when all extensional relations are closed. To this end, three mechanisms add facts, apllied in a fixed priority.
 
+**Self-loops.** Before the three mechanisms, each extensional relation gets as many self-loops $p(e,e)$ as the source has, its reflexivity in the profile, and no mechanism makes another one. A self-loop spends one unit of $e$ in $Dom_p$ and one in $Ran_p$. An entity that can only reach its counts with a self-loop, because it needs every member of $Ran_p$ or of $Dom_p$, itself included, gets one first. The others go to entities drawn uniformly from those in both $Dom_p$ and $Ran_p$, if the realizability test of Section 2.4.1 accepts them. Relations generated as undirected edges place theirs when they are sampled (Section 5.4).
+
 #### 3.2.1 Mechanism 1: forced assignments
 
-Some commitments are forced by the degree sequences and involve no choice. Let $s$ be a subject in the domain of relation $p$ with residual demand $k$ ($Dom_p=\{\dots, s:k, \dots\})$. If $k = |Ran_p|$, then $s$ must be connected to *every* member of $Ran_p$, i.e., it needs $k$ distinct partners and exactly $k$ distinct objects exist. The symmetric rule applies to objects. 
+Some commitments are forced by the degree sequences and involve no choice. Let $s$ be a subject in the domain of relation $p$ with residual demand $k$ ($Dom_p=\{\dots, s:k, \dots\})$. If $k = |Ran_p| - [s \in Ran_p]$, then $s$ must be connected to *every* other member of $Ran_p$, i.e., it needs $k$ distinct partners and exactly $k$ distinct objects other than $s$ exist (its self-loops are already placed). The symmetric rule applies to objects. 
 
-These facts can be directly deduced directly from each relation profile. Committing them may make other entities forced in turn, so the rule is applied repeatedly until nothing more is forced. This mechanism costs nothing in freedom, every fact it adds is one fact that any completion of the profile must contain.
+These facts can be directly deduced directly from each relation profile. Committing them may make other entities forced in turn, so the rule is applied repeatedly until nothing more is forced. This mechanism costs nothing in freedom, every fact it adds is one fact that any completion of the profile must contain. Relations generated as undirected edges (Section 5.4) are skipped, because a forced fact would be written in one direction only.
 
 #### 3.2.2. Mechanism 2: rule-driven grounding
 
@@ -96,13 +100,15 @@ A candidate is **accepted** if
 
 Accepted candidates commit their new facts and decrement the residual profiles. Sampling stops after $m_r$ acceptances, or when repeated batches of candidates yield none, because the residual profiles no longer allow it. In that case the shortfall is left to the third mechanism. Drawing by capacity favours entities that can still take many facts, so shared witnesses tend to be reused. Reusing witnesses conserves budget.
 
+An atom on a relation generated as undirected edges (Section 5.4) commits both $(s,p,o)$ and $(o,p,s)$ and spends the budget of both. A candidate that binds the subject and object of any atom to the same entity is skipped, because self-loops are placed on their own: before the three mechanisms, or when a relation generated as undirected edges is sampled.
+
 #### 3.2.3 Mechanism 3: random completion
 
-When neither forced assignments nor rule-driven grounding can make progress, the remaining budget of a raltion's domain and range is spent without regard to rules. A still-open relation $p$ is chosen at random, and then a subject $s$ from its residual domain, with probability proportional to its residual demand $k$. Since nothing will pick $s$ up later, it is closed in this single step. A set of $k$ distinct objects is drawn without replacement, each with probability proportional to its residual degree in $Ran_p$, and the whole set is committed only if the residual profile after removing $s$ passes the realizability test of Section 2.4.1. Otherwise a new set is drawn, up to a fixed number of attempts. If fewer than $k$ objects remain, or no drawn set passes the test, generation fails. Weighting both draws by the remaining budget serves the largest demands while the most partners remain, the same idea as the constructive proof of Gale–Ryser, so the residual profile rarely reaches a state that the test rejects. This is deliberately a last resort. The first two mechanisms extract every fact that carries information about rule co-occurrence. Whatever remains has no such structure to preserve.
+When neither forced assignments nor rule-driven grounding can make progress, the remaining budget of a raltion's domain and range is spent without regard to rules. A still-open relation $p$ is chosen at random, and then a subject $s$ from its residual domain, with probability proportional to its residual demand $k$. Since nothing will pick $s$ up later, it is closed in this single step. A set of $k$ distinct objects other than $s$ is drawn without replacement, each with probability proportional to its residual degree in $Ran_p$, and the whole set is committed only if the residual profile after removing $s$ passes the realizability test of Section 2.4.1. Otherwise a new set is drawn, up to a fixed number of attempts. If fewer than $k$ objects remain, or no drawn set passes the test, generation fails. Weighting both draws by the remaining budget serves the largest demands while the most partners remain, the same idea as the constructive proof of Gale–Ryser, so the residual profile rarely reaches a state that the test rejects. This is deliberately a last resort. The first two mechanisms extract every fact that carries information about rule co-occurrence. Whatever remains has no such structure to preserve. Relations generated as undirected edges are not drawn here: Section 5.4 samples them once every rule has been used by Mechanism 2.
 
 ### 3.3 Resulting EDB
 
-Whenever the EDB generation terminates, for every extensional relation the base facts reproduce the source degree maps exactly. The joint structure of rule bodies is approximated by the groundings of Mechanism 2. Intensional relations are still not present in the EDB$^{[2]}$.
+Whenever the EDB generation terminates, for every extensional relation the base facts reproduce the source degree maps and number of self-loops exactly. The joint structure of rule bodies is approximated by the groundings of Mechanism 2. Intensional relations are still not present in the EDB$^{[2]}$.
 
 >$^{[2]}$: We considered it is more convenient to generate any triple containing intensional relations if the profiles describe direct assignments, applying mechanism 1 until no more direct assignments can be done.
 
@@ -110,7 +116,7 @@ Whenever the EDB generation terminates, for every extensional relation the base 
 
 Given the base facts $F_0$ in the EDB, the synthetic graph is obtained by applying the rules until nothing new can be derived. The immediate-consequence operator of a rule set $\mathcal{R}$ is $$T_{\mathcal{R}}(F)=F \cup \bigl\{\sigma(H_r): \sigma(\overrightarrow{B_r})\in F, r \in \mathcal{R}  \bigr\}$$ and the iteration $$ F_{k+1} = T_{\mathcal{R}}(F_k) $$ is repeated until $F_{k+1} = F_k$. 
 
-Because $T_{\mathcal{R}}$ is monotone and the entity and predicate sets are finite, the sequence stabilises at the least fixpoint $F^{*}$, the smallest set that contains $F_0$ and is closed under every rule. Once no rule adds a further fact, the graph is in a *stale state*.
+Because $T_{\mathcal{R}}$ is monotone and the entity and predicate sets are finite, the sequence stabilises at the least fixpoint $F^{*}$, the smallest set that contains $F_0$ and is closed under every rule. Once no rule adds a further fact, the graph is in a *stale state*. A symmetric relation that another rule also derives is sampled after this fixpoint, and the fixpoint is computed again (Section 5.4).
 
 After the fixpoint, rule and relation **closure** is recorded. A rule is closed when its support in the graph has reached its target, and a predicate is closed when its frequency in the new graph is equal to its frequency on the target graph.
 ### 4.1 Filling open relations
@@ -147,7 +153,7 @@ Both are natural rule sets: symmetry and transitivity rules of this shape are am
 
 ### 5.1 The relation graph
 
-Define the **relation graph** $D_{\mathcal{R}}$ as a directed graph on relations, with an edge $q \to p$ whenever some rule has relation $q$ in its body and relation $p$ in its head (self-loops included). Each edge remembers the rules that produce it. The method removes rules from $\mathcal{R}$ before the EDB is generated until $D_{\mathcal{R}}$ has no cycle. A predicate that only the removed rules derived becomes extensional, so the EDB generates it to its profile, and a predicate that some remaining rule derives stays intensional.
+Define the **relation graph** $D_{\mathcal{R}}$ as a directed graph on relations, with an edge $q \to p$ whenever some rule has relation $q$ in its body and relation $p$ in its head (self-loops included). Each edge remembers the rules that produce it. The method removes rules from $\mathcal{R}$ before the EDB is generated until $D_{\mathcal{R}}$ has no cycle. A predicate that only the removed rules derived becomes extensional, so the EDB generates it to its profile, and a predicate that some remaining rule derives stays intensional. The symmetric rules that Section 5.4 keeps are left out of $D_{\mathcal{R}}$.
 
 A first version removed every rule with an edge on a cycle, that is, every rule whose body and head relations lie in the same strongly connected component of $D_{\mathcal{R}}$. Most mined rules are on some cycle, so few survive: on the French Royalty rules with PCA confidence at least 0.9, it keeps 1 rule of 23, and at 0.7 or below it keeps none. Section 5.2 removes only the rules needed to break every cycle.
 
@@ -155,7 +161,7 @@ A first version removed every rule with an edge on a cycle, that is, every rule 
 
 **The problem.** Find the largest subset of $\mathcal{R}$ whose relation graph has no cycle. Removing a rule removes all of its edges at once, so this is a feedback arc set problem in which edges come in groups.
 
-**Rules and orders.** A directed graph has no cycle exactly when its nodes can be put in an order where every edge goes forward (a topological order). For a rule set this means: the relations can be ordered so that, for every rule, all its body relations come before its head relation. So choosing the rules to keep is the same as choosing an order of the relations and keeping every rule that goes forward in it. A recursive rule, whose head relation also appears in its body, goes forward in no order and is always removed.
+**Rules and orders.** A directed graph has no cycle exactly when its nodes can be put in an order where every edge goes forward (a topological order). For a rule set this means: the relations can be ordered so that, for every rule, all its body relations come before its head relation. So choosing the rules to keep is the same as choosing an order of the relations and keeping every rule that goes forward in it. A recursive rule, whose head relation also appears in its body, goes forward in no order and is always removed, except the symmetric rules that Section 5.4 keeps.
 
 **Why not remove one rule at a time.** A natural idea is to repeat "remove the rule that looks worst" until no cycle is left, for example the rule with the lowest confidence, or the rule on the most cycles. Such a rule only looks at one rule, while a cycle is broken by removing every rule behind one of its edges. Take a single cycle $A \to B \to A$ made by three rules: $r_1$ gives the edge $A \to B$ (confidence 0.99), and $r_2$ and $r_3$ both give the edge $B \to A$ (confidences 0.98 and 0.90). Removing the lowest confidence first deletes $r_3$, which leaves the cycle, then $r_2$: two rules gone. All three rules lie on the one cycle, so "most cycles first" falls back to the same choice. Removing $r_1$ alone was enough. In the order view, $B$ before $A$ keeps $r_2$ and $r_3$, while $A$ before $B$ keeps only $r_1$. On the French Royalty rule files, the two heuristics keep far fewer rules than the exact selection:
 
@@ -185,6 +191,19 @@ where $\operatorname{gain}(v, T)$ counts the non-recursive rules with head $v$ w
 
 A cycle is *stale* when none of its predicates has a fact. An earlier version kept the cyclic rules and, for each stale cycle, created body facts for one rule of the cycle (as Mechanism 2 of Section 3.2 does) so that forward chaining could start, then re-ran completion and repeated. It was memory intensive and has been removed from the method.
 
+### 5.4 Symmetric relations as undirected edges
+
+A rule $p(x,y) \Rightarrow p(y,x)$ is a self-loop of $D_{\mathcal{R}}$, so Section 5.2 would remove it, and the EDB would then wire $p$ at random in one direction and lose its symmetry. The rule is kept when every entity has the same count in the domain and in the range of $p$, which an undirected graph needs. Every fact of $p$ is then written together with its reverse, and an entity's count is its degree in an undirected graph. A reflexive fact $p(e,e)$ is written once and spends one degree.
+
+Facts that rules can produce come first, and only the budget they leave is sampled at random. The order depends on whether another kept rule derives $p$:
+
+- **Only the symmetric rule derives $p$.** The relation is extensional. Mechanism 1 skips it, Mechanism 2 grounds the rule bodies that use it in both directions, and the remaining budget is sampled in the EDB once every rule has been used.
+- **Another kept rule also derives $p$.** The relation is intensional and the EDB writes nothing for it. The fixpoint of Section 4 derives its facts and their reverses. The budget left, the source degrees minus the degrees in the graph, is then sampled, and the fixpoint is computed again so that rules with $p$ in their body see the new facts. An entity already at or past its source degree gets no new edge.
+
+**Sampling.** As many entities as the source has reflexive facts get a self-loop. Each remaining degree becomes one stub, and the shuffled stubs are paired. A pair that is a self-loop or an edge already in the graph is repaired by swapping it with a random new edge $(c,d)$ into $(a,c)$ and $(b,d)$, if both are new and neither is a self-loop. Swaps only touch new edges, so the facts that rules produced stay in place. A pair that a fixed number of swaps can't repair is dropped with a warning, and so is an odd stub left over, so the relation can end short of its target.
+
+Degrees are exact in the first case. In the second they are as close as the derivation allows, since the fixpoint is not capped by the profile. On the 8 relations with a symmetric rule of std confidence 1 in the benchmark datasets, the sampling reproduced every degree in all runs.
+
 ## 6. The complete procedure
 
 Putting the steps together, the method is:
@@ -194,7 +213,7 @@ Putting the steps together, the method is:
 3. **Derive** the least fixpoint of the rules over the base facts (Section 4).
 4. **Fill** the relations still short of their frequency, keeping the support of every closed rule and raising the support of open rules up to their target (Section 4.1).
 
-Before step 2, the fewest rules that break every cycle of the relation graph are removed from $\mathcal{R}$ (Section 5.2), so step 3 can derive every intensional predicate.
+Before step 2, the fewest rules that break every cycle of the relation graph are removed from $\mathcal{R}$ (Section 5.2), so step 3 can derive every intensional predicate. Symmetric rules whose relation has equal domain and range counts are kept, and those relations are written as undirected edges (Section 5.4).
 
 Only step 1 reads statistical data from the source graph, apart from the remaining budgets of step 4, computed as the source profiles minus the counts in the synthetic graph. Everything after it uses the profiles, the supports and the rules.
 
@@ -217,3 +236,4 @@ Only step 1 reads statistical data from the source graph, apart from the remaini
 7. The method assumes the source graph to be as correct and complete as possible. I added a "data preparation" step to "clean" the data, but it currently does not take into account schemas or semantic constraints. SHACL-SPARQL constraints (`<dataset>.shapes.ttl`) can be checked against a `.tsv` file with `cli/validate.py`, which reports the triples that violate them, but the generator does not use them yet to avoid invalid triples.
 8. **Filling is limited by facts shared between open rules.** The fill step (Section 4.1) rejects a fact that leaves a grounding of another open rule without its head, so relations that feed several open rules stay open (`father` at 271 of 561 on `french_royalty.csv` at PCA 0.9). Adding the other rules' heads in the same grounding, or re-running the rule-driven part after the random part, are the next steps (see `BACKLOG.md`).
 9. Current approach does not support literals, so the source graph must be processed beforehand. This could impact the semantics or the rules, so target rule set is always mined from the processed final version of the input graph.
+10. **Partly symmetric relations.** Section 5.4 needs equal domain and range counts for every entity. A symmetric rule whose relation fails this is removed as in Section 5.2: 11 of the 19 symmetric rules at PCA 0.9 in the benchmark datasets, such as `_also_see` in WN18RR, with std confidence 0.68.

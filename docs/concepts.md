@@ -17,7 +17,7 @@ A `PredicateProfile` (`engine/metrics.py`) is the per-predicate summary the whol
 - **frequency** — how many triples use this predicate.
 - **domain** — `{subject → count}`, how many triples each subject appears in as the subject of this predicate.
 - **range** — `{object → count}`, the same for objects.
-- **reflexivity** — how many triples have the same subject and object.
+- **reflexivity** — how many triples have the same subject and object. EDB generation places exactly this many self-loops for an extensional relation before any other triple, and makes no other self-loop (`edb.place_self_loops`).
 - **closed** — whether this predicate has reached its target `frequency` (see [Closure](#closure)); `False` until then.
 
 `GraphMetrics` (same module) is just a `{predicate → PredicateProfile}` map, extracted from a graph over SPARQL by `from_uri`.
@@ -43,7 +43,7 @@ Rule quality metrics carried alongside each rule (from the CSV, used to filter w
 
 Standard Datalog terminology. A run stores its EDB in the named graph `<root>/skgg/<filter>/edb` and its IDB in `<root>/skgg/<filter>` (see [Graph layout](architecture.md#graph-layout)):
 
-- **Extensional predicate** — never appears as a rule's head; its truth is asserted directly as ground facts (there's no rule to derive it from). The **Extensional Database (EDB)** is the set of such ground facts — `engine/edb.py` generates it to satisfy both the predicate profiles and any rule bodies that reference these predicates.
+- **Extensional predicate** — never appears as a rule's head, or only as the head of its own [symmetric rule](#symmetric-relation); its truth is asserted directly as ground facts (there's no rule to derive it from). The **Extensional Database (EDB)** is the set of such ground facts — `engine/edb.py` generates it to satisfy both the predicate profiles and any rule bodies that reference these predicates.
 - **Intensional predicate** — appears as some rule's head; its truth is *derived* by applying rules over already-known facts. The **Intensional Database (IDB)** is the EDB plus everything derivable from it by forward-chaining the rules — this is the final synthetic graph (`<root>/skgg/<filter>`), built by `engine/completion.py`'s `complete_graph` starting from the EDB. The pipeline removes every [cyclic rule](#cyclic-rule) first, so completion can derive every intensional predicate from the EDB.
 
 ## Closure
@@ -77,13 +77,24 @@ RDF terms are written as bare short names in rules/data (`hasAge`) but need a fu
 
 EDB generation only seeds extensional predicates (never a rule head). If every rule producing a predicate depends on that predicate itself (`p -> p`, e.g. `spouse(a,b) => spouse(b,a)`) or on a rule that depends back on it (`A -> B -> A`), completion can never start: the predicates stay empty. A cycle of the relation graph (`core/cycles.get_relation_graph`) none of whose predicates has triples after completion is *stale*.
 
-The pipeline avoids stale cycles by removing the fewest [cyclic rules](#cyclic-rule) that leave no cycle, before EDB generation. An earlier version seeded the body facts of one rule of each stale cycle instead, so forward chaining could start; [section 5.3 of `algorithm.md`](algorithm.md#53-an-earlier-approach-seeding-stale-cycles) explains why it was removed.
+The pipeline avoids stale cycles by removing the fewest [cyclic rules](#cyclic-rule) that leave no cycle, before EDB generation, or by writing a [symmetric relation](#symmetric-relation) directly as undirected edges. An earlier version seeded the body facts of one rule of each stale cycle instead, so forward chaining could start; [section 5.3 of `algorithm.md`](algorithm.md#53-an-earlier-approach-seeding-stale-cycles) explains why it was removed.
 
 ## Cyclic rule
 
 A rule with an edge `body predicate -> head predicate` on a cycle of the relation graph (`core/cycles.get_relation_graph`), meaning both predicates are in the same strongly connected component. A recursive rule (`p -> p`) is cyclic, and so is a rule whose body predicate depends back on its head through other rules, even if only one of its body predicates does.
 
-`cli/main.py` removes cyclic rules right after the rule set is parsed and before EDB generation, so no [stale cycle](#stale-cycle) can occur. `core/cycles.remove_minimal_cyclic_rules` removes the fewest rules that leave no cycle ([method](algorithm.md#52-removing-the-fewest-rules), [code](architecture.md#cyclic-rule-removal)); a strongly connected component with more than 20 predicates loses all its cyclic rules. The head predicate of a removed rule becomes extensional unless a remaining rule still derives it, and the summary lists the removed rules with their support, original -> synthetic.
+`cli/main.py` removes cyclic rules right after the rule set is parsed and before EDB generation, so no [stale cycle](#stale-cycle) can occur. `core/cycles.remove_minimal_cyclic_rules` removes the fewest rules that leave no cycle ([method](algorithm.md#52-removing-the-fewest-rules), [code](architecture.md#cyclic-rule-removal)); a strongly connected component with more than 20 predicates loses all its cyclic rules. The head predicate of a removed rule becomes extensional unless a remaining rule still derives it, and the summary lists the removed rules with their support, original -> synthetic. A [symmetric rule](#symmetric-relation) that qualifies is exempt from the removal.
+
+## Symmetric relation
+
+A relation with a kept rule `p(x,y) => p(y,x)`. The rule qualifies when every entity has the same count in the domain and in the range of `p` (`engine/edb.get_undirected_rule_ids`). `cli/main.py` passes those rules to `core/cycles.remove_minimal_cyclic_rules` as `exempt`, so they stay in the rule set. A symmetric rule whose relation fails the check is removed like any other recursive rule.
+
+Each edge is inserted in both directions, so the rule holds on the output. `core/rules.get_intensional_preds` doesn't count a symmetric rule, so what happens next depends on whether another kept rule derives `p`:
+
+- If none does, `p` is extensional. Direct matches skip it, `generator.sample_groundings` inserts both directions of its triples, and once every rule is grounded `edb.generate_undirected_relations` samples the budget left.
+- If another rule does, `p` is intensional and the EDB writes nothing for it. Completion derives its pairs, then `edb.sample_derived_undirected_relations` samples the budget left and completion runs again.
+
+The sampling is stub matching with swap repair; see [section 5.4 of `algorithm.md`](algorithm.md#54-symmetric-relations-as-undirected-edges). It places as many self-loops as `PredicateProfile.reflexivity`, and none when that is 0.
 
 ## Filling open relations
 
