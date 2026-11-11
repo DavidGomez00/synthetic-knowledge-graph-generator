@@ -921,6 +921,11 @@ def main() -> int:
         )
         return 2
     folders = [folder for folder in folders if folder.name not in args.skip_datasets]
+    if not folders:
+        logger.info("No dataset to train.")
+        return 0
+    # A new machine has no results folder yet; progress.csv is written there.
+    args.output.mkdir(parents=True, exist_ok=True)
     logger.info("Command: %s", " ".join(sys.argv))
     logger.info(
         "PyKEEN %s, PyTorch %s, GPU: %s.",
