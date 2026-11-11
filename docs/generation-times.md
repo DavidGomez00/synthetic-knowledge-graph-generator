@@ -88,7 +88,7 @@ These are lower bounds. The checks of functional and inverse-functional relation
 
 The copies in `exp_datasets/<dataset>_ours/` were made on 11 November 2026, from 08:25 to 11:36, at commit `c6e5b35`, which includes the self-loop fix (`35a1b81`). The times are in `logs/ours/batch.log`, `batch_YAGO3-10.log` and `batch_YAGO3-10_N_1.log`. The batch ran one dataset at a time up to YAGO3-10_1_1. Then, to save time, YAGO3-10 was started in a second batch at 10:08 and YAGO3-10_N_1 in a third at 10:18, while the first batch ran YAGO3-10_1_N and YAGO3-10_N_M. Those four datasets ran two or three at a time, sharing GraphDB and the CPU, so their times are not those of a dataset alone, and the tables above keep the times of 9 November.
 
-The copies of 9 November are not in git. On the development machine they are kept in `exp_datasets/ours_2026-11-09/`, with their logs in `logs/ours_2026-11-09/` and their `<dataset>_used.csv` files in `exp_datasets/ours_2026-11-09/used_rules/`.
+The copies of 9 November are in `exp_datasets/ours-no-reflexivity-09-11/<dataset>_ours/`. Their logs, in `logs/ours_2026-11-09/`, and their `<dataset>_used.csv` files, in `exp_datasets/ours-no-reflexivity-09-11/used_rules/`, are only on the development machine, because git ignores both.
 
 | Dataset | 9 November, before `35a1b81` | 11 November, at `c6e5b35` | Ratio |
 |---|---:|---:|---:|
