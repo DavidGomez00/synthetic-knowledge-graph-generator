@@ -149,9 +149,12 @@ The run's graphs are named after its rule filter, so runs at different threshold
 `cli/generate_datasets.py` runs the pipeline on every folder under `exp_datasets/` that has a `<folder>.unified.tsv` and a `<folder>.csv`, and saves the synthetic graph to `<folder>_ours/<folder>_ours.tsv`. It needs a running GraphDB, where it creates one temporary repository per dataset and deletes it afterwards. It uses the default rule filter (std confidence 1) and no fill step. A dataset that already has its `.tsv` is skipped unless `--force` is given, so an interrupted batch can be resumed. Each dataset's output goes to `logs/ours/<folder>.log`, at INFO level by default; `--log-level WARNING` leaves out the pipeline's phases and run summary.
 
 ```bash
-python -m skgg.cli.generate_datasets                                    # every dataset under exp_datasets/
+python -m skgg.cli.generate_datasets                                    # every dataset under exp_datasets/ that has no copy yet
 python -m skgg.cli.generate_datasets --datasets french WN18RR --force
+python scripts/check_outputs.py                                         # compare each copy with its source
 ```
+
+`scripts/check_outputs.py` compares each copy with its source: triple counts, new entities, and, per relation, the frequency, the degrees and the number of self-loops. [`docs/generate-benchmarks.md`](docs/generate-benchmarks.md) lists the steps to run the batch on another machine, from the clone to bringing the copies back. The copies of every dataset are tracked in git, with those of kbgen (`<folder>_kbgen/`) and PyGraft (`<folder>_pygraft/`), and [`docs/generation-times.md`](docs/generation-times.md) compares how long each method took.
 
 ## Project layout
 
@@ -165,6 +168,8 @@ logs/              # per-run logs (gitignored)
 ## More
 
 - [`docs/getting-started.md`](docs/getting-started.md): full setup + first experiment walkthrough.
+- [`docs/generate-benchmarks.md`](docs/generate-benchmarks.md): generating the benchmark copies on another machine.
+- [`docs/generation-times.md`](docs/generation-times.md): time to make each benchmark copy with this generator, kbgen and PyGraft.
 - [`docs/architecture.md`](docs/architecture.md): components and data flow, with diagrams.
 - [`docs/concepts.md`](docs/concepts.md): glossary of domain terms (EDB/IDB, Horn rules, closure, ...).
 - [`AGENTS.md`](AGENTS.md): terse architecture reference for contributors and AI coding agents alike (`CLAUDE.md` imports this same file for Claude Code).
