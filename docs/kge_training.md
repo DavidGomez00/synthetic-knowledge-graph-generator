@@ -55,7 +55,7 @@ Run the command inside `tmux` so it outlives the terminal: `tmux new -s train`, 
 
 ## Following the training
 
-`python scripts/kge_eta.py --workers 4` prints the runs in progress with their time left, the runs finished, stopped partway and pending, the training time left per dataset and the expected finish time. `watch -n 300 python scripts/kge_eta.py --workers 4` refreshes it every 5 minutes.
+`python scripts/kge_eta.py --workers 4` (with the same `--set` and `--skip-datasets` as the training command) prints the runs in progress with their time left, the runs finished, stopped partway and pending, the training time left per dataset and the expected finish time. `watch -n 300 python scripts/kge_eta.py --workers 4` refreshes it every 5 minutes.
 
 A pending run is estimated from the finished runs of the same model on at least 20,000 training triples: their median seconds per epoch per 1,000 training triples, times the run's training triples. Since parallel runs are slower than the finished runs predict, these estimates are scaled by the median slowdown of the runs in progress. The time left is the training time divided by the number of workers, but never less than the longest single run. The YAGO3-10 datasets have 4 to 15 times the training triples of any other dataset, so their estimates are extrapolated and the least reliable.
 

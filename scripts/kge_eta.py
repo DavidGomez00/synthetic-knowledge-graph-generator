@@ -17,13 +17,20 @@ which is about 1 for a single process. With --workers N, as given to train_kge.p
 the time left is then divided by N, but is never less than the longest single run
 left, which one worker trains alone.
 
-A run left in training by a stopped process counts as stopped, not in progress.
+A run whose status says training counts as in progress only while a process holds
+its lock: `<checkpoints>/<dataset>/<model>.lock`, held by a train_kge.py worker, or the
+dataset's `.lock`, held by a single train_kge.py process. Linux lists the held locks
+in /proc/locks, which this script reads without taking any lock. A run left in
+training by a stopped process counts as stopped partway. Where /proc/locks or the
+lock files are missing, a run counts as stopped after three epochs' time plus 10
+minutes without an update.
 
 Needs only the Python standard library.
 """
 
 import argparse
 import csv
+import os
 import statistics
 import sys
 from collections import defaultdict
@@ -40,6 +47,36 @@ def dataset_set(name: str) -> str:
         if name.endswith(f"_{copy_set}"):
             return copy_set
     return "base"
+
+
+def held_locks() -> set[tuple[int, int, int]] | None:
+    """(major, minor, inode) of every file locked by some process, None off Linux."""
+    try:
+        text = Path("/proc/locks").read_text(encoding="ascii")
+    except OSError:
+        return None
+    held = set()
+    for line in text.splitlines():
+        fields = line.split()
+        # "1: FLOCK ADVISORY WRITE <pid> <major>:<minor>:<inode> 0 EOF"; lines of
+        # processes waiting for a lock have "->" after the number.
+        if len(fields) < 6 or fields[1] == "->":
+            continue
+        try:
+            major, minor, inode = fields[5].split(":")
+            held.add((int(major, 16), int(minor, 16), int(inode)))
+        except ValueError:
+            continue
+    return held
+
+
+def is_held(path: Path, held: set[tuple[int, int, int]]) -> bool | None:
+    """Whether some process holds a lock on `path`, None if it doesn't exist."""
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return (os.major(stat.st_dev), os.minor(stat.st_dev), stat.st_ino) in held
 
 
 def count_lines(path: Path) -> int:
@@ -65,10 +102,23 @@ def main() -> int:
     )
     parser.add_argument("--root", type=Path, default=Path("exp_datasets"))
     parser.add_argument(
+        "--checkpoints",
+        type=Path,
+        default=Path("exp_checkpoints"),
+        help="the --checkpoints folder of train_kge.py, with the runs' locks "
+        "(default: %(default)s)",
+    )
+    parser.add_argument(
         "--exclude",
         nargs="+",
         default=[],
         help="leave out datasets whose name starts with one of these, e.g. YAGO",
+    )
+    parser.add_argument(
+        "--skip-datasets",
+        nargs="+",
+        default=[],
+        help="datasets left out, as the --skip-datasets of train_kge.py",
     )
     parser.add_argument(
         "--set",
@@ -98,7 +148,8 @@ def main() -> int:
     rows = [
         r
         for r in all_rows
-        if args.dataset_set == "all" or dataset_set(r["dataset"]) == args.dataset_set
+        if (args.dataset_set == "all" or dataset_set(r["dataset"]) == args.dataset_set)
+        and r["dataset"] not in args.skip_datasets
     ]
 
     triples: dict[str, int] = {}
@@ -132,6 +183,23 @@ def main() -> int:
         return rate[r["model"]] * triples[r["dataset"]] / 1000
 
     now = datetime.now(timezone.utc)
+    locks = held_locks()
+
+    def training_now(r: dict[str, str], per_epoch: float | None) -> bool:
+        """Whether a run whose status says training is being trained."""
+        folder = args.checkpoints / r["dataset"]
+        if locks is not None:
+            run_lock = is_held(folder / f"{r['model']}.lock", locks)
+            dataset_lock = is_held(folder / ".lock", locks)
+            if run_lock:
+                return True
+            if dataset_lock is not None or run_lock is not None:
+                # Workers hold both locks; a single process holds only the
+                # dataset's, while it trains the run whose status says training.
+                return bool(dataset_lock) and run_lock is None
+        idle = (now - datetime.fromisoformat(r["updated_at"])).total_seconds()
+        return idle <= 3 * (per_epoch or 600) + 600
+
     active: list[dict[str, str]] = []
     stopped: list[dict[str, str]] = []
     ratios: list[float] = []
@@ -142,8 +210,7 @@ def main() -> int:
         if not r["updated_at"]:
             continue
         per_epoch = float(r["train_seconds"] or 0) / epoch if epoch else None
-        idle = (now - datetime.fromisoformat(r["updated_at"])).total_seconds()
-        if idle > 3 * (per_epoch or 600) + 600:
+        if not training_now(r, per_epoch):
             stopped.append(r)
             continue
         active.append(r)
@@ -188,8 +255,8 @@ def main() -> int:
     if stopped:
         names = ", ".join(f"{r['dataset']} {r['model']}" for r in stopped)
         print(
-            f"Stopped partway, resumed when a worker reaches them: {names}. If no run "
-            "is in progress, train_kge.py is not running: run the same command."
+            f"Stopped partway, no process is training them: {names}. A run of "
+            "train_kge.py that includes them resumes them from their last epoch."
         )
     if ratios:
         print(
