@@ -10,10 +10,14 @@ and epochs. Evaluation is left out: it took at most 5 seconds per finished run.
 The YAGO3-10 datasets have 4 to 15 times the training triples of the largest finished
 dataset, so their figures are extrapolated and the least reliable.
 
-With --workers N, as given to train_kge.py, the time left is the serial time divided
-by N, but never less than the longest single run left, which one worker trains alone.
-It assumes each worker keeps its speed; with 4 workers on an RTX 3090 each ran at
-about the speed of a single process.
+Runs sharing the GPU are slower than a run alone: with 4 workers on an RTX 3090 each
+epoch took 1.4 to 1.8 times as long. So the pending estimates are scaled by how much
+slower the runs in progress are than the finished runs predict (the median ratio),
+which is about 1 for a single process. With --workers N, as given to train_kge.py,
+the time left is then divided by N, but is never less than the longest single run
+left, which one worker trains alone.
+
+A run left in training by a stopped process counts as stopped, not in progress.
 
 Needs only the Python standard library.
 """
@@ -88,7 +92,31 @@ def main() -> int:
             rates[r["model"]].append(per_epoch / n * 1000)
     rate = {m: statistics.median(v) for m, v in rates.items()}
 
+    def predicted(r: dict[str, str]) -> float | None:
+        """Seconds per epoch the finished runs predict for a run."""
+        if r["model"] not in rate:
+            return None
+        return rate[r["model"]] * triples[r["dataset"]] / 1000
+
     now = datetime.now(timezone.utc)
+    active: list[dict[str, str]] = []
+    stopped: list[dict[str, str]] = []
+    ratios: list[float] = []
+    for r in rows:
+        if r["status"] not in ("training", "evaluating"):
+            continue
+        epoch = int(r["epoch"] or 0)
+        per_epoch = float(r["train_seconds"] or 0) / epoch if epoch else None
+        idle = (now - datetime.fromisoformat(r["updated_at"])).total_seconds()
+        if idle > 3 * (per_epoch or 600) + 600:
+            stopped.append(r)
+            continue
+        active.append(r)
+        expected = predicted(r)
+        if per_epoch and expected:
+            ratios.append(per_epoch / expected)
+    slowdown = statistics.median(ratios) if ratios else 1.0
+
     left: dict[str, float] = defaultdict(float)
     longest_run = 0.0
     counts: dict[str, int] = defaultdict(int)
@@ -97,39 +125,44 @@ def main() -> int:
         counts[r["status"]] += 1
         if r["status"] == "finished":
             continue
-        epochs_left = int(r["num_epochs"]) - int(r["epoch"] or 0)
         epoch = int(r["epoch"] or 0)
-        if epoch and r["train_seconds"]:
+        epochs_left = int(r["num_epochs"]) - epoch
+        expected = predicted(r)
+        if r in active and epoch and r["train_seconds"]:
             per_epoch = float(r["train_seconds"]) / epoch
-        elif r["model"] in rate:
-            per_epoch = rate[r["model"]] * triples[r["dataset"]] / 1000
+        elif expected is not None:
+            per_epoch = expected * slowdown
         else:
             unknown.append(f"{r['dataset']} {r['model']}")
             continue
         left[r["dataset"]] += per_epoch * epochs_left
         longest_run = max(longest_run, per_epoch * epochs_left)
-        if r["status"] in ("training", "evaluating"):
-            updated = datetime.fromisoformat(r["updated_at"])
-            idle = (now - updated).total_seconds()
+        if r in active:
             print(
                 f"Now: {r['dataset']} {r['model']}, epoch {epoch}/{r['num_epochs']}, "
                 f"{per_epoch:.0f} s per epoch, {duration(per_epoch * epochs_left)} "
                 f"left for this model."
             )
-            if idle > 3 * per_epoch + 600:
-                print(
-                    f"  No update for {duration(idle)}: train_kge.py is probably not "
-                    "running. Run the same command to resume."
-                )
 
     total = sum(counts.values())
     print(
-        f"\nRuns: {counts['finished']} of {total} finished, "
-        f"{counts['training'] + counts['evaluating']} in progress, "
-        f"{counts['pending']} pending, {counts['failed']} failed."
+        f"\nRuns: {counts['finished']} of {total} finished, {len(active)} in progress, "
+        f"{len(stopped)} stopped partway, {counts['pending']} pending, "
+        f"{counts['failed']} failed."
     )
+    if stopped:
+        names = ", ".join(f"{r['dataset']} {r['model']}" for r in stopped)
+        print(
+            f"Stopped partway, resumed when a worker reaches them: {names}. If no run "
+            "is in progress, train_kge.py is not running: run the same command."
+        )
+    if ratios:
+        print(
+            f"Runs in progress take {slowdown:.2f} times the seconds per epoch of the "
+            "finished runs; pending runs are estimated with that factor."
+        )
     if left:
-        print("\nTime left per dataset:")
+        print("\nTraining time left per dataset, before sharing it among workers:")
         for dataset, seconds in sorted(left.items(), key=lambda kv: triples[kv[0]]):
             print(f"  {dataset:16}{triples[dataset]:>11,} triples  {duration(seconds)}")
     remaining = sum(left.values())

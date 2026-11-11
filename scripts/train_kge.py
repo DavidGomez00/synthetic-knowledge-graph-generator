@@ -21,8 +21,9 @@ the epoch in progress is lost. Evaluation has no checkpoints, so a model stopped
 during its evaluation repeats only that evaluation. PyKEEN logs a warning about a
 missing stopper configuration on each resume, which is harmless: no stopper is used.
 `--workers N` trains N runs at once, each in its own process. At batch size 32 a run
-keeps one CPU core busy but uses a fraction of the GPU, so 4 workers train about 4
-times as fast on an RTX 3090, whose GPU is then fully busy. Each run keeps its seed
+keeps one CPU core busy but uses about 17% of an RTX 3090. With 4 workers the GPU is
+fully busy and each epoch takes 1.4 to 1.8 times as long as alone, so 4 workers
+train about 2.6 times as fast as one. Each run keeps its seed
 and settings, so the results are the ones a single process gives. The workers walk
 the same list of runs, largest dataset first, and each claims the next run no one
 holds. Locks make this safe across commands too: a run (`<model>.lock`) is trained by
