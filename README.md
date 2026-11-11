@@ -159,7 +159,6 @@ python -m skgg.cli.generate_datasets --datasets french WN18RR --force
 ```
 src/skgg/          # package source (see docs/architecture.md for the full module map)
 configurations/    # per-experiment JSON configs
-schemas/           # schema template (.ttl) for declaring a graph's classes and relations
 data/<dataset>/    # a dataset's cleaned graph, rules and shapes, named after it, e.g. data/french_royalty/
 data/<dataset>/skgg/  # synthetic graphs downloaded from the store, as .tsv files
 docs/              # architecture, concepts glossary, getting-started guide

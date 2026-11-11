@@ -24,7 +24,7 @@ Known issues and pending features. Resolved items are archived in `BACKLOG_ARCHI
 
 ## Schema support
 - [ ] Add schema support. The schema is a `<graph_name>.schema.ttl` file that defines the classes and their properties in the graph.
-  - [x] Add a schema template (`schemas/template.ttl`) and the French Royalty schema (`data/fr/fr.ttl`, no longer in the project).
+  - [x] Add a schema template (`schemas/template.ttl`) and the French Royalty schema (`data/fr/fr.ttl`). Both are no longer in the project: `schemas/` was removed on 2026-11-11.
   - [ ] Add a `schema_file` config field and parse the schema.
   - [ ] Decide how to use the schema in the pipeline.
   - [ ] Read which relations are irreflexive (e.g. `owl:IrreflexiveProperty`) from the schema, for the "Irreflexive relations" item under `engine/`.
