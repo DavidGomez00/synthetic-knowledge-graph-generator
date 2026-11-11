@@ -67,6 +67,30 @@ The other outputs:
 
 With workers the terminal shows one line every 10 epochs per run and one line when a run finishes. With one process it shows PyKEEN's progress bars.
 
+## Training the copies
+
+The synthetic copies live next to the base datasets, one folder per copy: `exp_datasets/<dataset>_ours/<dataset>_ours.tsv` (this generator, 24 copies), `<dataset>_kbgen/` (kbgen, 24) and `<dataset>_pygraft/` (PyGraft, 19). A copy is one triples file, and its entities keep the names of the source dataset's entities.
+
+Each copy is trained and tested on itself, so the benchmark shows whether the models rank the same on a copy as on its source. `scripts/split_copies.py` writes the copy's `train`, `valid` and `test` files:
+
+- the copy's triples, each kept once, are shuffled with seed 1235;
+- `test` and `valid` get the same share of the triples as in the source dataset's splits, and `train` the rest;
+- a valid or test triple with a head, tail or relation that `train` lacks is moved to `train`, since no model has an embedding for it. On the `_ours` copies this moved 7 (`family_ours`) to 4,280 (`WN18RRN_1_ours`) triples.
+
+The split is reproducible: two runs write identical files, so git ignores them and each machine writes its own. `train_kge.py` records the checksums of the splits in each dataset's `settings.json`, and refuses to resume a dataset whose splits changed.
+
+`--set` picks the datasets `train_kge.py` trains when `--datasets` is not given: `base` (the default), `ours`, `kbgen` or `pygraft`. Results of every set go to the same `exp_results/`, one folder per dataset. `kge_eta.py --set ours` estimates one set; its speeds come from every finished run, and on a machine with no finished run yet, from the runs in progress.
+
+On a new machine, with the environment of `requirements.txt` installed and the branch with the copies checked out:
+
+```bash
+python scripts/split_copies.py --suffix _ours                           # about 30 s for the 24 copies
+tmux new -s train
+python scripts/train_kge.py --skip-models CompGCN --set ours --workers 4
+```
+
+`--workers 4` was measured on an RTX 3090; on another GPU, start with 4 and compare the seconds per epoch that `kge_eta.py` reports with 2 or 3 workers. The `_ours` copies have 0.70 (`frenchN_1_ours`) to 3.06 (`family_ours`) times the triples of their source datasets, and 1.01 times in total (5,140,873 against 5,089,314), so the set takes about as long as the base set.
+
 ## Run time
 
 Measured on an RTX 3090 for the base set, without CompGCN:

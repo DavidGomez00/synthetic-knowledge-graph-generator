@@ -31,6 +31,15 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 MIN_TRIPLES = 20_000
+# As in train_kge.py: the suffixes of the folders of synthetic copies.
+COPY_SETS = ("ours", "kbgen", "pygraft")
+
+
+def dataset_set(name: str) -> str:
+    for copy_set in COPY_SETS:
+        if name.endswith(f"_{copy_set}"):
+            return copy_set
+    return "base"
 
 
 def count_lines(path: Path) -> int:
@@ -62,6 +71,14 @@ def main() -> int:
         help="leave out datasets whose name starts with one of these, e.g. YAGO",
     )
     parser.add_argument(
+        "--set",
+        dest="dataset_set",
+        choices=("all", "base", *COPY_SETS),
+        default="all",
+        help="estimate only the base datasets or one set of copies; the speeds come "
+        "from every finished run (default: %(default)s)",
+    )
+    parser.add_argument(
         "--workers",
         type=int,
         default=1,
@@ -73,24 +90,40 @@ def main() -> int:
     if not progress.is_file():
         parser.error(f"No {progress}: train_kge.py has not started.")
     with progress.open(encoding="utf-8") as f:
-        rows = [
+        all_rows = [
             r
             for r in csv.DictReader(f)
             if not any(r["dataset"].startswith(p) for p in args.exclude)
         ]
+    rows = [
+        r
+        for r in all_rows
+        if args.dataset_set == "all" or dataset_set(r["dataset"]) == args.dataset_set
+    ]
 
     triples: dict[str, int] = {}
-    for dataset in {r["dataset"] for r in rows}:
+    for dataset in {r["dataset"] for r in all_rows}:
         path = args.root / dataset / "train"
         triples[dataset] = count_lines(path) if path.is_file() else 0
 
+    # Speeds come from every set: the copies train like the base datasets.
     rates: dict[str, list[float]] = defaultdict(list)
-    for r in rows:
+    early: dict[str, list[float]] = defaultdict(list)
+    for r in all_rows:
         n = triples[r["dataset"]]
-        if r["status"] == "finished" and n >= MIN_TRIPLES and r["train_seconds"]:
-            per_epoch = float(r["train_seconds"]) / int(r["epoch"])
-            rates[r["model"]].append(per_epoch / n * 1000)
+        epoch = int(r["epoch"] or 0)
+        if n < MIN_TRIPLES or not epoch or not r["train_seconds"]:
+            continue
+        per_1000 = float(r["train_seconds"]) / epoch / n * 1000
+        if r["status"] == "finished":
+            rates[r["model"]].append(per_1000)
+        elif r["status"] == "training":
+            early[r["model"]].append(per_1000)
     rate = {m: statistics.median(v) for m, v in rates.items()}
+    # Before a model has a finished run, as on a new machine, its runs in progress
+    # give its speed. They already share the GPU, so no slowdown is measured then.
+    from_progress = {m for m in early if m not in rate}
+    rate.update({m: statistics.median(early[m]) for m in from_progress})
 
     def predicted(r: dict[str, str]) -> float | None:
         """Seconds per epoch the finished runs predict for a run."""
@@ -106,6 +139,8 @@ def main() -> int:
         if r["status"] not in ("training", "evaluating"):
             continue
         epoch = int(r["epoch"] or 0)
+        if not r["updated_at"]:
+            continue
         per_epoch = float(r["train_seconds"] or 0) / epoch if epoch else None
         idle = (now - datetime.fromisoformat(r["updated_at"])).total_seconds()
         if idle > 3 * (per_epoch or 600) + 600:
@@ -113,7 +148,7 @@ def main() -> int:
             continue
         active.append(r)
         expected = predicted(r)
-        if per_epoch and expected:
+        if per_epoch and expected and r["model"] not in from_progress:
             ratios.append(per_epoch / expected)
     slowdown = statistics.median(ratios) if ratios else 1.0
 

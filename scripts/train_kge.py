@@ -96,6 +96,9 @@ SETTINGS_LOCK_FILE = ".settings.lock"
 LOG_EVERY_EPOCHS = 10
 STATUS_DIR = "status"
 PROGRESS_FILE = "progress.csv"
+# Suffixes (after "_") of the folders of synthetic copies; the other folders are the
+# base datasets. scripts/split_copies.py writes the copies' splits.
+COPY_SETS = ("ours", "kbgen", "pygraft")
 LOG_FILE = Path("logs/train_kge.log")
 INTERRUPTED_STATUS = 130
 # Our name of each metric and its key in results.json.
@@ -280,8 +283,21 @@ class AtomicCheckpointLoop(SLCWATrainingLoop):
         return state
 
 
-def find_datasets(root: Path, names: list[str] | None) -> list[Path]:
+def dataset_set(name: str) -> str:
+    """The set a dataset folder belongs to: a COPY_SETS name, or "base"."""
+    for copy_set in COPY_SETS:
+        if name.endswith(f"_{copy_set}"):
+            return copy_set
+    return "base"
+
+
+def find_datasets(
+    root: Path, names: list[str] | None, dataset_set_name: str | None = None
+) -> list[Path]:
     """Returns the folders under root with the three splits, smallest `train` first.
+
+    Named datasets are returned whatever their set; otherwise, with
+    `dataset_set_name`, only the folders of that set.
 
     Raises:
         ValueError: If a requested dataset doesn't exist.
@@ -289,6 +305,10 @@ def find_datasets(root: Path, names: list[str] | None) -> list[Path]:
     folders = {
         d.name: d for d in root.iterdir() if all((d / s).is_file() for s in SPLITS)
     }
+    if names is None and dataset_set_name is not None:
+        folders = {
+            n: d for n, d in folders.items() if dataset_set(n) == dataset_set_name
+        }
     if names is not None:
         missing = sorted(set(names) - set(folders))
         if missing:
@@ -795,7 +815,18 @@ def parse_args() -> argparse.Namespace:
         help="folder for the checkpoints (default: %(default)s)",
     )
     parser.add_argument(
-        "--datasets", nargs="+", help="dataset folders to train (default: all)"
+        "--set",
+        dest="dataset_set",
+        choices=("base", *COPY_SETS),
+        default="base",
+        help="datasets to train when --datasets is not given: the base datasets, or "
+        "the copies whose folder names end in _ours, _kbgen or _pygraft "
+        "(default: %(default)s)",
+    )
+    parser.add_argument(
+        "--datasets",
+        nargs="+",
+        help="dataset folders to train, of any set (default: every dataset of --set)",
     )
     parser.add_argument(
         "--models",
@@ -842,7 +873,7 @@ def main() -> int:
     started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     settings = Settings(num_epochs=args.epochs, batch_size=args.batch_size)
-    folders = find_datasets(args.root, args.datasets)
+    folders = find_datasets(args.root, args.datasets, args.dataset_set)
     logger.info("Command: %s", " ".join(sys.argv))
     logger.info(
         "PyKEEN %s, PyTorch %s, GPU: %s.",
