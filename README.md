@@ -34,10 +34,10 @@ Experiments are driven by JSON config files in `configurations/` (e.g. `french_r
 
 ### Prepare the data
 
-This method does not support literals yet, so the project keeps only the cleaned graph of each dataset, and that file is always the dataset's triple file: `data/french_royalty/french_royalty.tsv` for French Royalty. The original graph, with literals, stays outside the repository. `configurations/french_royalty.json` doesn't read that file now: it reads the benchmark copy of French Royalty in `exp_datasets/french/` (`french.unified.tsv` and its rules, `french.csv`). `skgg.cli.clean` writes the cleaned copy as a `.tsv` file, without literals or duplicate triples. For more details, see the preparation step in [`docs/architecture.md`](docs/architecture.md#data-flow).
+This method does not support literals yet, so the project keeps only the cleaned graph of each dataset, and that file is always the dataset's triple file. The original graph, with literals, stays outside the repository. `configurations/french_royalty.json` reads the benchmark copy of French Royalty in `exp_datasets/french/` (`french.unified.tsv` and its rules, `french.csv`). `skgg.cli.clean` writes the cleaned copy as a `.tsv` file, without literals or duplicate triples. For more details, see the preparation step in [`docs/architecture.md`](docs/architecture.md#data-flow).
 
 ```bash
-python -m skgg.cli.clean path/to/original.tsv -o data/french_royalty/french_royalty.tsv  # the original stays outside the project
+python -m skgg.cli.clean path/to/original.tsv -o path/to/dataset.tsv                   # the original stays outside the project
 python -m skgg.cli.clean path/to/graph.nt -o path/to/out.tsv --log-level DEBUG          # DEBUG lists every untyped subject
 ```
 
@@ -82,7 +82,6 @@ python -m skgg.cli.graph upload -f french_royalty.json --triple-file french.unif
 python -m skgg.cli.graph download -f french_royalty.json --graph-uri http://FrenchRoyalty.org/skgg/std=1   # -> exp_datasets/french/french.unified.skgg.std=1.{nt,tsv}
 python -m skgg.cli.graph download -f french_royalty.json --graph-uri http://FrenchRoyalty.org/skgg/std=1 -o exp_datasets/french/skgg/french.skgg.std=1   # into a skgg/ folder, created if missing
 python -m skgg.cli.graph download -f french_royalty.json -o path/to/french_royalty                         # base graph -> path/to/french_royalty.{nt,tsv}
-python -m skgg.cli.graph download -f french_royalty_complete_test --graph-uri http://FrenchRoyalty.org/complete-test/pca=0.9 --namespace http://FrenchRoyalty.org/   # IRIs under http://FrenchRoyalty.org/ become bare terms
 ```
 
 On GraphDB the whole graph comes from one request to the repository's `/statements` endpoint, with inferred triples excluded. Virtuoso's Graph Store endpoint returns at most `ResultSetMaxRows` triples, so on Virtuoso the script sends sorted CONSTRUCT queries of `db_config.chunk_size` triples each. Either way, the script fails if it wrote a different number of triples than the graph holds. The `.tsv` is converted from the `.nt` as `skgg.cli.convert` does with the config's term mapping, so it can be uploaded again with the same config. An IRI outside the term mapping's namespaces stays in full in the `.tsv`, so for a graph whose IRIs are not under `graph.namespace`, pass their namespace with `--namespace`, and pass it again when uploading the `.tsv`.
@@ -94,17 +93,17 @@ On GraphDB the whole graph comes from one request to the repository's `/statemen
 ```bash
 python -m skgg.cli.complete -f french_royalty.json                                                                                          # completes the base graph in place
 python -m skgg.cli.complete -f french_royalty.json --complete-uri http://FrenchRoyalty.org/complete                                          # base graph -> complete
-python -m skgg.cli.complete -f french_royalty.json --source data/french_royalty/french_royalty.tsv --complete-uri http://FrenchRoyalty.org/complete  # a file instead of the base graph
-python -m skgg.cli.complete --source http://FrenchRoyalty.org/base --complete-uri http://FrenchRoyalty.org/complete --rules-file data/french_royalty/french_royalty.csv --pca-conf 0.9 --namespace http://FrenchRoyalty.org/ --database-url http://localhost:7200/ --sparql-endpoint repositories/FrenchRoyalty --auth-type BASIC --user admin --password rootpassword
+python -m skgg.cli.complete -f french_royalty.json --source exp_datasets/french/french.unified.tsv --complete-uri http://FrenchRoyalty.org/complete  # a file instead of the base graph
+python -m skgg.cli.complete --source http://FrenchRoyalty.org/base --complete-uri http://FrenchRoyalty.org/complete --rules-file exp_datasets/french/french.csv --pca-conf 0.9 --namespace http://FrenchRoyalty.org/ --database-url http://localhost:7200/ --sparql-endpoint repositories/FrenchRoyalty --auth-type BASIC --user admin --password rootpassword
 ```
 
 ### Validate a graph against SHACL shapes
 
-`skgg.cli.validate` checks a graph against the `sh:sparql` constraints of a SHACL shapes file and writes every triple that violates one to a `.violations.tsv` report, with the triple's line in the `.tsv` file, its terms, the shape and the shape's `sh:message`. It checks the config's base graph unless `--source` names another graph URI or a `.tsv` file. A `.tsv` file is loaded into a temporary named graph (`--graph-uri`, default `http://FrenchRoyalty.org/validation` for `http://FrenchRoyalty.org/`), which is cleared after the check unless `--keep-graph` is given. The base graph and the pipeline's graphs are refused as `--graph-uri`. The shapes file defaults to `data.input_dir / <stem of graph.triple_file>.shapes.ttl`, and its `ex:` prefix must equal the config's `graph.namespace`. `french_royalty.json` reads `exp_datasets/french/`, which has no shapes file, so the examples below pass the French Royalty shapes, `data/french_royalty/french_royalty.shapes.ttl`, with `--shapes`. The source graph and file are not modified, and the pipeline does not use the shapes yet.
+`skgg.cli.validate` checks a graph against the `sh:sparql` constraints of a SHACL shapes file and writes every triple that violates one to a `.violations.tsv` report, with the triple's line in the `.tsv` file, its terms, the shape and the shape's `sh:message`. It checks the config's base graph unless `--source` names another graph URI or a `.tsv` file. A `.tsv` file is loaded into a temporary named graph (`--graph-uri`, default `http://FrenchRoyalty.org/validation` for `http://FrenchRoyalty.org/`), which is cleared after the check unless `--keep-graph` is given. The base graph and the pipeline's graphs are refused as `--graph-uri`. The shapes file defaults to `data.input_dir / <stem of graph.triple_file>.shapes.ttl`, and its `ex:` prefix must equal the config's `graph.namespace`. `french_royalty.json` reads `exp_datasets/french/`, which has no shapes file, and the repository has none, so the examples below pass a shapes file of your own with `--shapes`. The source graph and file are not modified, and the pipeline does not use the shapes yet.
 
 ```bash
-python -m skgg.cli.validate -f french_royalty.json --shapes data/french_royalty/french_royalty.shapes.ttl                                                       # base graph -> exp_datasets/french/french.unified.base.violations.tsv
-python -m skgg.cli.validate -f french_royalty.json --shapes data/french_royalty/french_royalty.shapes.ttl --source exp_datasets/french/french.unified.skgg.std=1.tsv  # -> exp_datasets/french/french.unified.skgg.std=1.violations.tsv
+python -m skgg.cli.validate -f french_royalty.json --shapes path/to/french.shapes.ttl                                                       # base graph -> exp_datasets/french/french.unified.base.violations.tsv
+python -m skgg.cli.validate -f french_royalty.json --shapes path/to/french.shapes.ttl --source exp_datasets/french/french.unified.skgg.std=1.tsv  # -> exp_datasets/french/french.unified.skgg.std=1.violations.tsv
 ```
 
 ### Mine rules
@@ -112,7 +111,7 @@ python -m skgg.cli.validate -f french_royalty.json --shapes data/french_royalty/
 `mine_rules/run_amie.py` mines Horn rules from a triples file with AMIE3 and writes them to a CSV that `rules.rules_file` can point to. The AMIE3 jar is not in git: download `amie3.5.1.jar` from https://github.com/dig-team/amie/releases into `mine_rules/`, or pass its path with `--jar`. Without `-o`, the CSV goes next to the input as `<stem>.csv`.
 
 ```bash
-python mine_rules/run_amie.py data/french_royalty/french_royalty.tsv   # -> data/french_royalty/french_royalty.csv
+python mine_rules/run_amie.py path/to/dataset.tsv   # -> path/to/dataset.csv
 ```
 
 The CSV lists the rules by std confidence, then PCA confidence, both descending (ties keep AMIE's output order), and its `rule_id` column numbers them 1..N in that order. The pipeline names rules by this ID in its logs, run summary and relation-graph PNG, so a rule keeps its ID whatever confidence threshold a run filters the rules on. `--mins`, `--minis`, `--minhc`, `--minc`, `--minpca` and `--maxad` set AMIE's thresholds, and `--help` lists the other options.
@@ -162,8 +161,6 @@ python scripts/check_outputs.py                                         # compar
 ```
 src/skgg/          # package source (see docs/architecture.md for the full module map)
 configurations/    # per-experiment JSON configs
-data/<dataset>/    # a dataset's cleaned graph, rules and shapes, named after it, e.g. data/french_royalty/
-data/<dataset>/skgg/  # synthetic graphs downloaded from the store, as .tsv files
 docs/              # architecture, concepts glossary, getting-started guide
 logs/              # per-run logs (gitignored)
 ```
