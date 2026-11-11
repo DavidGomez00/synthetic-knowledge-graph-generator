@@ -31,6 +31,8 @@ A larger batch would be faster, but it changes which models come out ahead. Six 
 
 Batch size 512 trained these 24 runs in 31 minutes instead of 304. At learning rate 0.001 and 100 epochs it makes 16 times fewer updates, which leaves some models undertrained: ComplEx goes from second to last on `family`, while TuckER and TransH gain on some datasets. Comparing models at batch size 512 would mostly measure which ones tolerate few updates, so the benchmark keeps 32 and gains speed by training runs in parallel.
 
+TODO: It's not that larget batch sizes lead to worse results, but that it requires looking for the best lr., and we don't want to spend time looking for hyperparameters.
+
 ## Running in parallel
 
 At batch size 32 one run keeps one CPU core busy and uses about 17% of an RTX 3090. `--workers N` trains N runs at once, one model on one dataset each, starting with the largest datasets. With 4 workers the GPU is fully busy and each epoch takes 1.4 to 1.8 times as long as the same model alone (TransE 27.3 s against 14.8 s per epoch, TransH 44.1 s against 31.8 s, on WN18RR-sized datasets), so 4 workers train about 2.6 times as fast as one. More workers would share the same full GPU.
@@ -42,6 +44,7 @@ Locks keep the runs apart. Each run has `exp_checkpoints/<dataset>/<model>.lock`
 ```bash
 python scripts/train_kge.py --skip-models CompGCN --workers 4                                # every dataset
 python scripts/train_kge.py --skip-models CompGCN --workers 4 --datasets WN18RR WN18RRN_M    # some datasets
+python scripts/train_kge.py --skip-models CompGCN --workers 4 --skip-datasets YAGO3-10        # every dataset but YAGO3-10
 ```
 
 Run the command inside `tmux` so it outlives the terminal: `tmux new -s train`, then `Ctrl+B` `D` to leave it running and `tmux attach -t train` to come back.

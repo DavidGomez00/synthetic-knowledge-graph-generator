@@ -33,6 +33,8 @@ progress bars, and Ctrl-C (or SIGINT/SIGTERM to the main process) stops every wo
 
 `--skip-models CompGCN` leaves a model out of a run. Running the command again without
 the flag then trains only that model, as the finished ones are skipped.
+`--skip-datasets` does the same for datasets, as in
+`--skip-datasets YAGO3-10 YAGO3-10_1_1`.
 
 A model that fails, usually by running out of GPU memory, is logged and skipped. The
 script goes on with the others, exits with status 1, and retries it on the next run.
@@ -841,6 +843,12 @@ def parse_args() -> argparse.Namespace:
         help="models of --models to leave out of this run (default: none)",
     )
     parser.add_argument(
+        "--skip-datasets",
+        nargs="+",
+        default=[],
+        help="datasets of --datasets or --set to leave out of this run (default: none)",
+    )
+    parser.add_argument(
         "--epochs", type=int, default=Settings.num_epochs, help="(default: %(default)s)"
     )
     parser.add_argument(
@@ -874,6 +882,13 @@ def main() -> int:
 
     settings = Settings(num_epochs=args.epochs, batch_size=args.batch_size)
     folders = find_datasets(args.root, args.datasets, args.dataset_set)
+    unknown = sorted(set(args.skip_datasets) - {folder.name for folder in folders})
+    if unknown:
+        logger.error(
+            "--skip-datasets has datasets not in this run: %s", ", ".join(unknown)
+        )
+        return 2
+    folders = [folder for folder in folders if folder.name not in args.skip_datasets]
     logger.info("Command: %s", " ".join(sys.argv))
     logger.info(
         "PyKEEN %s, PyTorch %s, GPU: %s.",
