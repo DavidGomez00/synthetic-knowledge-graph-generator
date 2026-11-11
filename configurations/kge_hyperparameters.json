@@ -1,0 +1,6853 @@
+{
+  "searches": {
+    "family": [
+      "family"
+    ],
+    "Family1_1": [
+      "Family1_1"
+    ],
+    "Family1_N": [
+      "Family1_N"
+    ],
+    "FamilyM_N": [
+      "FamilyM_N"
+    ],
+    "FamilyN_1": [
+      "FamilyN_1"
+    ],
+    "french": [
+      "french"
+    ],
+    "french1_1": [
+      "french1_1"
+    ],
+    "french1_N": [
+      "french1_N"
+    ],
+    "frenchN_1": [
+      "frenchN_1"
+    ],
+    "frenchN_M": [
+      "frenchN_M"
+    ],
+    "WN18RR": [
+      "WN18RR"
+    ],
+    "WN18RR1_1": [
+      "WN18RR1_1"
+    ],
+    "WN18RR1_N": [
+      "WN18RR1_N"
+    ],
+    "WN18RRN_1": [
+      "WN18RRN_1"
+    ],
+    "WN18RRN_M": [
+      "WN18RRN_M"
+    ],
+    "SGKG1": [
+      "SGKG1"
+    ],
+    "SGKG2": [
+      "SGKG2"
+    ],
+    "SGKG3": [
+      "SGKG3"
+    ],
+    "SGKG4": [
+      "SGKG4"
+    ],
+    "YAGO3-10_1_1": [
+      "YAGO3-10",
+      "YAGO3-10_1_1",
+      "YAGO3-10_1_N",
+      "YAGO3-10_N_1",
+      "YAGO3-10_N_M"
+    ]
+  },
+  "results": {
+    "FamilyN_1": {
+      "TransE": {
+        "pipeline": {
+          "model": "TransE",
+          "model_kwargs": {
+            "scoring_fct_norm": 1,
+            "embedding_dim": 50
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "basic",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 11
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.039372877052702676
+          }
+        },
+        "best_trial": 16,
+        "validation_mrr": 0.10694950819015503,
+        "stopped_epoch": 100,
+        "trial_random_seed": 2002031763,
+        "trials": {
+          "complete": 11,
+          "pruned": 19,
+          "failed": 2,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-10T22:38:47+00:00"
+      },
+      "TransH": {
+        "pipeline": {
+          "model": "TransH",
+          "model_kwargs": {
+            "scoring_fct_norm": 2,
+            "embedding_dim": 50
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "regularizer_kwargs": {
+            "weight": 0.05
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 11
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.00038290911878425757
+          }
+        },
+        "best_trial": 19,
+        "validation_mrr": 0.15114445984363556,
+        "stopped_epoch": 205,
+        "trial_random_seed": 1436636275,
+        "trials": {
+          "complete": 10,
+          "pruned": 20,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-10T22:45:44+00:00"
+      },
+      "TransD": {
+        "pipeline": {
+          "model": "TransD",
+          "model_kwargs": {
+            "relation_dim": null,
+            "embedding_dim": 50
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 32
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.07701479637680037
+          }
+        },
+        "best_trial": 26,
+        "validation_mrr": 0.13791151344776154,
+        "stopped_epoch": 30,
+        "trial_random_seed": 1759291634,
+        "trials": {
+          "complete": 17,
+          "pruned": 13,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-10T22:52:54+00:00"
+      },
+      "RotatE": {
+        "pipeline": {
+          "model": "RotatE",
+          "model_kwargs": {
+            "embedding_dim": 100
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "basic",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 1
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.0011742552110225097
+          }
+        },
+        "best_trial": 13,
+        "validation_mrr": 0.13670656085014343,
+        "stopped_epoch": 240,
+        "trial_random_seed": 1733641218,
+        "trials": {
+          "complete": 9,
+          "pruned": 21,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-10T22:59:54+00:00"
+      },
+      "ComplEx": {
+        "pipeline": {
+          "model": "ComplEx",
+          "model_kwargs": {
+            "embedding_dim": 50
+          },
+          "loss": "SoftplusLoss",
+          "loss_kwargs": {},
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 8
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.09785984182404711
+          }
+        },
+        "best_trial": 13,
+        "validation_mrr": 0.16399303078651428,
+        "stopped_epoch": 170,
+        "trial_random_seed": 1338900806,
+        "trials": {
+          "complete": 10,
+          "pruned": 20,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-10T23:07:34+00:00"
+      },
+      "TuckER": {
+        "pipeline": {
+          "model": "TuckER",
+          "model_kwargs": {
+            "relation_dim": null,
+            "dropout_0": 0.3,
+            "dropout_1": 0.4,
+            "dropout_2": 0.5,
+            "embedding_dim": 100
+          },
+          "loss": "BCEAfterSigmoidLoss",
+          "loss_kwargs": {},
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 23
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.02453693496342264
+          }
+        },
+        "best_trial": 0,
+        "validation_mrr": 0.3591826558113098,
+        "stopped_epoch": 155,
+        "trial_random_seed": 1110139680,
+        "trials": {
+          "complete": 7,
+          "pruned": 23,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-10T23:19:27+00:00"
+      }
+    },
+    "Family1_N": {
+      "TransE": {
+        "pipeline": {
+          "model": "TransE",
+          "model_kwargs": {
+            "scoring_fct_norm": 1,
+            "embedding_dim": 50
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 30
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.04614955918745703
+          }
+        },
+        "best_trial": 12,
+        "validation_mrr": 0.1200377568602562,
+        "stopped_epoch": 65,
+        "trial_random_seed": 30130592,
+        "trials": {
+          "complete": 16,
+          "pruned": 14,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-10T23:26:57+00:00"
+      },
+      "TransH": {
+        "pipeline": {
+          "model": "TransH",
+          "model_kwargs": {
+            "scoring_fct_norm": 2,
+            "embedding_dim": 50
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "regularizer_kwargs": {
+            "weight": 0.05
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "basic",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 6
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.002502046587804718
+          }
+        },
+        "best_trial": 18,
+        "validation_mrr": 0.1488637775182724,
+        "stopped_epoch": 75,
+        "trial_random_seed": 358262435,
+        "trials": {
+          "complete": 14,
+          "pruned": 16,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-10T23:35:32+00:00"
+      },
+      "TransD": {
+        "pipeline": {
+          "model": "TransD",
+          "model_kwargs": {
+            "relation_dim": null,
+            "embedding_dim": 200
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 4
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.04905278268913421
+          }
+        },
+        "best_trial": 26,
+        "validation_mrr": 0.1270124614238739,
+        "stopped_epoch": 35,
+        "trial_random_seed": 849890075,
+        "trials": {
+          "complete": 19,
+          "pruned": 11,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-10T23:47:21+00:00"
+      },
+      "RotatE": {
+        "pipeline": {
+          "model": "RotatE",
+          "model_kwargs": {
+            "embedding_dim": 200
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 22
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.004238382363774395
+          }
+        },
+        "best_trial": 7,
+        "validation_mrr": 0.08219625800848007,
+        "stopped_epoch": 80,
+        "trial_random_seed": 1201334143,
+        "trials": {
+          "complete": 7,
+          "pruned": 23,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-10T23:53:22+00:00"
+      },
+      "ComplEx": {
+        "pipeline": {
+          "model": "ComplEx",
+          "model_kwargs": {
+            "embedding_dim": 100
+          },
+          "loss": "SoftplusLoss",
+          "loss_kwargs": {},
+          "optimizer": "Adam",
+          "negative_sampler": "basic",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 28
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.08087135698462293
+          }
+        },
+        "best_trial": 29,
+        "validation_mrr": 0.1699550300836563,
+        "stopped_epoch": 180,
+        "trial_random_seed": 841696185,
+        "trials": {
+          "complete": 11,
+          "pruned": 19,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T00:05:28+00:00"
+      },
+      "TuckER": {
+        "pipeline": {
+          "model": "TuckER",
+          "model_kwargs": {
+            "relation_dim": null,
+            "dropout_0": 0.3,
+            "dropout_1": 0.4,
+            "dropout_2": 0.5,
+            "embedding_dim": 50
+          },
+          "loss": "BCEAfterSigmoidLoss",
+          "loss_kwargs": {},
+          "optimizer": "Adam",
+          "negative_sampler": "basic",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 9
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.009387544964459772
+          }
+        },
+        "best_trial": 11,
+        "validation_mrr": 0.29707464575767517,
+        "stopped_epoch": 250,
+        "trial_random_seed": 1917074426,
+        "trials": {
+          "complete": 11,
+          "pruned": 19,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T00:19:33+00:00"
+      }
+    },
+    "Family1_1": {
+      "TransE": {
+        "pipeline": {
+          "model": "TransE",
+          "model_kwargs": {
+            "scoring_fct_norm": 1,
+            "embedding_dim": 50
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "basic",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 4
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.017481681165014407
+          }
+        },
+        "best_trial": 13,
+        "validation_mrr": 0.11693558096885681,
+        "stopped_epoch": 120,
+        "trial_random_seed": 737953702,
+        "trials": {
+          "complete": 9,
+          "pruned": 21,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T00:28:09+00:00"
+      },
+      "TransH": {
+        "pipeline": {
+          "model": "TransH",
+          "model_kwargs": {
+            "scoring_fct_norm": 2,
+            "embedding_dim": 50
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "regularizer_kwargs": {
+            "weight": 0.05
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 1
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.0012841027150622976
+          }
+        },
+        "best_trial": 21,
+        "validation_mrr": 0.14403009414672852,
+        "stopped_epoch": 180,
+        "trial_random_seed": 362208733,
+        "trials": {
+          "complete": 14,
+          "pruned": 16,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T00:38:35+00:00"
+      },
+      "TransD": {
+        "pipeline": {
+          "model": "TransD",
+          "model_kwargs": {
+            "relation_dim": null,
+            "embedding_dim": 100
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 4
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.018983100151465364
+          }
+        },
+        "best_trial": 19,
+        "validation_mrr": 0.13795441389083862,
+        "stopped_epoch": 55,
+        "trial_random_seed": 1619144516,
+        "trials": {
+          "complete": 13,
+          "pruned": 17,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T00:47:19+00:00"
+      },
+      "RotatE": {
+        "pipeline": {
+          "model": "RotatE",
+          "model_kwargs": {
+            "embedding_dim": 200
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 2
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.02887815243740325
+          }
+        },
+        "best_trial": 22,
+        "validation_mrr": 0.07052169740200043,
+        "stopped_epoch": 155,
+        "trial_random_seed": 2000160690,
+        "trials": {
+          "complete": 9,
+          "pruned": 21,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T00:54:40+00:00"
+      },
+      "ComplEx": {
+        "pipeline": {
+          "model": "ComplEx",
+          "model_kwargs": {
+            "embedding_dim": 50
+          },
+          "loss": "SoftplusLoss",
+          "loss_kwargs": {},
+          "optimizer": "Adam",
+          "negative_sampler": "basic",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 17
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.05178838542503127
+          }
+        },
+        "best_trial": 17,
+        "validation_mrr": 0.2646867632865906,
+        "stopped_epoch": 190,
+        "trial_random_seed": 1610589611,
+        "trials": {
+          "complete": 12,
+          "pruned": 18,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T01:08:12+00:00"
+      },
+      "TuckER": {
+        "pipeline": {
+          "model": "TuckER",
+          "model_kwargs": {
+            "relation_dim": null,
+            "dropout_0": 0.3,
+            "dropout_1": 0.4,
+            "dropout_2": 0.5,
+            "embedding_dim": 50
+          },
+          "loss": "BCEAfterSigmoidLoss",
+          "loss_kwargs": {},
+          "optimizer": "Adam",
+          "negative_sampler": "basic",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 30
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.02685965359983126
+          }
+        },
+        "best_trial": 11,
+        "validation_mrr": 0.37813737988471985,
+        "stopped_epoch": null,
+        "trial_random_seed": 362434498,
+        "trials": {
+          "complete": 12,
+          "pruned": 18,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T01:32:00+00:00"
+      }
+    },
+    "FamilyM_N": {
+      "TransE": {
+        "pipeline": {
+          "model": "TransE",
+          "model_kwargs": {
+            "scoring_fct_norm": 1,
+            "embedding_dim": 200
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 9
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.0065395270633653284
+          }
+        },
+        "best_trial": 28,
+        "validation_mrr": 0.10877449065446854,
+        "stopped_epoch": 170,
+        "trial_random_seed": 87269604,
+        "trials": {
+          "complete": 11,
+          "pruned": 19,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T01:45:31+00:00"
+      },
+      "TransH": {
+        "pipeline": {
+          "model": "TransH",
+          "model_kwargs": {
+            "scoring_fct_norm": 2,
+            "embedding_dim": 50
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "regularizer_kwargs": {
+            "weight": 0.05
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 28
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.00303145994042874
+          }
+        },
+        "best_trial": 21,
+        "validation_mrr": 0.1106046736240387,
+        "stopped_epoch": 115,
+        "trial_random_seed": 965630703,
+        "trials": {
+          "complete": 14,
+          "pruned": 16,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T01:53:57+00:00"
+      },
+      "TransD": {
+        "pipeline": {
+          "model": "TransD",
+          "model_kwargs": {
+            "relation_dim": null,
+            "embedding_dim": 50
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 17
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.002807574106947726
+          }
+        },
+        "best_trial": 0,
+        "validation_mrr": 0.14479747414588928,
+        "stopped_epoch": 200,
+        "trial_random_seed": 209542255,
+        "trials": {
+          "complete": 12,
+          "pruned": 18,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T02:08:10+00:00"
+      },
+      "RotatE": {
+        "pipeline": {
+          "model": "RotatE",
+          "model_kwargs": {
+            "embedding_dim": 200
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "basic",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 1
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.04868352861723367
+          }
+        },
+        "best_trial": 2,
+        "validation_mrr": 0.162974014878273,
+        "stopped_epoch": 170,
+        "trial_random_seed": 1206966797,
+        "trials": {
+          "complete": 10,
+          "pruned": 20,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T02:18:56+00:00"
+      },
+      "ComplEx": {
+        "pipeline": {
+          "model": "ComplEx",
+          "model_kwargs": {
+            "embedding_dim": 200
+          },
+          "loss": "SoftplusLoss",
+          "loss_kwargs": {},
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 31
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.08430424202093278
+          }
+        },
+        "best_trial": 19,
+        "validation_mrr": 0.22814302146434784,
+        "stopped_epoch": 160,
+        "trial_random_seed": 532030293,
+        "trials": {
+          "complete": 12,
+          "pruned": 18,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T02:36:59+00:00"
+      },
+      "TuckER": {
+        "pipeline": {
+          "model": "TuckER",
+          "model_kwargs": {
+            "relation_dim": null,
+            "dropout_0": 0.3,
+            "dropout_1": 0.4,
+            "dropout_2": 0.5,
+            "embedding_dim": 100
+          },
+          "loss": "BCEAfterSigmoidLoss",
+          "loss_kwargs": {},
+          "optimizer": "Adam",
+          "negative_sampler": "basic",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 17
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.026908949872568526
+          }
+        },
+        "best_trial": 27,
+        "validation_mrr": 0.3737972378730774,
+        "stopped_epoch": 165,
+        "trial_random_seed": 1965829967,
+        "trials": {
+          "complete": 9,
+          "pruned": 21,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T02:55:04+00:00"
+      }
+    },
+    "french1_N": {
+      "TransE": {
+        "pipeline": {
+          "model": "TransE",
+          "model_kwargs": {
+            "scoring_fct_norm": 1,
+            "embedding_dim": 50
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "basic",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 14
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.02265371798370628
+          }
+        },
+        "best_trial": 15,
+        "validation_mrr": 0.1309586763381958,
+        "stopped_epoch": 40,
+        "trial_random_seed": 1447014807,
+        "trials": {
+          "complete": 11,
+          "pruned": 19,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T03:01:53+00:00"
+      },
+      "TransH": {
+        "pipeline": {
+          "model": "TransH",
+          "model_kwargs": {
+            "scoring_fct_norm": 2,
+            "embedding_dim": 200
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "regularizer_kwargs": {
+            "weight": 0.05
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 4
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.0007143287357878402
+          }
+        },
+        "best_trial": 14,
+        "validation_mrr": 0.07702634483575821,
+        "stopped_epoch": 45,
+        "trial_random_seed": 1481320653,
+        "trials": {
+          "complete": 13,
+          "pruned": 17,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T03:08:10+00:00"
+      },
+      "TransD": {
+        "pipeline": {
+          "model": "TransD",
+          "model_kwargs": {
+            "relation_dim": null,
+            "embedding_dim": 200
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 11
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.0014409090328838501
+          }
+        },
+        "best_trial": 10,
+        "validation_mrr": 0.16454870998859406,
+        "stopped_epoch": 75,
+        "trial_random_seed": 361229497,
+        "trials": {
+          "complete": 9,
+          "pruned": 21,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T03:16:04+00:00"
+      },
+      "RotatE": {
+        "pipeline": {
+          "model": "RotatE",
+          "model_kwargs": {
+            "embedding_dim": 200
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 1
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.0025768962016056935
+          }
+        },
+        "best_trial": 4,
+        "validation_mrr": 0.14557339251041412,
+        "stopped_epoch": 210,
+        "trial_random_seed": 1508636768,
+        "trials": {
+          "complete": 11,
+          "pruned": 19,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T03:25:28+00:00"
+      },
+      "ComplEx": {
+        "pipeline": {
+          "model": "ComplEx",
+          "model_kwargs": {
+            "embedding_dim": 200
+          },
+          "loss": "SoftplusLoss",
+          "loss_kwargs": {},
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 18
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.06355706956589957
+          }
+        },
+        "best_trial": 29,
+        "validation_mrr": 0.25282132625579834,
+        "stopped_epoch": null,
+        "trial_random_seed": 2052882634,
+        "trials": {
+          "complete": 14,
+          "pruned": 16,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T03:34:44+00:00"
+      },
+      "TuckER": {
+        "pipeline": {
+          "model": "TuckER",
+          "model_kwargs": {
+            "relation_dim": null,
+            "dropout_0": 0.3,
+            "dropout_1": 0.4,
+            "dropout_2": 0.5,
+            "embedding_dim": 100
+          },
+          "loss": "BCEAfterSigmoidLoss",
+          "loss_kwargs": {},
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 7
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.06817783395736757
+          }
+        },
+        "best_trial": 3,
+        "validation_mrr": 0.30188173055648804,
+        "stopped_epoch": 185,
+        "trial_random_seed": 738039718,
+        "trials": {
+          "complete": 9,
+          "pruned": 21,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T03:46:48+00:00"
+      }
+    },
+    "frenchN_M": {
+      "TransE": {
+        "pipeline": {
+          "model": "TransE",
+          "model_kwargs": {
+            "scoring_fct_norm": 1,
+            "embedding_dim": 50
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "basic",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 3
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.014041473571816756
+          }
+        },
+        "best_trial": 11,
+        "validation_mrr": 0.220130056142807,
+        "stopped_epoch": 85,
+        "trial_random_seed": 1303089255,
+        "trials": {
+          "complete": 10,
+          "pruned": 20,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T03:54:57+00:00"
+      },
+      "TransH": {
+        "pipeline": {
+          "model": "TransH",
+          "model_kwargs": {
+            "scoring_fct_norm": 2,
+            "embedding_dim": 200
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "regularizer_kwargs": {
+            "weight": 0.05
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "basic",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 8
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.0009781441058344044
+          }
+        },
+        "best_trial": 27,
+        "validation_mrr": 0.1390368938446045,
+        "stopped_epoch": 40,
+        "trial_random_seed": 1347365733,
+        "trials": {
+          "complete": 15,
+          "pruned": 15,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T04:04:18+00:00"
+      },
+      "TransD": {
+        "pipeline": {
+          "model": "TransD",
+          "model_kwargs": {
+            "relation_dim": null,
+            "embedding_dim": 200
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "basic",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 2
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.015324158107931082
+          }
+        },
+        "best_trial": 21,
+        "validation_mrr": 0.23419703543186188,
+        "stopped_epoch": 40,
+        "trial_random_seed": 1932536760,
+        "trials": {
+          "complete": 19,
+          "pruned": 11,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T04:14:28+00:00"
+      },
+      "RotatE": {
+        "pipeline": {
+          "model": "RotatE",
+          "model_kwargs": {
+            "embedding_dim": 200
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "basic",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 1
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.03185716124813833
+          }
+        },
+        "best_trial": 26,
+        "validation_mrr": 0.4568445384502411,
+        "stopped_epoch": 175,
+        "trial_random_seed": 1135747811,
+        "trials": {
+          "complete": 10,
+          "pruned": 20,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T04:25:39+00:00"
+      },
+      "ComplEx": {
+        "pipeline": {
+          "model": "ComplEx",
+          "model_kwargs": {
+            "embedding_dim": 50
+          },
+          "loss": "SoftplusLoss",
+          "loss_kwargs": {},
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 8
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.06284055313461563
+          }
+        },
+        "best_trial": 21,
+        "validation_mrr": 0.613315999507904,
+        "stopped_epoch": 185,
+        "trial_random_seed": 1524268823,
+        "trials": {
+          "complete": 13,
+          "pruned": 17,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T04:36:33+00:00"
+      },
+      "TuckER": {
+        "pipeline": {
+          "model": "TuckER",
+          "model_kwargs": {
+            "relation_dim": null,
+            "dropout_0": 0.3,
+            "dropout_1": 0.4,
+            "dropout_2": 0.5,
+            "embedding_dim": 200
+          },
+          "loss": "BCEAfterSigmoidLoss",
+          "loss_kwargs": {},
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 31
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.0034017416690351092
+          }
+        },
+        "best_trial": 5,
+        "validation_mrr": 0.6286553740501404,
+        "stopped_epoch": 125,
+        "trial_random_seed": 1435394137,
+        "trials": {
+          "complete": 11,
+          "pruned": 19,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T04:53:06+00:00"
+      }
+    },
+    "frenchN_1": {
+      "TransE": {
+        "pipeline": {
+          "model": "TransE",
+          "model_kwargs": {
+            "scoring_fct_norm": 1,
+            "embedding_dim": 50
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 28
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.010410983195458811
+          }
+        },
+        "best_trial": 23,
+        "validation_mrr": 0.38720080256462097,
+        "stopped_epoch": 120,
+        "trial_random_seed": 896400653,
+        "trials": {
+          "complete": 14,
+          "pruned": 16,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T05:04:59+00:00"
+      },
+      "TransH": {
+        "pipeline": {
+          "model": "TransH",
+          "model_kwargs": {
+            "scoring_fct_norm": 2,
+            "embedding_dim": 200
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "regularizer_kwargs": {
+            "weight": 0.05
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 22
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.004609506116918117
+          }
+        },
+        "best_trial": 9,
+        "validation_mrr": 0.3677249848842621,
+        "stopped_epoch": 30,
+        "trial_random_seed": 434904193,
+        "trials": {
+          "complete": 13,
+          "pruned": 17,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T05:13:28+00:00"
+      },
+      "TransD": {
+        "pipeline": {
+          "model": "TransD",
+          "model_kwargs": {
+            "relation_dim": null,
+            "embedding_dim": 50
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 32
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.027250851877687998
+          }
+        },
+        "best_trial": 25,
+        "validation_mrr": 0.32586434483528137,
+        "stopped_epoch": 85,
+        "trial_random_seed": 579558216,
+        "trials": {
+          "complete": 16,
+          "pruned": 14,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T05:27:48+00:00"
+      },
+      "RotatE": {
+        "pipeline": {
+          "model": "RotatE",
+          "model_kwargs": {
+            "embedding_dim": 100
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 4
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.007828767832019764
+          }
+        },
+        "best_trial": 0,
+        "validation_mrr": 0.386888325214386,
+        "stopped_epoch": 165,
+        "trial_random_seed": 1219715541,
+        "trials": {
+          "complete": 10,
+          "pruned": 20,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T05:37:29+00:00"
+      },
+      "ComplEx": {
+        "pipeline": {
+          "model": "ComplEx",
+          "model_kwargs": {
+            "embedding_dim": 50
+          },
+          "loss": "SoftplusLoss",
+          "loss_kwargs": {},
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 21
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.06296075309629705
+          }
+        },
+        "best_trial": 24,
+        "validation_mrr": 0.4128865897655487,
+        "stopped_epoch": 95,
+        "trial_random_seed": 1485422671,
+        "trials": {
+          "complete": 13,
+          "pruned": 17,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T05:53:18+00:00"
+      },
+      "TuckER": {
+        "pipeline": {
+          "model": "TuckER",
+          "model_kwargs": {
+            "relation_dim": null,
+            "dropout_0": 0.3,
+            "dropout_1": 0.4,
+            "dropout_2": 0.5,
+            "embedding_dim": 200
+          },
+          "loss": "BCEAfterSigmoidLoss",
+          "loss_kwargs": {},
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 1
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.0019484660429227945
+          }
+        },
+        "best_trial": 13,
+        "validation_mrr": 0.3048343062400818,
+        "stopped_epoch": 35,
+        "trial_random_seed": 1090357789,
+        "trials": {
+          "complete": 12,
+          "pruned": 18,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T06:03:29+00:00"
+      }
+    },
+    "family": {
+      "TransE": {
+        "pipeline": {
+          "model": "TransE",
+          "model_kwargs": {
+            "scoring_fct_norm": 1,
+            "embedding_dim": 50
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "basic",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 17
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.0027600899819381604
+          }
+        },
+        "best_trial": 27,
+        "validation_mrr": 0.5086560845375061,
+        "stopped_epoch": 165,
+        "trial_random_seed": 1379635100,
+        "trials": {
+          "complete": 11,
+          "pruned": 19,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T06:32:11+00:00"
+      },
+      "TransH": {
+        "pipeline": {
+          "model": "TransH",
+          "model_kwargs": {
+            "scoring_fct_norm": 2,
+            "embedding_dim": 50
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "regularizer_kwargs": {
+            "weight": 0.05
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 29
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.00020284356456961962
+          }
+        },
+        "best_trial": 27,
+        "validation_mrr": 0.41901275515556335,
+        "stopped_epoch": 110,
+        "trial_random_seed": 662853343,
+        "trials": {
+          "complete": 13,
+          "pruned": 17,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T06:52:26+00:00"
+      },
+      "TransD": {
+        "pipeline": {
+          "model": "TransD",
+          "model_kwargs": {
+            "relation_dim": null,
+            "embedding_dim": 50
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 16
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.0020255815440571564
+          }
+        },
+        "best_trial": 28,
+        "validation_mrr": 0.3184625804424286,
+        "stopped_epoch": 105,
+        "trial_random_seed": 1415306063,
+        "trials": {
+          "complete": 13,
+          "pruned": 17,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T07:24:44+00:00"
+      },
+      "RotatE": {
+        "pipeline": {
+          "model": "RotatE",
+          "model_kwargs": {
+            "embedding_dim": 100
+          },
+          "loss": "MarginRankingLoss",
+          "loss_kwargs": {
+            "margin": 1.0
+          },
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 24
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.001259815203318403
+          }
+        },
+        "best_trial": 3,
+        "validation_mrr": 0.7917316555976868,
+        "stopped_epoch": 145,
+        "trial_random_seed": 190402473,
+        "trials": {
+          "complete": 8,
+          "pruned": 22,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T07:43:47+00:00"
+      },
+      "ComplEx": {
+        "pipeline": {
+          "model": "ComplEx",
+          "model_kwargs": {
+            "embedding_dim": 100
+          },
+          "loss": "SoftplusLoss",
+          "loss_kwargs": {},
+          "optimizer": "Adam",
+          "negative_sampler": "bernoulli",
+          "negative_sampler_kwargs": {
+            "filtered": true,
+            "num_negs_per_pos": 3
+          },
+          "training_loop": "sLCWA",
+          "training_kwargs": {
+            "batch_size": 512
+          },
+          "optimizer_kwargs": {
+            "lr": 0.016033921986800568
+          }
+        },
+        "best_trial": 13,
+        "validation_mrr": 0.774792492389679,
+        "stopped_epoch": 105,
+        "trial_random_seed": 842314285,
+        "trials": {
+          "complete": 10,
+          "pruned": 20,
+          "failed": 0,
+          "running": 0
+        },
+        "search_space": {
+          "model.embedding_dim": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                50,
+                100,
+                200
+              ]
+            }
+          },
+          "optimizer.lr": {
+            "name": "FloatDistribution",
+            "attributes": {
+              "step": null,
+              "low": 0.0001,
+              "high": 0.1,
+              "log": true
+            }
+          },
+          "negative_sampler.num_negs_per_pos": {
+            "name": "IntDistribution",
+            "attributes": {
+              "log": true,
+              "step": 1,
+              "low": 1,
+              "high": 32
+            }
+          },
+          "negative_sampler.corruption": {
+            "name": "CategoricalDistribution",
+            "attributes": {
+              "choices": [
+                "uniform",
+                "bernoulli"
+              ]
+            }
+          }
+        },
+        "protocol": {
+          "trials": 30,
+          "max_trial_epochs": 300,
+          "sampler": {
+            "name": "TPESampler",
+            "seed": "1235 + crc32('<search dataset>/<model>') % 10**6 + trials so far"
+          },
+          "pruner": {
+            "name": "HyperbandPruner",
+            "min_resource": 5,
+            "max_resource": 300,
+            "reduction_factor": 3
+          },
+          "stopper": {
+            "frequency": 5,
+            "patience": 5,
+            "relative_delta": 0.01,
+            "metric": "inverse_harmonic_mean_rank"
+          },
+          "trial_metric": "inverse_harmonic_mean_rank",
+          "validation_sample": 5000,
+          "validation_sample_seed": 1235,
+          "training_loop": "sLCWA",
+          "create_inverse_triples": true,
+          "filtered_negative_sampling": true,
+          "shared_ranges": {
+            "model": {
+              "embedding_dim": {
+                "type": "categorical",
+                "choices": [
+                  50,
+                  100,
+                  200
+                ]
+              }
+            },
+            "optimizer": {
+              "lr": {
+                "type": "float",
+                "low": 0.0001,
+                "high": 0.1,
+                "log": true
+              }
+            },
+            "negative_sampler": {
+              "num_negs_per_pos": {
+                "type": "int",
+                "low": 1,
+                "high": 32,
+                "log": true
+              },
+              "corruption": {
+                "type": "categorical",
+                "choices": [
+                  "uniform",
+                  "bernoulli"
+                ]
+              }
+            }
+          },
+          "batch_size": 512,
+          "fixed_to_model_defaults": "pinned_kwargs()"
+        },
+        "versions": {
+          "pykeen": "1.11.1",
+          "torch": "2.14.1+cu130",
+          "optuna": "5.0.0"
+        },
+        "searched_at": "2026-11-11T08:03:07+00:00"
+      }
+    }
+  }
+}

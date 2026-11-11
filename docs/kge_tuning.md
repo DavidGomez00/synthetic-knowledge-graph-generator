@@ -1,5 +1,7 @@
 # Tuning the KGE models
 
+Hyperparameter tuning was dropped from the benchmark on 2026-11-11, and the search was stopped. The benchmark trains every model with the default settings of `scripts/train_kge.py` ([`kge_training.md`](kge_training.md)), which reads nothing written by `tune_kge.py`. The search finished 7 of its 19 search datasets (`FamilyN_1`, `Family1_N`, `Family1_1`, `FamilyM_N`, `french1_N`, `frenchN_M`, `frenchN_1`) and five of the six models on `family`, without TuckER. Their results are kept in `configurations/kge_hyperparameters.json` and [`kge_hyperparameters.md`](kge_hyperparameters.md). No final run was trained with them. The rest of this page describes the protocol as it was planned.
+
 `scripts/tune_kge.py` searches the hyperparameters of the seven models of the KGC-Benchmark project (TransE, TransH, TransD, RotatE, ComplEx, TuckER, CompGCN) and trains every benchmark dataset with the best ones. This page describes the protocol and how to estimate its run time on a machine. The values it uses are constants at the top of the script, and every search result in `configurations/kge_hyperparameters.json` stores them under `protocol`, so the record is exact even if this page falls behind. [`kge_hyperparameters.md`](kge_hyperparameters.md) is the table generated from that record.
 
 ## Why a search
