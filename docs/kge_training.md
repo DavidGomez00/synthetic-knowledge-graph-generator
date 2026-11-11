@@ -93,6 +93,20 @@ python scripts/train_kge.py --skip-models CompGCN --set ours --workers 4
 
 `--workers 4` was measured on an RTX 3090; on another GPU, start with 4 and compare the seconds per epoch that `kge_eta.py` reports with 2 or 3 workers. The `_ours` copies have 0.70 (`frenchN_1_ours`) to 3.06 (`family_ours`) times the triples of their source datasets, and 1.01 times in total (5,140,873 against 5,089,314), so the set takes about as long as the base set.
 
+## Collecting the results of several machines
+
+A finished run leaves its trained model in `exp_results/<dataset>/<model>/` (`trained_model.pkl`, 8 to 16 MB on WN18RR, with `results.json`, the loss plot and `training_triples/`, which PyKEEN needs to load the model); its checkpoint is deleted. With `--upload`, `train_kge.py` pushes every finished run to the branch `kge-results` of the GitHub repository after each run, so the results of every machine end up in one place:
+
+```bash
+python scripts/train_kge.py --skip-models CompGCN --set ours --workers 4 --upload
+```
+
+The machine needs push access to the repository, the same SSH key that cloned it. `scripts/upload_results.py` does the work: it checks out `kge-results` in `.kge-results/`, copies the runs the branch lacks with their status, settings and the dataset's splits, commits them with the machine's name and pushes. If another machine pushed first, it rebases and pushes again. A failed upload is logged and training goes on; the next upload, after the next run, sends what was missed, and `python scripts/upload_results.py` uploads by hand.
+
+To gather everything on one machine, `python scripts/upload_results.py --download` copies every run of the branch that the local `exp_results/` lacks and rebuilds `progress.csv`, after which `kge_eta.py` and KGC-Benchmark's `report_results.py --root exp_results` read them as local runs.
+
+The branch shares no files with the code branches, but a clone fetches it too unless it uses `git clone --single-branch -b add-train-kge`. With the models it grows by about 1.7 GB per set of datasets.
+
 ## Run time
 
 Measured on an RTX 3090 for the base set, without CompGCN:
