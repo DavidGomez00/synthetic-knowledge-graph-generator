@@ -101,6 +101,8 @@ class _FillState:
     # and reflexive triples still allowed.
     budgets: dict[str, PredicateProfile]
     added: Counter[str] = field(default_factory=Counter)
+    # Ground rules with the logic before the self-loop fix (--skip-reflexivity).
+    skip_reflexivity: bool = False
 
     def is_open(self, predicate: str) -> bool:
         """Whether `predicate` still needs triples."""
@@ -278,6 +280,7 @@ def _fill_rule(state: _FillState, r_id: str) -> None:
             term_mapping=state.term_mapping,
             chunk_size=state.chunk_size,
             fixed_bindings=fixed,
+            skip_reflexivity=state.skip_reflexivity,
         )
         accepted = 0
         for group in groups:
@@ -396,6 +399,7 @@ def fill_open_predicates(
     graph_uri: str,
     term_mapping: dict[str, str],
     chunk_size: int,
+    skip_reflexivity: bool = False,
 ) -> dict[str, int]:
     """Adds triples of each predicate in `open_preds` to `graph_uri` until it
     reaches its target frequency in `targets`, keeping the support of every closed
@@ -407,7 +411,8 @@ def fill_open_predicates(
     the budget left is spent at random (see the module docstring). Subjects and
     objects are weighted by how many more triples they need to match their counts
     in `source_uri`. Assumes `graph_uri` is already closed under `rules` (see
-    `complete_graph`).
+    `complete_graph`). With `skip_reflexivity`, rule groundings use the logic
+    before the self-loop fix (see `generator.sample_grounding_groups`).
 
     Returns:
         The number of triples added per predicate.
@@ -435,6 +440,7 @@ def fill_open_predicates(
         rules=rules,
         supports={},
         budgets=budgets,
+        skip_reflexivity=skip_reflexivity,
     )
     open_rules = sorted((r for r in rules if not rules[r].closed), key=rule_sort_key)
     for r_id in rules:

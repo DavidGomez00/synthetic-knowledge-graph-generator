@@ -25,6 +25,7 @@ left. If another rule also derives the relation, the EDB leaves it empty and
 import heapq
 import logging
 import random
+from collections import Counter
 from collections.abc import Collection, Iterator
 
 from SPARQLWrapper import SPARQLWrapper
@@ -116,7 +117,9 @@ def place_self_loops(
                     ),
                     None,
                 )
-                entity = candidates.pop(len(candidates) - 1 if forced is None else forced)
+                entity = candidates.pop(
+                    len(candidates) - 1 if forced is None else forced
+                )
                 if forced is None and not is_assignment_solvable(
                     profile, entity, entity
                 ):
@@ -227,6 +230,7 @@ def check_triples_from_rule(
     edb_uri: str,
     chunk_size: int,
     undirected_preds: Collection[str] = (),
+    skip_reflexivity: bool = False,
 ) -> int:
     """Builds groundings of a rule's extensional body and inserts them into the EDB.
 
@@ -239,6 +243,8 @@ def check_triples_from_rule(
         edb_uri: The URI of the target EDB.
         chunk_size: Maximum number of triples to insert per SPARQL query.
         undirected_preds: Predicates whose triples are inserted in both directions.
+        skip_reflexivity: Use the grounding logic before the self-loop fix (see
+            `generator.sample_grounding_groups`).
 
     Returns:
         The number of successfully inserted triples.
@@ -286,6 +292,7 @@ def check_triples_from_rule(
         term_mapping=term_mapping,
         chunk_size=chunk_size,
         undirected=undirected_preds,
+        skip_reflexivity=skip_reflexivity,
     )
 
     return insert_triples_sparql(
@@ -304,12 +311,20 @@ def _weighted_sample(
 ) -> list[str]:
     """Draws `k` distinct keys of `weights` other than `exclude` without
     replacement, each with probability proportional to its (positive) weight
-    (Efraimidis-Spirakis)."""
-    return heapq.nlargest(
-        k,
-        (key for key in weights if key != exclude),
-        key=lambda key: random.random() ** (1 / weights[key]),
-    )
+    (Efraimidis-Spirakis).
+
+    The keys of the draw are computed in one list, in the order of `weights`, which
+    takes the same random numbers as a key function would and is faster."""
+    rand = random.random
+    if exclude in weights:
+        keys = [key for key in weights if key != exclude]
+        scores = [rand() ** (1 / w) for key, w in weights.items() if key != exclude]
+    else:
+        keys = list(weights)
+        scores = [rand() ** (1 / w) for w in weights.values()]
+    return [
+        keys[i] for i in heapq.nlargest(k, range(len(keys)), key=scores.__getitem__)
+    ]
 
 
 def insert_random_triples(
@@ -320,6 +335,7 @@ def insert_random_triples(
     term_mapping: dict[str, str],
     chunk_size: int,
     buffer: TripleBuffer,
+    skip_reflexivity: bool = False,
 ) -> int:
     """Generates random triples from a single predicate's profile and buffers them
     for insertion (see `TripleBuffer`) — the random assignment never requires a DB
@@ -333,6 +349,11 @@ def insert_random_triples(
     `generator.is_assignment_solvable` for a relation without self-loops. Serving
     large demands while the most partners remain means fewer sets fail that check.
 
+    With `skip_reflexivity` (the generator before the self-loop fix), the subject
+    can be drawn as its own object, and the check is the plain one for a relation
+    that may have self-loops. Both versions check a draw in one pass over the
+    range.
+
     Args:
         client: Wrapper for SPARQL queries.
         edb_uri: The URI where the EDB triples will be inserted.
@@ -341,6 +362,7 @@ def insert_random_triples(
         term_mapping: Mapping of terms to their string representations.
         chunk_size: Maximum number of triples to insert per SPARQL query.
         buffer: Shared buffer that accumulates triples across calls.
+        skip_reflexivity: Allow self-loops, as before the self-loop fix.
 
     Returns:
         The number of buffered triples.
@@ -356,13 +378,16 @@ def insert_random_triples(
         logger.warning("Empty domain for predicate %s.", predicate)
         return 0
 
-    subject = random.choices(
-        available_subjects, weights=[profile.domain[s] for s in available_subjects]
-    )[0]
+    subject = random.choices(available_subjects, weights=list(profile.domain.values()))[
+        0
+    ]
     required_count = profile.domain[subject]
 
-    # The subject can't be its own object: `place_self_loops` placed the self-loops.
-    available_objects = len(profile.range) - (subject in profile.range)
+    # Without `skip_reflexivity`, no entity can be its own partner:
+    # `place_self_loops` placed the self-loops.
+    loop_free = not skip_reflexivity
+    excluded = subject if loop_free else None
+    available_objects = len(profile.range) - (loop_free and subject in profile.range)
     if available_objects < required_count:
         raise ValueError(
             f"Error assigning triples for {predicate}. "
@@ -370,35 +395,54 @@ def insert_random_triples(
             f"There are only {available_objects} different objects available."
         )
 
-    # The other subjects keep their counts. Each needs that many objects other than
-    # itself, so one that is also an object needs one more than its count.
+    # The other subjects keep their counts. Each needs that many objects, other than
+    # itself if loop-free, so one that is also an object needs one more. The same
+    # holds for the objects and their subjects. The range doesn't change between
+    # draws, so the objects' needs are counted once, and a draw only adjusts those
+    # of its chosen objects. Set operations and `map` keep these passes in C.
     domain, range_ = profile.domain, profile.range
     sim_domain_len = len(domain) - 1
-    max_need = max(
-        (count + (k in range_) for k, count in domain.items() if k != subject),
-        default=0,
-    )
+    # The entities other than the subject that are in both, which need one more.
+    bonus = domain.keys() & range_.keys() if loop_free else set()
+    bonus.discard(subject)
+    # The largest count among the other subjects: the largest one, unless that is
+    # the subject's alone.
+    top = max(domain.values())
+    if domain[subject] == top and list(domain.values()).count(top) == 1:
+        top = max(filter(top.__gt__, domain.values()), default=0)
+    max_need = max(top, max(map(domain.__getitem__, bonus), default=-1) + 1)
+    need_counts = Counter(range_.values())
+    for count, n in Counter(map(range_.__getitem__, bonus)).items():
+        need_counts[count] -= n
+        need_counts[count + 1] += n
+    needs_desc = sorted((v for v, n in need_counts.items() if n > 0), reverse=True)
     chosen_objects: list[str] = []
 
     for draw in range(1, MAX_RANDOM_DRAWS + 1):
-        chosen_objects = _weighted_sample(range_, required_count, exclude=subject)
+        chosen_objects = _weighted_sample(range_, required_count, exclude=excluded)
         chosen_set = set(chosen_objects)
 
-        # The objects left once the chosen ones lose a count, and the largest need
-        # among them, one more for an object that stays a subject.
-        sim_range_len = 0
-        max_range = 0
-        for obj, count in range_.items():
-            if left := count - (obj in chosen_set):
-                sim_range_len += 1
-                need = left + (obj in domain and obj != subject)
-                if need > max_range:
-                    max_range = need
+        # Each chosen object loses a count, and leaves the range with its last one.
+        # Then the objects left, and the largest need among them.
+        shift: Counter[int] = Counter()
+        dropped = 0
+        for obj in chosen_set:
+            need = range_[obj] + (obj in bonus)
+            shift[need] -= 1
+            if range_[obj] > 1:
+                shift[need - 1] += 1
+            else:
+                dropped += 1
+        sim_range_len = len(range_) - dropped
+        max_range = next((v for v in needs_desc if need_counts[v] + shift[v] > 0), 0)
+        max_range = max(
+            (v for v, n in shift.items() if n > 0 and v > max_range), default=max_range
+        )
 
         # A subject stops being an object when this one takes its last range count,
         # which lowers its need. Only worth computing when `max_need` doesn't fit.
         max_domain = max_need
-        if max_need > sim_range_len:
+        if loop_free and max_need > sim_range_len:
             max_domain = max(
                 (
                     count + (k in range_ and not (range_[k] == 1 and k in chosen_set))
@@ -675,8 +719,14 @@ def generate_extensional_predicates(
     edb_uri: str,
     chunk_size: int,
     profiles: dict[str, PredicateProfile],
+    skip_reflexivity: bool = False,
 ) -> None:
     """Generates an EDB from a set of rules and predicate profiles.
+
+    With `skip_reflexivity`, the EDB is generated as before the self-loop fix
+    (`35a1b81`): no `place_self_loops`, and rule groundings and random triples may
+    make self-loops by chance, so a relation's self-loops don't match the source's.
+    Relations generated as undirected edges place theirs either way.
 
     Args:
         client: Wrapper for SPARQL queries.
@@ -685,6 +735,7 @@ def generate_extensional_predicates(
         edb_uri: The URI where the Extensional Database (EDB) will be generated.
         chunk_size: Maximum number of triples to insert per SPARQL query.
         profiles: The metrics for each predicate in the original graph.
+        skip_reflexivity: Generate as before the self-loop fix (see above).
     """
     # Instantiate a new graph
     initialize_graph(
@@ -715,16 +766,21 @@ def generate_extensional_predicates(
 
     # Self-loops first: no later step makes one. Relations generated as undirected
     # edges place theirs when they are sampled.
-    place_self_loops(
-        client=client,
-        edb_uri=edb_uri,
-        profiles={
-            p: pr for p, pr in directed_profiles.items() if p not in intensional_preds
-        },
-        term_mapping=term_mapping,
-        chunk_size=chunk_size,
-        buffer=buffer,
-    )
+    if skip_reflexivity:
+        logger.info("[Self-loops] Skipped (--skip-reflexivity): left to chance.")
+    else:
+        place_self_loops(
+            client=client,
+            edb_uri=edb_uri,
+            profiles={
+                p: pr
+                for p, pr in directed_profiles.items()
+                if p not in intensional_preds
+            },
+            term_mapping=term_mapping,
+            chunk_size=chunk_size,
+            buffer=buffer,
+        )
     before_warm_up = {p: pr.frequency for p, pr in profiles.items()}
 
     # Warm-up: Direct matches for any predicate untill no new triples.
@@ -854,6 +910,7 @@ def generate_extensional_predicates(
                     edb_uri=edb_uri,
                     chunk_size=chunk_size,
                     undirected_preds=undirected_preds,
+                    skip_reflexivity=skip_reflexivity,
                 )
                 checked_rules.add(r_id)
 
@@ -906,6 +963,7 @@ def generate_extensional_predicates(
                 term_mapping=term_mapping,
                 chunk_size=chunk_size,
                 buffer=buffer,
+                skip_reflexivity=skip_reflexivity,
             )
             if ran_count:
                 logger.debug(

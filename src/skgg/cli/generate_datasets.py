@@ -15,6 +15,10 @@ every dataset is done.
 
     python -m skgg.cli.generate_datasets
     python -m skgg.cli.generate_datasets --datasets french WN18RR --force
+
+`--skip-reflexivity` runs `cli/main.py` with the same flag, generating as before the
+self-loop fix. Its copies go to the same `<folder>_ours/<folder>_ours.tsv`, so
+existing copies are only replaced with `--force`.
 """
 
 import argparse
@@ -182,7 +186,11 @@ def _write_config(
 
 
 def generate_dataset(
-    folder: Path, log_path: Path, store: GraphDBStore, log_level: str
+    folder: Path,
+    log_path: Path,
+    store: GraphDBStore,
+    log_level: str,
+    skip_reflexivity: bool = False,
 ) -> None:
     """Runs upload, pipeline and download for one dataset, each as its own process,
     so a dataset's memory is freed and its failure stays its own.
@@ -212,7 +220,12 @@ def generate_dataset(
             download_stem = Path(tmp) / "graph"
             for step in (
                 ["skgg.cli.graph", "upload", "-f", str(config)],
-                ["skgg.cli.main", "-f", str(config)],
+                [
+                    "skgg.cli.main",
+                    "-f",
+                    str(config),
+                    *(["--skip-reflexivity"] if skip_reflexivity else []),
+                ],
                 [
                     "skgg.cli.graph",
                     "download",
@@ -244,6 +257,7 @@ def generate_all(
     log_dir: Path,
     store: GraphDBStore,
     log_level: str = "INFO",
+    skip_reflexivity: bool = False,
 ) -> list[str]:
     """Generates the datasets under `root`.
 
@@ -271,7 +285,7 @@ def generate_all(
         log_path = log_dir / f"{folder.name}.log"
         start = time.monotonic()
         try:
-            generate_dataset(folder, log_path, store, log_level)
+            generate_dataset(folder, log_path, store, log_level, skip_reflexivity)
         except (subprocess.CalledProcessError, requests.RequestException) as error:
             logger.error(
                 "%s: failed after %.0f s (%s). See %s.",
@@ -344,6 +358,12 @@ def _parse_args() -> argparse.Namespace:
         default="rootpassword",
         help="GraphDB password (default: the one in configurations/).",
     )
+    parser.add_argument(
+        "--skip-reflexivity",
+        action="store_true",
+        help="Pass --skip-reflexivity to cli/main.py: generate as before the "
+        "self-loop fix.",
+    )
     return parser.parse_args()
 
 
@@ -357,5 +377,6 @@ if __name__ == "__main__":
         args.log_dir,
         GraphDBStore(args.database_url, args.user, args.password),
         args.log_level,
+        args.skip_reflexivity,
     )
     sys.exit(1 if failures else 0)
