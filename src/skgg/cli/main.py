@@ -147,6 +147,7 @@ def _fill_open_relations(
     graph_uri: str,
     term_mapping: dict[str, str],
     chunk_size: int,
+    skip_reflexivity: bool = False,
 ) -> None:
     """Lists each open relation with the rules a new triple of it could impact,
     and fills the open relations with `fill_open_predicates`, which also raises
@@ -184,6 +185,7 @@ def _fill_open_relations(
         graph_uri=graph_uri,
         term_mapping=term_mapping,
         chunk_size=chunk_size,
+        skip_reflexivity=skip_reflexivity,
     )
 
     freqs = get_predicate_frequencies(client, graph_uri)
@@ -421,8 +423,14 @@ def run_synthetic_graph_experiment(
     synthetic_uri: str | None = None,
     base_uri: str | None = None,
     namespace: str | None = None,
+    skip_reflexivity: bool = False,
 ) -> None:
     """Runs a Synthetic Graph generation experiment.
+
+    `skip_reflexivity` generates as before the self-loop fix (`35a1b81`): no
+    relation gets its self-loops placed first, and rule groundings and random
+    triples may make self-loops by chance. By default each relation gets exactly the
+    source's self-loops (`edb.place_self_loops`).
 
     `log_level`, if given, overrides `config.logging.level` for this run.
     `pca_threshold`, if given, overrides `config.rules.pca_threshold` for
@@ -590,6 +598,7 @@ def run_synthetic_graph_experiment(
             edb_uri=edb_uri,
             chunk_size=chunk_size,
             profiles=graph_metrics.profiles,
+            skip_reflexivity=skip_reflexivity,
         )
 
         extensional_preds_time = time.time() - start_time
@@ -663,6 +672,7 @@ def run_synthetic_graph_experiment(
             final_uri,
             term_mapping,
             chunk_size,
+            skip_reflexivity,
         )
         progress.log("fill", final_uri)
     else:
@@ -731,6 +741,14 @@ def _parse_args() -> argparse.Namespace:
         "graph.namespace), e.g. http://FrenchRoyalty.org/ for a --base-uri graph "
         "whose IRIs are under it. The graph URIs still come from graph.namespace.",
     )
+    parser.add_argument(
+        "--skip-reflexivity",
+        action="store_true",
+        help="Generate as before the self-loop fix: don't give each relation the "
+        "source's self-loops first, and let rule groundings and random triples make "
+        "self-loops by chance. By default each relation gets exactly the source's "
+        "self-loops.",
+    )
     return parser.parse_args()
 
 
@@ -745,4 +763,5 @@ if __name__ == "__main__":
         synthetic_uri=args.synthetic_uri,
         base_uri=args.base_uri,
         namespace=args.namespace,
+        skip_reflexivity=args.skip_reflexivity,
     )

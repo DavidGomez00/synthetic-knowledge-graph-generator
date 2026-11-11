@@ -75,6 +75,7 @@ The CLI also accepts:
 - `--synthetic-uri http://FrenchRoyalty.org/skgg/test` — write the synthetic graph to this URI instead, the EDB to `.../skgg/test/edb` and the filled graph to `.../skgg/test/filled`, so a test run doesn't overwrite the graphs of an earlier run at the same threshold. `--skip-edb` then reuses `.../skgg/test/edb`.
 - `--base-uri http://FrenchRoyalty.org/complete` — read the source graph from this URI instead of `http://FrenchRoyalty.org/base`. The metrics, the fill step and the summary read it; the run's own graphs keep their URIs.
 - `--namespace http://FrenchRoyalty.org/` — put the rules' bare terms under this namespace instead of the config's `graph.namespace`, for a `--base-uri` graph whose IRIs are under another namespace. The graph URIs are still derived from `graph.namespace`.
+- `--skip-reflexivity` — generate the EDB as before the self-loop fix: no relation gets its source's self-loops placed first, and rule groundings and random triples may make self-loops by chance. By default each relation gets exactly the source's self-loops.
 
 ```bash
 python -m skgg.cli.main -f french_royalty.json --skip-edb --log-level DEBUG

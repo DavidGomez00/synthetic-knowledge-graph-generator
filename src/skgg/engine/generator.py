@@ -7,6 +7,7 @@ metrics and logical rules to produce a complete, synthetic N-Triples dataset.
 import logging
 import random
 from collections.abc import Collection, Iterator
+from itertools import islice
 
 from SPARQLWrapper import SPARQLWrapper
 
@@ -57,6 +58,28 @@ def update_closed_preds(profiles: dict[str, PredicateProfile]) -> bool:
     return new
 
 
+def _largest_other(counts: dict[str, int], key: str) -> int:
+    """The largest count of `counts` other than `key`'s, 0 if there is none."""
+    top = max(counts.values(), default=0)
+    # Whether `key` alone has it: stop at the second key that does.
+    if (
+        counts.get(key) == top
+        and sum(1 for _ in islice(filter(top.__eq__, counts.values()), 2)) == 1
+    ):
+        top = max(filter(top.__gt__, counts.values()), default=0)
+    return top
+
+
+def _top_is_shared(
+    counts: dict[str, int], others: dict[str, int], skip: set[str], top: int
+) -> bool:
+    """Whether a key of `counts` other than those of `skip`, with count `top`, is
+    also a key of `others`. Stops at the first one, in C (`filter`, `islice`)."""
+    hits = sum(1 for key in skip if key in others and counts.get(key) == top)
+    shared = map(counts.__getitem__, filter(others.__contains__, counts))
+    return sum(1 for _ in islice(filter(top.__eq__, shared), hits + 1)) > hits
+
+
 def is_assignment_solvable(
     profile: PredicateProfile, subject: str, obj: str, loop_free: bool = True
 ) -> bool:
@@ -92,24 +115,37 @@ def is_assignment_solvable(
     domain_len = len(domain) - (subject_left == 0)
     range_len = len(range_) - (obj_left == 0)
 
-    max_domain_freq = max(
-        (
-            (subject_left if k == subject else count)
-            + (loop_free and k in range_ and (k != obj or obj_left > 0))
-            for k, count in domain.items()
-            if k != subject or subject_left > 0
-        ),
-        default=0,
-    )
-    max_range_freq = max(
-        (
-            (obj_left if k == obj else count)
-            + (loop_free and k in domain and (k != subject or subject_left > 0))
-            for k, count in range_.items()
-            if k != obj or obj_left > 0
-        ),
-        default=0,
-    )
+    # The largest need on each side: a count, plus one for an entity in both the
+    # domain and the range when loop-free. The entities other than the two assigned
+    # keep their counts, so their largest ones come from C-level passes (`max`,
+    # `filter` and `map` over the counts) instead of a loop in Python.
+    specials = {subject, obj}
+    in_both_s = loop_free and subject in range_
+    in_both_o = loop_free and obj in domain
+
+    domain_needs = [_largest_other(domain, subject)]
+    if subject_left > 0:
+        domain_needs.append(
+            subject_left + (in_both_s and (subject != obj or obj_left > 0))
+        )
+    if obj != subject and in_both_o:
+        domain_needs.append(domain[obj] + (obj_left > 0))
+    range_needs = [_largest_other(range_, obj)]
+    if obj_left > 0:
+        range_needs.append(
+            obj_left + (in_both_o and (obj != subject or subject_left > 0))
+        )
+    if subject != obj and in_both_s:
+        range_needs.append(range_[subject] + (subject_left > 0))
+    # The other entities have at most the largest count. One that is in both needs
+    # one more, which only raises the largest need if its count is the largest.
+    if loop_free and _top_is_shared(domain, range_, specials, domain_needs[0]):
+        domain_needs.append(domain_needs[0] + 1)
+    if loop_free and _top_is_shared(range_, domain, specials, range_needs[0]):
+        range_needs.append(range_needs[0] + 1)
+
+    max_domain_freq = max(domain_needs)
+    max_range_freq = max(range_needs)
 
     return max_domain_freq <= range_len and max_range_freq <= domain_len
 
@@ -219,6 +255,7 @@ def sample_groundings(
     term_mapping: dict[str, str],
     chunk_size: int,
     undirected: Collection[str] = (),
+    skip_reflexivity: bool = False,
 ) -> list[str]:
     """Returns the new triples of `sample_grounding_groups`'s groundings, as one
     list. Takes the same arguments, without `fixed_bindings`."""
@@ -234,6 +271,7 @@ def sample_groundings(
             term_mapping,
             chunk_size,
             undirected=undirected,
+            skip_reflexivity=skip_reflexivity,
         )
         for triple in group
     ]
@@ -250,6 +288,7 @@ def sample_grounding_groups(
     chunk_size: int,
     fixed_bindings: list[dict[str, str]] | None = None,
     undirected: Collection[str] = (),
+    skip_reflexivity: bool = False,
 ) -> list[list[str]]:
     """Constructs groundings of a rule body directly from predicate profiles.
 
@@ -264,7 +303,10 @@ def sample_grounding_groups(
 
     A grounding never binds an atom's subject and object to the same value: the
     self-loops of a relation are placed on their own, by `edb.place_self_loops`, or
-    by `edb._undirected_edges` for a relation generated as undirected edges.
+    by `edb._undirected_edges` for a relation generated as undirected edges. With
+    `skip_reflexivity` (the generator before the self-loop fix), only the atoms of
+    undirected relations refuse such a binding, so the other relations get
+    self-loops by chance, and the solvability check allows them.
 
     Args:
         client: An instantiated and configured SPARQLWrapper client.
@@ -283,6 +325,8 @@ def sample_grounding_groups(
         undirected: Predicates generated as undirected edges (see
             `edb.get_undirected_rule_ids`). A grounding adds both directions of
             their triples and spends the budget of both.
+        skip_reflexivity: Whether to use the logic before the self-loop fix (see
+            above), which `cli/main.py --skip-reflexivity` selects.
 
     Returns:
         The new triples of each accepted grounding, in the order of `atoms`. Fewer
@@ -341,7 +385,8 @@ def sample_grounding_groups(
             if usable_rows:
                 binding.update(rows[i])
             if any(
-                binding.get(atom.subject, atom.subject)
+                (not skip_reflexivity or atom.predicate in undirected)
+                and binding.get(atom.subject, atom.subject)
                 == binding.get(atom.obj, atom.obj)
                 for atom in atoms
             ):
@@ -398,7 +443,10 @@ def sample_grounding_groups(
                     or s not in profile.domain
                     or o not in profile.range
                     or not is_assignment_solvable(
-                        profile, s, o, loop_free=predicate not in undirected
+                        profile,
+                        s,
+                        o,
+                        loop_free=not skip_reflexivity and predicate not in undirected,
                     )
                 ):
                     valid = False
