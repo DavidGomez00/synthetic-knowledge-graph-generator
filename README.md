@@ -173,6 +173,7 @@ logs/              # per-run logs (gitignored)
 
 - [`docs/getting-started.md`](docs/getting-started.md): full setup + first experiment walkthrough.
 - [`docs/generate-benchmarks.md`](docs/generate-benchmarks.md): generating the benchmark copies on another machine.
+- [`docs/generation-times.md`](docs/generation-times.md): time to make each benchmark copy with this generator, kbgen and PyGraft.
 - [`docs/architecture.md`](docs/architecture.md): components and data flow, with diagrams.
 - [`docs/concepts.md`](docs/concepts.md): glossary of domain terms (EDB/IDB, Horn rules, closure, ...).
 - [`AGENTS.md`](AGENTS.md): terse architecture reference for contributors and AI coding agents alike (`CLAUDE.md` imports this same file for Claude Code).
