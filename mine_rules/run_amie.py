@@ -21,7 +21,7 @@ Rules are sorted by std_confidence, then pca_confidence, both descending
 
 Example:
 
-    python mine_rules/run_amie.py data/french_royalty/french_royalty.tsv
+    python mine_rules/run_amie.py exp_datasets/french/french.unified.tsv
 """
 
 from __future__ import annotations

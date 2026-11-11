@@ -143,7 +143,7 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Output path without suffix; writes <output>.nt and <output>.tsv "
         "(defaults to data.input_dir / the triple file's stem and the graph URI's "
-        "path under the namespace, e.g. data/french_royalty/french_royalty.skgg."
+        "path under the namespace, e.g. exp_datasets/french/french.unified.skgg."
         "pca=0.9 for "
         "http://FrenchRoyalty.org/skgg/pca=0.9).",
     )
