@@ -234,7 +234,7 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="Shapes file (defaults to data.input_dir / <stem of graph.triple_file>"
-        ".shapes.ttl, e.g. data/french_royalty/french_royalty.shapes.ttl).",
+        ".shapes.ttl, e.g. exp_datasets/french/french.unified.shapes.ttl).",
     )
     parser.add_argument(
         "--graph-uri",
@@ -252,7 +252,7 @@ def _parse_args() -> argparse.Namespace:
         help="Report file (defaults to a .tsv source's path with suffix "
         ".violations.tsv, or for a graph URI to data.input_dir / the triple file's "
         "stem and the URI's path under the namespace, e.g. "
-        "data/french_royalty/french_royalty.skgg.pca=0.9.violations.tsv).",
+        "exp_datasets/french/french.unified.skgg.pca=0.9.violations.tsv).",
     )
     parser.add_argument(
         "--keep-graph",

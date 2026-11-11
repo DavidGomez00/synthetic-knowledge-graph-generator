@@ -29,10 +29,10 @@ If you'd rather use Virtuoso instead, `docker compose --profile virtuoso up` bri
 
 `french_royalty.json` reads the benchmark copy of French Royalty, `exp_datasets/french/french.unified.tsv`, with its rules in `exp_datasets/french/french.csv`. Both are in the repository, so you can skip to step 4.
 
-The pipeline does not handle literals yet, so the project keeps only the cleaned graph of each dataset under `data/`, and that file is always the dataset's triple file. The cleaned French Royalty graph is `data/french_royalty/french_royalty.tsv`, and the original graph, with literals, is kept outside the repository. To rebuild that file from it, or to add a dataset, clean the original with `cli/clean.py`, which works on local files only (no graph database needed):
+The pipeline does not handle literals yet, so the project keeps only the cleaned graph of each dataset, and that file is always the dataset's triple file; the original graph, with literals, is kept outside the repository. To add a dataset, clean the original with `cli/clean.py`, which works on local files only (no graph database needed):
 
 ```bash
-python -m skgg.cli.clean path/to/original.tsv -o data/french_royalty/french_royalty.tsv
+python -m skgg.cli.clean path/to/original.tsv -o path/to/dataset.tsv
 ```
 
 This writes the same triples without duplicates, without triples whose object is never typed, and without `name` triples (the `--literal-predicates` default). Without `-o`, the output goes next to the input as `<stem>.no-literals.tsv`.
@@ -84,9 +84,8 @@ python -m skgg.cli.main -f french_royalty.json --skip-edb --log-level DEBUG
 
 | What | Where |
 |---|---|
-| Dataset files: the cleaned graph (`<dataset>.tsv`), its rules (`<dataset>.csv`) and SHACL shapes (`<dataset>.shapes.ttl`) | `data/<dataset>/` (e.g. `data/french_royalty/`), referenced by `data.input_dir` in the matching config |
 | Benchmark datasets: the splits, `<dataset>.unified.tsv` and its rules (`<dataset>.csv`) | `exp_datasets/<dataset>/`; `french_royalty.json` reads `exp_datasets/french/` |
-| Downloaded synthetic graphs (`<dataset>.skgg.<filter>.tsv`, `.filled.tsv`) | `data/<dataset>/skgg/` (e.g. `data/french_royalty/skgg/`), written with `cli/graph.py download -o` |
+| Downloaded synthetic graphs (`<dataset>.skgg.<filter>.tsv`, `.filled.tsv`) | `data.input_dir` of the config by default, or the path given to `cli/graph.py download -o` |
 | Experiment configs | `configurations/*.json` |
 | Named graphs (base/EDB/synthetic/filled) | in the running Virtuoso/GraphDB instance, under URIs derived from the config's `graph.namespace` and the run's rule filter (see [Graph layout](architecture.md#graph-layout)). `cli/main.py` writes no graph to disk |
 | Run logs | `logs/` (gitignored) |
