@@ -11,7 +11,7 @@ This page lists the steps to run `cli/generate_datasets.py` on a machine other t
 
 ## 1. Get the code and the datasets
 
-The datasets (`exp_datasets/<dataset>/`, with each `<dataset>.unified.tsv` and its rules, `<dataset>.csv`) are tracked in git, so the clone has everything the batch reads. So are the copies made on 11 November 2026 by this generator (`exp_datasets/<dataset>_ours/`), kbgen (`<dataset>_kbgen/`) and PyGraft (`<dataset>_pygraft/`).
+The datasets (`exp_datasets/<dataset>/`, with each `<dataset>.unified.tsv` and its rules, `<dataset>.csv`) are tracked in git, so the clone has everything the batch reads. So are the copies of this generator, made on 11 November 2026 (`exp_datasets/<dataset>_ours/`), of kbgen, made on 10 November (`<dataset>_kbgen/`), and of PyGraft, made on 11 November (`<dataset>_pygraft/`).
 
 ```bash
 git clone git@github.com:DavidGomez00/synthetic-knowledge-graph-generator.git
