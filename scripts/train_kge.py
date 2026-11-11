@@ -20,7 +20,15 @@ the same command again skips the finished models and resumes the others from
 the epoch in progress is lost. Evaluation has no checkpoints, so a model stopped
 during its evaluation repeats only that evaluation. PyKEEN logs a warning about a
 missing stopper configuration on each resume, which is harmless: no stopper is used.
-Each dataset has a lock, so two runs can't train the same dataset at once.
+`--workers N` trains N runs at once, each in its own process. At batch size 32 a run
+keeps one CPU core busy but uses a fraction of the GPU, so 4 workers train about 4
+times as fast on an RTX 3090, whose GPU is then fully busy. Each run keeps its seed
+and settings, so the results are the ones a single process gives. The workers walk
+the same list of runs, largest dataset first, and each claims the next run no one
+holds. Locks make this safe across commands too: a run (`<model>.lock`) is trained by
+one process at a time, and a dataset (`.lock`) is shared by the processes training
+its runs. With workers, the terminal shows a line every 10 epochs per run instead of
+progress bars, and Ctrl-C (or SIGINT/SIGTERM to the main process) stops every worker.
 
 `--skip-models CompGCN` leaves a model out of a run. Running the command again without
 the flag then trains only that model, as the finished ones are skipped.
@@ -38,7 +46,7 @@ epoch. Metrics are those of `results.json`: both sides, realistic ranks. A model
 changing. `report_results.py` can run at any moment and reads the finished models.
 A model left out with `--skip-models` has no row until a run includes it.
 
-Needs pykeen, torch, pandas, matplotlib and seaborn, which are not in requirements.txt.
+Needs pykeen, torch, pandas, matplotlib and seaborn, pinned in requirements.txt.
 """
 
 import argparse
@@ -49,8 +57,10 @@ import hashlib
 import io
 import json
 import logging
+import multiprocessing
 import os
 import shutil
+import signal
 import sys
 import time
 from collections.abc import Callable, Iterator, Mapping
@@ -80,6 +90,9 @@ MODELS = ("TransE", "TransH", "TransD", "RotatE", "ComplEx", "TuckER", "CompGCN"
 RESULTS_FILE = "results.json"
 SETTINGS_FILE = "settings.json"
 LOCK_FILE = ".lock"
+SETTINGS_LOCK_FILE = ".settings.lock"
+# With workers, each run logs a line every this many epochs instead of progress bars.
+LOG_EVERY_EPOCHS = 10
 STATUS_DIR = "status"
 PROGRESS_FILE = "progress.csv"
 LOG_FILE = Path("logs/train_kge.log")
@@ -207,10 +220,11 @@ def mark_finished(status: ModelStatus, results_file: Path) -> None:
 class StatusCallback(TrainingCallback):
     """Records a model's status after every epoch."""
 
-    def __init__(self, output: Path, status: ModelStatus) -> None:
+    def __init__(self, output: Path, status: ModelStatus, log_every: int = 0) -> None:
         super().__init__()
         self.output = output
         self.status = status
+        self.log_every = log_every
         self.last_time: float | None = None
 
     def pre_batch(self, **kwargs: Any) -> None:
@@ -226,6 +240,18 @@ class StatusCallback(TrainingCallback):
         # Holds the losses restored from the checkpoint too.
         self.status.losses = list(self.training_loop.losses_per_epochs)
         record_status(self.output, self.status)
+        if self.log_every and epoch % self.log_every == 0:
+            per_epoch = self.status.train_seconds / epoch
+            left = per_epoch * (self.status.num_epochs - epoch)
+            logger.info(
+                "%s %s: epoch %d/%d, %.1f s per epoch, %.0f min left.",
+                self.status.dataset,
+                self.status.model,
+                epoch,
+                self.status.num_epochs,
+                per_epoch,
+                left / 60,
+            )
 
     def post_train(self, losses: list[float], **kwargs: Any) -> None:
         self.status.status = "evaluating"
@@ -282,6 +308,30 @@ def dataset_lock(path: Path) -> Iterator[None]:
             fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise RuntimeError(f"Another process holds {path}.") from None
+        yield
+
+
+@contextmanager
+def try_lock(path: Path, shared: bool = False) -> Iterator[bool]:
+    """Yields whether the lock was taken, without waiting for it.
+
+    A shared lock lets other shared holders in and keeps exclusive ones out, so the
+    workers training a dataset's runs keep out a run of dataset_lock on it.
+    """
+    with path.open("a") as f:
+        try:
+            fcntl.flock(f, (fcntl.LOCK_SH if shared else fcntl.LOCK_EX) | fcntl.LOCK_NB)
+        except BlockingIOError:
+            yield False
+            return
+        yield True
+
+
+@contextmanager
+def wait_lock(path: Path) -> Iterator[None]:
+    """Holds an exclusive lock, waiting for it if another process holds it."""
+    with path.open("a") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
         yield
 
 
@@ -367,6 +417,7 @@ def train_model(
     root: Path,
     status: ModelStatus,
     pipeline_kwargs: Mapping[str, Any] | None = None,
+    progress_bars: bool = True,
 ) -> Any:
     """Trains and evaluates one model, resuming from its checkpoint if it has one.
 
@@ -377,6 +428,8 @@ def train_model(
     `settings`, as tuned hyperparameters do. `training_kwargs` and
     `negative_sampler_kwargs` are merged into the ones built here instead, so the
     checkpoints and the status tracking stay in place.
+
+    Without `progress_bars`, a line is logged every LOG_EVERY_EPOCHS epochs instead.
 
     Returns:
         PyKEEN's pipeline result.
@@ -401,15 +454,20 @@ def train_model(
         "training_kwargs": {
             "num_epochs": settings.num_epochs,
             "batch_size": settings.batch_size,
-            "use_tqdm_batch": True,
+            "use_tqdm": progress_bars,
+            "use_tqdm_batch": progress_bars,
             "checkpoint_directory": checkpoints,
             "checkpoint_name": checkpoint_name,
             # Minutes between checkpoints; 0 is after every epoch.
             "checkpoint_frequency": 0,
-            "callbacks": StatusCallback(root, status),
+            "callbacks": StatusCallback(
+                root, status, 0 if progress_bars else LOG_EVERY_EPOCHS
+            ),
         },
         "random_seed": settings.random_seed,
     }
+    if not progress_bars:
+        kwargs["evaluation_kwargs"] = {"use_tqdm": False}
     for key, value in (pipeline_kwargs or {}).items():
         if key in ("training_kwargs", "negative_sampler_kwargs"):
             kwargs[key] = {**kwargs[key], **value}
@@ -506,6 +564,192 @@ def train_dataset(
         return failed
 
 
+def run_jobs(
+    jobs: list[tuple[Path, str]],
+    output: Path,
+    checkpoints: Path,
+    settings: Settings,
+    started_at: str,
+    progress_bars: bool,
+) -> tuple[int, int]:
+    """Trains every run of `jobs` that no other process holds, in order.
+
+    A run is skipped if it is finished, held by another process, or failed earlier
+    in this command (its status was updated after `started_at`), so a worker doesn't
+    retry what another worker just failed. The next command retries failed runs.
+
+    Returns:
+        The numbers of runs that failed and of runs skipped because another process
+        held them.
+    """
+    failed = busy = 0
+    loaded: tuple[Path, Splits] | None = None
+    for folder, model in jobs:
+        dataset_output = output / folder.name
+        dataset_checkpoints = checkpoints / folder.name
+        if (dataset_output / model / RESULTS_FILE).is_file():
+            continue
+        status = load_status(output, folder.name, model, settings.num_epochs)
+        if status.status == "failed" and (status.updated_at or "") >= started_at:
+            continue
+        dataset_output.mkdir(parents=True, exist_ok=True)
+        dataset_checkpoints.mkdir(parents=True, exist_ok=True)
+        with (
+            try_lock(dataset_checkpoints / LOCK_FILE, shared=True) as dataset_free,
+            try_lock(dataset_checkpoints / f"{model}.lock") as run_free,
+        ):
+            if not (dataset_free and run_free):
+                busy += 1
+                continue
+            # Another process may have finished it since the check above.
+            if (dataset_output / model / RESULTS_FILE).is_file():
+                continue
+            status = load_status(output, folder.name, model, settings.num_epochs)
+            try:
+                if loaded is None or loaded[0] != folder:
+                    loaded = None
+                    with wait_lock(dataset_checkpoints / SETTINGS_LOCK_FILE):
+                        check_settings(dataset_output / SETTINGS_FILE, settings, folder)
+                        logger.info("%s: loading the splits.", folder.name)
+                        splits = load_splits(folder, settings)
+                        for name, factory in zip(SPLITS, splits, strict=True):
+                            save_split(factory, dataset_output / name)
+                    loaded = (folder, splits)
+                logger.info("%s: training %s.", folder.name, model)
+                train_model(
+                    model,
+                    loaded[1],
+                    dataset_output,
+                    dataset_checkpoints,
+                    settings,
+                    output,
+                    status,
+                    progress_bars=progress_bars,
+                )
+            except Exception as error:
+                # One model running out of memory must not stop the other runs.
+                logger.exception("%s: %s failed.", folder.name, model)
+                failed += 1
+                status.status = "failed"
+                status.error = f"{type(error).__name__}: {error}"
+                record_status(output, status)
+            else:
+                logger.info(
+                    "%s: finished %s in %.0f s of training, MRR %.4f, Hits@10 %.4f.",
+                    folder.name,
+                    model,
+                    status.train_seconds,
+                    status.metrics["mrr"],
+                    status.metrics["hits_at_10"],
+                )
+    return failed, busy
+
+
+def setup_logging(worker: str | None = None) -> None:
+    """Logs to the terminal and to LOG_FILE, naming the worker if there is one.
+
+    The terminal shows this script's lines and every warning; the log file also keeps
+    PyKEEN's other messages.
+    """
+    console = logging.StreamHandler()
+    console.addFilter(
+        lambda record: record.name == logger.name or record.levelno >= logging.WARNING
+    )
+    name = f"{worker} " if worker else ""
+    logging.basicConfig(
+        level=logging.INFO,
+        format=f"%(asctime)s %(levelname)s {name}%(name)s: %(message)s",
+        handlers=[console, logging.FileHandler(LOG_FILE)],
+        force=True,
+    )
+    # PyKEEN logs every saved checkpoint at INFO, which would break the progress bars.
+    logging.getLogger("pykeen.training.training_loop").setLevel(logging.WARNING)
+
+
+def stop_on_sigterm(signum: int, frame: Any) -> None:
+    raise KeyboardInterrupt
+
+
+def worker_main(
+    worker: str,
+    jobs: list[tuple[Path, str]],
+    output: Path,
+    checkpoints: Path,
+    settings: Settings,
+    started_at: str,
+) -> None:
+    """Runs in a worker process. Exits with 1 if a run failed, 130 if stopped."""
+    # The main process stops the workers; Ctrl-C reaching them too would interrupt
+    # them twice. They also stop if the main process dies.
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    signal.signal(signal.SIGTERM, stop_on_sigterm)
+    try:
+        import ctypes
+
+        ctypes.CDLL("libc.so.6").prctl(1, signal.SIGTERM)  # PR_SET_PDEATHSIG
+    except (OSError, AttributeError):
+        pass
+    setup_logging(worker)
+    try:
+        failed, busy = run_jobs(
+            jobs, output, checkpoints, settings, started_at, progress_bars=False
+        )
+    except KeyboardInterrupt:
+        logger.info("Stopped.")
+        sys.exit(INTERRUPTED_STATUS)
+    logger.info("No run left to claim (%d held by other processes).", busy)
+    sys.exit(1 if failed else 0)
+
+
+def run_workers(
+    workers: int,
+    jobs: list[tuple[Path, str]],
+    args: argparse.Namespace,
+    settings: Settings,
+    started_at: str,
+) -> int:
+    """Trains `jobs` in `workers` processes and returns the exit status."""
+    # CUDA can't be used in a forked process.
+    context = multiprocessing.get_context("spawn")
+    processes = [
+        context.Process(
+            target=worker_main,
+            name=f"worker-{i}",
+            args=(
+                f"worker-{i}",
+                jobs,
+                args.output,
+                args.checkpoints,
+                settings,
+                started_at,
+            ),
+        )
+        for i in range(1, workers + 1)
+    ]
+    for process in processes:
+        process.start()
+    # SIGTERM to the main process stops the workers as Ctrl-C does.
+    signal.signal(signal.SIGTERM, stop_on_sigterm)
+    try:
+        for process in processes:
+            process.join()
+    except KeyboardInterrupt:
+        logger.info(
+            "Interrupted, stopping the workers. Run the same command to resume."
+        )
+        for process in processes:
+            if process.is_alive() and process.pid is not None:
+                os.kill(process.pid, signal.SIGTERM)
+        for process in processes:
+            process.join()
+        return INTERRUPTED_STATUS
+    codes = [process.exitcode for process in processes]
+    if any(code not in (0, 1) for code in codes):
+        logger.error("A worker stopped unexpectedly, exit codes %s.", codes)
+        return 1
+    return 1 if 1 in codes else 0
+
+
 def initialize_statuses(
     output: Path, folders: list[Path], models: list[str], num_epochs: int
 ) -> None:
@@ -573,7 +817,16 @@ def parse_args() -> argparse.Namespace:
         default=Settings.batch_size,
         help="(default: %(default)s)",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="runs trained at once, each in its own process; 4 fills an RTX 3090 "
+        "(default: %(default)s)",
+    )
     args = parser.parse_args()
+    if args.workers < 1:
+        parser.error("--workers must be at least 1.")
     unknown = sorted(set(args.skip_models) - set(args.models))
     if unknown:
         parser.error(f"--skip-models has models not in --models: {', '.join(unknown)}")
@@ -584,13 +837,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        handlers=[logging.StreamHandler(), logging.FileHandler(LOG_FILE)],
-    )
-    # PyKEEN logs every saved checkpoint at INFO, which would break the progress bars.
-    logging.getLogger("pykeen.training.training_loop").setLevel(logging.WARNING)
+    setup_logging()
+    started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     settings = Settings(num_epochs=args.epochs, batch_size=args.batch_size)
     folders = find_datasets(args.root, args.datasets)
@@ -603,35 +851,41 @@ def main() -> int:
     )
     initialize_statuses(args.output, folders, args.models, settings.num_epochs)
     logger.info(
-        "Training %s on %d datasets, with %s.",
+        "Training %s on %d datasets with %d worker(s), with %s.",
         ", ".join(args.models),
         len(folders),
+        args.workers,
         settings,
     )
+    # One worker goes smallest dataset first, so results come early. Several go
+    # largest first, so the longest runs don't end up alone at the end.
+    if args.workers > 1:
+        folders.reverse()
+    jobs = [(folder, model) for folder in folders for model in args.models]
 
-    failed: list[str] = []
-    try:
-        for folder in folders:
-            try:
-                failed += train_dataset(
-                    folder,
-                    args.output / folder.name,
-                    args.checkpoints / folder.name,
-                    args.models,
-                    settings,
-                )
-            except Exception:
-                logger.exception("%s failed.", folder.name)
-                failed.append(folder.name)
-    except KeyboardInterrupt:
-        logger.info("Interrupted. Run the same command to resume.")
-        return INTERRUPTED_STATUS
-
-    if failed:
-        logger.error("Failed, retried by the next run: %s", ", ".join(failed))
-        return 1
-    logger.info("All runs finished.")
-    return 0
+    if args.workers > 1:
+        code = run_workers(args.workers, jobs, args, settings, started_at)
+    else:
+        try:
+            failed, busy = run_jobs(
+                jobs,
+                args.output,
+                args.checkpoints,
+                settings,
+                started_at,
+                progress_bars=True,
+            )
+        except KeyboardInterrupt:
+            logger.info("Interrupted. Run the same command to resume.")
+            return INTERRUPTED_STATUS
+        if busy:
+            logger.info("%d runs were held by other processes.", busy)
+        code = 1 if failed else 0
+    if code == 1:
+        logger.error("Some runs failed; the next run retries them (see progress.csv).")
+    elif code == 0:
+        logger.info("Done.")
+    return code
 
 
 if __name__ == "__main__":
