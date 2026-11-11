@@ -55,7 +55,7 @@ Run the command inside `tmux` so it outlives the terminal: `tmux new -s train`, 
 
 ## Following the training
 
-`python scripts/kge_eta.py --workers 4` (with the same `--set` and `--skip-datasets` as the training command) prints the runs in progress with their time left, the runs finished, stopped partway and pending, the training time left per dataset and the expected finish time. `watch -n 300 python scripts/kge_eta.py --workers 4` refreshes it every 5 minutes.
+`python scripts/kge_eta.py --workers 4` prints the runs in progress with their time left, the runs finished, stopped partway and pending, the training time left per dataset and the expected finish time. `watch -n 300 python scripts/kge_eta.py --workers 4` refreshes it every 5 minutes.
 
 A pending run is estimated from the finished runs of the same model on at least 20,000 training triples: their median seconds per epoch per 1,000 training triples, times the run's training triples. Since parallel runs are slower than the finished runs predict, these estimates are scaled by the median slowdown of the runs in progress. The time left is the training time divided by the number of workers, but never less than the longest single run. The YAGO3-10 datasets have 4 to 15 times the training triples of any other dataset, so their estimates are extrapolated and the least reliable.
 
@@ -80,14 +80,13 @@ Each copy is trained and tested on itself, so the benchmark shows whether the mo
 - `test` and `valid` get the same share of the triples as in the source dataset's splits, and `train` the rest;
 - a valid or test triple with a head, tail or relation that `train` lacks is moved to `train`, since no model has an embedding for it. On the `_ours` copies this moved 7 (`family_ours`) to 4,280 (`WN18RRN_1_ours`) triples.
 
-The split is reproducible: two runs write identical files, so git ignores them and each machine writes its own. `train_kge.py` records the checksums of the splits in each dataset's `settings.json`, and refuses to resume a dataset whose splits changed.
+The split is reproducible, two runs writing identical files, and git tracks the splits of every copy, so a clone has them. `train_kge.py` records the checksums of the splits in each dataset's `settings.json`, and refuses to resume a dataset whose splits changed.
 
 `--set` picks the datasets `train_kge.py` trains when `--datasets` is not given: `base` (the default), `ours`, `kbgen` or `pygraft`. Results of every set go to the same `exp_results/`, one folder per dataset. `kge_eta.py --set ours` estimates one set; its speeds come from every finished run, and on a machine with no finished run yet, from the runs in progress.
 
-On a new machine, with the environment of `requirements.txt` installed and the branch with the copies checked out:
+On a new machine, with the environment of `requirements.txt` installed and the branch with the copies checked out, the splits are already there:
 
 ```bash
-python scripts/split_copies.py --suffix _ours                           # about 30 s for the 24 copies
 tmux new -s train
 python scripts/train_kge.py --skip-models CompGCN --set ours --workers 4
 ```

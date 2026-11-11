@@ -87,6 +87,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--root", type=Path, default=Path("exp_datasets"))
     parser.add_argument(
+        "--sources",
+        type=Path,
+        help="folder with the source datasets, for copies kept elsewhere such as "
+        "exp_datasets/ours-no-reflexivity-09-11 (default: --root)",
+    )
+    parser.add_argument(
         "--suffix",
         default="_ours",
         help="suffix of the copies' folder names (default: %(default)s)",
@@ -123,7 +129,7 @@ def main() -> int:
         if not args.force and all((folder / s).is_file() for s in SPLITS):
             logger.info("%s: already split, skipped.", folder.name)
             continue
-        source = args.root / folder.name.removesuffix(args.suffix)
+        source = (args.sources or args.root) / folder.name.removesuffix(args.suffix)
         if not all((source / s).is_file() for s in SPLITS):
             logger.error("%s: no splits of its source %s.", folder.name, source)
             failed.append(folder.name)
