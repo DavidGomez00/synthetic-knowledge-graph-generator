@@ -60,9 +60,18 @@ from __future__ import annotations
 
 import argparse
 import csv
+import fcntl
+import gzip
 import json
+import os
+import signal
 import textwrap
+import time
+import zlib
 from collections import defaultdict
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
 import numpy as np
@@ -95,6 +104,25 @@ PLOTS_FOLDER = "plots"
 CROPPED_FOLDER = "cropped"
 # The splits a model never trained on, ranked together as its held-out set.
 HELD_OUT_SPLITS = ("valid", "test")
+# In the output folder, the state of a validation while it runs: one row per run
+# (PROGRESS_NAME), the stage and the current run (STATE_NAME), and the lock that
+# a running validation holds (LOCK_NAME). scripts/validation_eta.py reads them.
+PROGRESS_NAME = "progress.csv"
+STATE_NAME = "validation_state.json"
+LOCK_NAME = ".validation.lock"
+PROGRESS_FIELDS = [
+    "family",
+    "variant",
+    "model",
+    "status",
+    "held_out",
+    "seconds",
+    "test_mrr_difference",
+    "error",
+    "updated_at",
+]
+# Exit status of an interrupted validation, as for Ctrl-C in a shell.
+INTERRUPTED_STATUS = 130
 
 
 # pykeen's evaluation report is sliced by rank_type ("head"/"tail"/"both")
@@ -243,9 +271,9 @@ CAPTION_LINE_CHARS = 120
 CAPTION_LINES = 7
 # How the Hits@k of every plot is computed, for their captions.
 HITS_DEFINITION = (
-    "Hits@k is the fraction of held-out predictions (valid and test, head and tail pooled) whose correct "
-    "entity ranks in the top k of all candidates, under filtered ranking with ties at "
-    "their mean rank."
+    "Hits@k is the fraction of held-out predictions (valid and test, head and tail "
+    "pooled) whose correct entity ranks in the top k of all candidates, under filtered "
+    "ranking with ties at their mean rank."
 )
 
 
@@ -361,19 +389,194 @@ def build_losses(runs: list[dict]) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True)
 
 
+@contextmanager
+def atomic_path(path: Path) -> Iterator[Path]:
+    """
+    Yield a temporary path next to `path`, renamed to `path` once the block
+    has written it. An interruption leaves the old file or the new one, never
+    part of one, and no temporary file.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        yield temporary
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def write_csv(rows: list[dict], output: Path, fields: list[str] = CSV_FIELDS) -> None:
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(rows)
+    with atomic_path(output) as temporary:
+        with temporary.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(rows)
+
+
+def write_table(table: pd.DataFrame, path: Path) -> None:
+    """Write a table as CSV, atomically (see `atomic_path`)."""
+    with atomic_path(path) as temporary:
+        table.to_csv(temporary, index=False)
+
+
+def save_figure(fig, path: Path) -> None:
+    """Save a plot as PNG, atomically (see `atomic_path`)."""
+    with atomic_path(path) as temporary:
+        fig.savefig(temporary, format="png", dpi=PLOT_DPI, facecolor=SURFACE)
+
+
+def now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def duration(seconds: float) -> str:
+    if seconds < 90:
+        return f"{seconds:.0f} s"
+    if seconds < 5400:
+        return f"{seconds / 60:.0f} min"
+    return f"{seconds / 3600:.1f} h"
+
+
+def count_held_out(dataset_dir: Path) -> int:
+    """The held-out triples of a dataset: the lines of its HELD_OUT_SPLITS."""
+    total = 0
+    for split in HELD_OUT_SPLITS:
+        path = dataset_dir / split
+        if path.is_file():
+            with path.open("rb") as f:
+                total += sum(1 for line in f if line.strip())
+    return total
+
+
+class Progress:
+    """
+    The state of a validation, on disk while it runs, for
+    scripts/validation_eta.py: one PROGRESS_NAME row per run, with its status
+    (pending, ranking, ranked, failed or left_out), its held-out triples and
+    the seconds its ranking took, and the STATE_NAME file with the stage and
+    the run being ranked. Both are rewritten atomically after every change.
+    """
+
+    def __init__(
+        self,
+        output: Path,
+        runs: list[dict],
+        force: bool,
+        families: list[str] | None = None,
+        variants: list[str] | None = None,
+    ) -> None:
+        self.output = output
+        self.rows: dict[tuple[str, str], dict] = {}
+        old = {}
+        if (output / PROGRESS_NAME).is_file():
+            with (output / PROGRESS_NAME).open(encoding="utf-8") as f:
+                old = {
+                    (r["family"], r["variant"], r["model"]): r
+                    for r in csv.DictReader(f)
+                }
+        for run in runs:
+            family, variant = run["dataset"].split("/")
+            cached = predictions_path(output, run["dataset"], run["model"]).is_file()
+            previous = old.get((family, variant, run["model"]), {})
+            self.rows[run["dataset"], run["model"]] = {
+                "family": family,
+                "variant": variant,
+                "model": run["model"],
+                "status": "ranked" if cached and not force else "pending",
+                "held_out": count_held_out(run["dataset_dir"]),
+                "seconds": previous.get("seconds", "") if cached and not force else "",
+                "test_mrr_difference": "",
+                "error": "",
+                "updated_at": now(),
+            }
+        self.state = {
+            "stage": "ranking",
+            "run": None,
+            "started_at": now(),
+            "pid": os.getpid(),
+            # The runs this validation covers, for validation_eta.py to tell the
+            # runs that finished training since from those it leaves out.
+            "families": families,
+            "variants": variants,
+        }
+        self.write()
+
+    def set(self, dataset: str, model: str, **fields) -> None:
+        self.rows[dataset, model].update(fields, updated_at=now())
+        self.write()
+
+    def stage(self, stage: str, run: str | None = None) -> None:
+        self.state.update(stage=stage, run=run, updated_at=now())
+        self.write()
+
+    def write(self) -> None:
+        write_csv(
+            list(self.rows.values()), self.output / PROGRESS_NAME, PROGRESS_FIELDS
+        )
+        with atomic_path(self.output / STATE_NAME) as temporary:
+            temporary.write_text(
+                json.dumps(self.state, indent=2) + "\n", encoding="utf-8"
+            )
+
+    def interrupted(self) -> None:
+        """Mark the run being ranked as pending again: its ranks were not kept."""
+        for row in self.rows.values():
+            if row["status"] == "ranking":
+                row.update(status="pending", updated_at=now())
+        self.state.update(stage="interrupted", run=None, updated_at=now())
+        self.write()
+
+
+@contextmanager
+def validation_lock(output: Path) -> Iterator[bool]:
+    """
+    Hold the lock of a validation writing to `output`, without waiting.
+    Yields whether it was taken: two validations of one output folder would
+    rank the same runs and overwrite each other's progress. The OS releases it
+    however the process ends.
+    """
+    output.mkdir(parents=True, exist_ok=True)
+    with (output / LOCK_NAME).open("a") as f:
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            yield False
+            return
+        yield True
+
+
+def read_cached_ranks(path: Path) -> pd.DataFrame | None:
+    """A run's cached ranks, or None if the file is unreadable or incomplete."""
+    try:
+        ranks = pd.read_csv(
+            path,
+            dtype={"head": str, "relation": str, "tail": str},
+            keep_default_na=False,
+        )
+    except (
+        OSError,
+        EOFError,
+        zlib.error,
+        gzip.BadGzipFile,
+        pd.errors.ParserError,
+        pd.errors.EmptyDataError,
+    ) as e:
+        print(f"warning: {path} is unreadable ({e}), ranking that run again")
+        return None
+    expected = {"split", "side", "head", "relation", "tail", "rank", "candidates"}
+    if not expected <= set(ranks.columns):
+        print(f"warning: {path} lacks columns, ranking that run again")
+        return None
+    return ranks
 
 
 def read_split(path: Path) -> np.ndarray:
     """Read a split train_kge.py saved: one tab-separated labeled triple per line."""
-    return pd.read_csv(
-        path, sep="\t", header=None, dtype=str, keep_default_na=False
-    ).to_numpy().reshape(-1, 3)
+    return (
+        pd.read_csv(path, sep="\t", header=None, dtype=str, keep_default_na=False)
+        .to_numpy()
+        .reshape(-1, 3)
+    )
 
 
 def rank_predictions(
@@ -417,7 +620,10 @@ def rank_predictions(
     relation_to_id = {str(label): i for label, i in training.relation_to_id.items()}
     try:
         held_out_ids = torch.tensor(
-            [[entity_to_id[h], relation_to_id[r], entity_to_id[t]] for h, r, t in held_out],
+            [
+                [entity_to_id[h], relation_to_id[r], entity_to_id[t]]
+                for h, r, t in held_out
+            ],
             dtype=torch.long,
         ).reshape(-1, 3)
     except KeyError as e:
@@ -485,41 +691,84 @@ def predictions_path(output: Path, dataset: str, model: str) -> Path:
 
 
 def build_predictions(
-    runs: list[dict], output: Path, device: torch.device, force: bool = False
+    runs: list[dict],
+    output: Path,
+    device: torch.device,
+    progress: Progress,
+    force: bool = False,
 ) -> pd.DataFrame:
     """
     The ranks of every held-out prediction of every run of `runs` (from
     `find_runs`). A run's ranks are computed once and kept in
-    `predictions_path`, which later calls read back unless `force` is given.
-    A run whose test predictions don't reproduce the MRR in its results.json
-    is left out: its splits or model on disk don't match.
+    `predictions_path`, written atomically, which later calls read back unless
+    `force` is given, so an interrupted validation resumes where it stopped. A
+    run whose test predictions don't reproduce the MRR in its results.json is
+    left out: its splits or model on disk don't match. `progress` records each
+    run's status, and a line reports each newly ranked run with an estimate of
+    the time left.
     """
+    pending = [
+        run
+        for run in runs
+        if force or not predictions_path(output, run["dataset"], run["model"]).is_file()
+    ]
+    left = sum(progress.rows[r["dataset"], r["model"]]["held_out"] for r in pending)
+    print(
+        f"{len(runs) - len(pending)} run(s) already ranked, {len(pending)} to rank "
+        f"({left:,} held-out triples)"
+    )
+    ranked_triples, ranking_seconds, done = 0, 0.0, 0
     frames = []
     for run in runs:
         dataset, model = run["dataset"], run["model"]
         path = predictions_path(output, dataset, model)
-        if path.is_file() and not force:
-            ranks = pd.read_csv(
-                path, dtype={"head": str, "relation": str, "tail": str},
-                keep_default_na=False,
-            )
-        else:
+        cached = not force and path.is_file()
+        ranks = read_cached_ranks(path) if cached else None
+        if cached and ranks is None:
+            # An unreadable cache: one more run to rank than counted above.
+            pending.append(run)
+            left += progress.rows[dataset, model]["held_out"]
+        if ranks is None:
+            progress.stage("ranking", f"{dataset}/{model}")
+            progress.set(dataset, model, status="ranking", error="")
+            start = time.monotonic()
             ranks = rank_predictions(run["dataset_dir"], run["model_dir"], device)
             if ranks is None:
+                progress.set(
+                    dataset, model, status="failed", error="could not rank, see the log"
+                )
                 continue
-            path.parent.mkdir(parents=True, exist_ok=True)
-            ranks.to_csv(path, index=False)
-            print(f"Ranked {len(ranks)} held-out predictions of {dataset}/{model}")
+            with atomic_path(path) as temporary:
+                ranks.to_csv(temporary, index=False, compression="gzip")
+            seconds = time.monotonic() - start
+            held_out = progress.rows[dataset, model]["held_out"]
+            progress.set(dataset, model, status="ranked", seconds=round(seconds, 1))
+            done += 1
+            ranked_triples += held_out
+            ranking_seconds += seconds
+            left -= held_out
+            rate = ranked_triples / ranking_seconds if ranking_seconds else 0
+            eta = f", ETA {duration(left / rate)}" if rate and left > 0 else ""
+            print(
+                f"[{done}/{len(pending)}] {dataset}/{model}: {held_out:,} held-out triples "
+                f"in {duration(seconds)} ({rate:.0f}/s); {left:,} left{eta}",
+                flush=True,
+            )
 
         metrics = extract_metrics(run["model_dir"] / "results.json")
         test = ranks[ranks["split"] == "test"]
         mrr = (1 / test["rank"]).mean()
-        if metrics is not None and abs(mrr - metrics["mrr"]) > MRR_TOLERANCE:
+        difference = abs(mrr - metrics["mrr"]) if metrics is not None else float("nan")
+        if difference > MRR_TOLERANCE:
             print(
                 f"warning: {dataset}/{model} left out (test MRR {mrr:.4f} from its saved "
                 f"model and splits vs {metrics['mrr']:.4f} in results.json)"
             )
+            progress.set(
+                dataset, model, status="left_out", test_mrr_difference=difference
+            )
             continue
+        progress.set(dataset, model, test_mrr_difference=f"{difference:.2e}")
         frames.append(ranks.assign(dataset=dataset, model=model))
 
     if not frames:
@@ -666,7 +915,9 @@ def compare_relations(predictions: pd.DataFrame, reference: str) -> pd.DataFrame
         )
         ks = ks_2samp(x["normalized_rank"], y["normalized_rank"])
         delta = cliffs_delta(x["normalized_rank"], y["normalized_rank"])
-        low, high = bootstrap_difference(x["reciprocal_rank"], y["reciprocal_rank"], rng)
+        low, high = bootstrap_difference(
+            x["reciprocal_rank"], y["reciprocal_rank"], rng
+        )
         rows.append(
             {
                 "kg": kg,
@@ -922,7 +1173,7 @@ def plot_relations(report: pd.DataFrame, graphs: list[str], path: Path) -> None:
                 pad=8,
             )
 
-    fig.savefig(path, dpi=PLOT_DPI, facecolor=SURFACE)
+    save_figure(fig, path)
     plt.close(fig)
 
 
@@ -963,7 +1214,9 @@ def graph_notes(
     return notes
 
 
-def note_columns(fig, notes: list[tuple[str, tuple, bool]], start: float) -> list[float]:
+def note_columns(
+    fig, notes: list[tuple[str, tuple, bool]], start: float
+) -> list[float]:
     """
     The x offsets in points, from a panel's left edge, where the columns of
     `notes` (`graph_notes` triples) start, drawn in NOTE_FONT_SIZE from
@@ -1156,7 +1409,7 @@ def plot_hits_curves(
         if i + columns >= len(panels):  # no panel below this one
             ax.set_xlabel("Rank threshold k", color=INK_SECONDARY, fontsize=9.5)
 
-    fig.savefig(path, dpi=PLOT_DPI, facecolor=SURFACE)
+    save_figure(fig, path)
     plt.close(fig)
 
 
@@ -1311,7 +1564,7 @@ def plot_model_hits(
             colors,
             folder_name(graph),
         )
-    fig.savefig(path, dpi=PLOT_DPI, facecolor=SURFACE)
+    save_figure(fig, path)
     plt.close(fig)
 
 
@@ -1349,7 +1602,7 @@ def plot_relation_hits(
     )
     for ax, (label, runs) in zip(axes, panels):
         draw_hits_lines(ax, runs, "graph", colors, label)
-    fig.savefig(path, dpi=PLOT_DPI, facecolor=SURFACE)
+    save_figure(fig, path)
     plt.close(fig)
 
 
@@ -1405,7 +1658,7 @@ def plot_training_losses(losses: pd.DataFrame, graphs: list[str], path: Path) ->
         ax.set_title(
             model, loc="left", color=INK, fontsize=10.5, fontweight="bold", pad=8
         )
-    fig.savefig(path, dpi=PLOT_DPI, facecolor=SURFACE)
+    save_figure(fig, path)
     plt.close(fig)
 
 
@@ -1420,9 +1673,10 @@ def write_cropped(plot: Path, out: Path) -> Path:
     cropped.parent.mkdir(parents=True, exist_ok=True)
     band = round(CAPTION_HEIGHT * PLOT_DPI)
     with Image.open(plot) as image:
-        image.crop((0, band, image.width, image.height)).save(
-            cropped, dpi=(PLOT_DPI, PLOT_DPI)
-        )
+        with atomic_path(cropped) as temporary:
+            image.crop((0, band, image.width, image.height)).save(
+                temporary, format="PNG", dpi=(PLOT_DPI, PLOT_DPI)
+            )
     return cropped
 
 
@@ -1432,6 +1686,7 @@ def write_analysis(
     losses: pd.DataFrame,
     output: Path,
     reference: str,
+    progress: Progress,
     crop: bool = False,
 ) -> None:
     """
@@ -1454,7 +1709,10 @@ def write_analysis(
 
     runs = split_dataset(predictions)
     losses = split_dataset(losses)
-    for kg, kg_runs in runs.groupby("kg"):
+    families = runs["kg"].nunique()
+    for number, (kg, kg_runs) in enumerate(runs.groupby("kg"), start=1):
+        progress.stage(f"analysis {number}/{families}", kg)
+        print(f"[analysis {number}/{families}] {kg}", flush=True)
         out = output / kg
         kg_rows = [row for row in rows if row["dataset"].split("/")[0] == kg]
         write_csv(kg_rows, out / REPORT_NAME)
@@ -1508,7 +1766,7 @@ def write_kg_analysis(
 
     out.mkdir(parents=True, exist_ok=True)
     for name, table in tables.items():
-        table.to_csv(out / name, index=False)
+        write_table(table, out / name)
         print(f"Wrote {len(table)} row(s) to {out / name}")
 
     # One variant order per family, so that each variant keeps its color in every plot.
@@ -1631,10 +1889,43 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print(f"Found {len(runs)} finished run(s) under {args.results}")
 
-    predictions = build_predictions(runs, args.output, torch.device(args.device), args.force)
-    rows = build_report(predictions)
-    losses = build_losses(runs)
-    write_analysis(rows, predictions, losses, args.output, args.reference, args.crop)
+    # Ctrl-C and SIGTERM (e.g. kill) stop the validation cleanly. SIGINT is set
+    # explicitly: a process started in the background inherits it ignored.
+    signal.signal(signal.SIGINT, signal.default_int_handler)
+    signal.signal(signal.SIGTERM, signal.default_int_handler)
+    with validation_lock(args.output) as locked:
+        if not locked:
+            print(
+                f"error: another validation is writing to {args.output} (it holds "
+                f"{args.output / LOCK_NAME}); see scripts/validation_eta.py"
+            )
+            return 1
+        progress = Progress(args.output, runs, args.force, args.families, args.variants)
+        try:
+            predictions = build_predictions(
+                runs, args.output, torch.device(args.device), progress, args.force
+            )
+            rows = build_report(predictions)
+            losses = build_losses(runs)
+            write_analysis(
+                rows,
+                predictions,
+                losses,
+                args.output,
+                args.reference,
+                progress,
+                args.crop,
+            )
+        except KeyboardInterrupt:
+            progress.interrupted()
+            print(
+                "Interrupted. The runs ranked so far are kept; run the same command to "
+                "resume.",
+                flush=True,
+            )
+            return INTERRUPTED_STATUS
+        progress.stage("done")
+    print("Done.")
     return 0
 
 
