@@ -105,7 +105,7 @@ The machine needs push access to the repository, the same SSH key that cloned it
 
 To gather everything on one machine, `python scripts/upload_results.py --download` copies every run of the branch that the local `exp_results/` lacks and rebuilds `progress.csv`, after which `kge_eta.py` and KGC-Benchmark's `report_results.py --root exp_results` read them as local runs.
 
-The branch shares no files with the code branches, but a clone fetches it too unless it uses `git clone --single-branch -b add-train-kge`. With the models it grows by about 1.7 GB per set of datasets.
+The branch shares no files with the code branches, but a clone fetches it too unless it uses `git clone --single-branch -b main`. With the models it grows by about 1.7 GB per set of datasets.
 
 ## Run time
 
