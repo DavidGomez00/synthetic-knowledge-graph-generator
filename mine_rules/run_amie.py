@@ -9,7 +9,8 @@ AMIE3 is invoked as a subprocess:
 
 The jar is not tracked in git: download `amie3.5.1.jar` from
 https://github.com/dig-team/amie/releases into this folder, or point `--jar`
-at it.
+or the `AMIE_JAR` environment variable at it (the Docker image sets
+`AMIE_JAR=/opt/amie/amie3.5.1.jar`).
 
 Its plain-text stdout table is parsed and written out as CSV with columns:
 
@@ -28,12 +29,13 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_JAR = SCRIPT_DIR / "amie3.5.1.jar"
+DEFAULT_JAR = Path(os.environ.get("AMIE_JAR", SCRIPT_DIR / "amie3.5.1.jar"))
 
 CSV_FIELDS = [
     "rule_id",
@@ -177,7 +179,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Output CSV path (default: <input stem>.csv next to the first input file)",
     )
     p.add_argument(
-        "--jar", type=Path, default=DEFAULT_JAR, help="Path to the AMIE3 jar file"
+        "--jar",
+        type=Path,
+        default=DEFAULT_JAR,
+        help="Path to the AMIE3 jar file ($AMIE_JAR if set)",
     )
     p.add_argument("--java", default="java", help="Java executable to use")
     p.add_argument("--xmx", default=None, help='Java max heap size, e.g. "2G"')

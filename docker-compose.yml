@@ -10,3 +10,27 @@ services:
     volumes:
       # Set GRAPHDB_HOME in a local .env file to use another folder on this machine.
       - ${GRAPHDB_HOME:-/mnt/Pandora/graphdb-home}:/opt/graphdb/home
+
+  # --- Experiment image (Dockerfile, docs/docker.md) ---
+  # GITHUB_TOKEN=... docker compose --profile skgg run --rm skgg --skip-models CompGCN --workers 4
+  skgg:
+    build: .
+    image: skgg:latest
+    profiles: ["skgg"]
+    # Host network: the configs' http://localhost:7200/ reaches the graph database.
+    network_mode: host
+    shm_size: 8gb
+    environment:
+      - GITHUB_TOKEN
+    volumes:
+      - skgg-data:/workspace
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  skgg-data:
