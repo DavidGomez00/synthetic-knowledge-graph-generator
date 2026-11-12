@@ -1,83 +1,59 @@
 """
-Collect Hits@k / MRR from pykeen results.json files and export them to CSV,
-then analyse every single test prediction behind those numbers.
+Validate the KGE models that scripts/train_kge.py trained: rank every held-out
+prediction of every run, and compare the variants of each dataset family.
 
-`KGC.py` trains each model with pykeen's `pipeline()` and saves its output
-with `results.save_to_directory(...)`, which writes a `results.json`
-alongside the trained model, one per `<results_path>/<model>/` directory
-(e.g. `Output/french_royalty/skgg.std=1.filled/TuckER/results.json`). That file's
-`"metrics"` key holds pykeen's full evaluation report, nested as
-`metrics[rank_type][filtering]`, where `rank_type` is "head", "tail" or
-"both" and `filtering` is "optimistic", "pessimistic" or "realistic".
+train_kge.py trains each model on a dataset's `train` split and saves the run
+to `exp_results/<dataset>/<model>/`: the model (`trained_model.pkl`), its
+training triples (`training_triples/`) and pykeen's `results.json`, next to
+the dataset's `train`, `valid` and `test` splits. The model never sees `valid`
+or `test`, which don't overlap, so this script ranks both as one held-out set.
 
-This script walks a results directory recursively
-(`<root>/<dataset...>/<model>/results.json`, where `<dataset...>` is one or
-more folders such as `french_royalty/skgg.std=1.filled`, named with its KG folder
-even when `<root>` is that KG's folder), pulls Hits@1/3/5/10 and MRR out
-of the "both"/"realistic" slice of each one -- "both" combines head and
-tail prediction, "realistic" is the standard filtered-ranking evaluation
-reported in the KG completion literature -- and writes one row per
-dataset/model pair to a CSV. The CSV holds Hits@k for every k from 1 to
-1000: the k that results.json lacks are counted from the recomputed ranks
-below, so they stay empty for a run that couldn't be ranked.
+Each held-out triple (h, r, t) gives a tail prediction (h, r, ?) and a head
+prediction (?, r, t), ranked among every entity after removing the other
+answers known to be true (train, valid and test), with ties at their mean rank
+(pykeen's "realistic" rank). This is train_kge.py's filtered evaluation, so the
+MRR of a run's test predictions must match its results.json; a run that
+doesn't is left out. Every metric below covers the whole held-out set, head
+and tail predictions pooled.
 
-The per-prediction analysis goes below those averages. `results.json` only
-stores aggregates, so the rank of every test prediction is recomputed from
-the run's `trained_model.pkl` and the `test` split KGC.py saves next to the
-model folders (`save_splits: true`), the same way pykeen ranked it. These
-ranks average to the numbers in the table; a run whose recomputed MRR
-doesn't match its results.json (its splits were rewritten by a later run)
-is left out of the analysis.
+A family is an original dataset and its synthetic copies, the variants:
+`french` (variant `original`) with `french_ours` (`ours`), `french_kbgen`
+(`kbgen`) and `french_pygraft` (`pygraft`). The variants are compared only
+through aggregates: per model, per relation, whose names every generator
+keeps, and by how they rank the models (Kendall's tau, see kendall_tau.py). A
+held-out triple of a copy is not the same fact as one of the original, even
+when the copy keeps the entity names, so predictions are never paired across
+variants.
 
-The reference KG (`--reference`, `source` by default) is then compared
-prediction by prediction with every sibling dataset matching `--compare`
-(`skgg*` by default, e.g. `skgg.std=1.filled`): synthetic graphs generated from it
-that keep its entity names. They share no test triples with it  so
-predictions are paired by query: a tail query `(h, r, ?)` or a head query
-`(?, r, t)` held out in both graphs, each graph
-ranking its own held-out answers. PyGraft renames every entity, so its
-queries never pair.
+Output, under `--output` (`exp_analysis/`):
 
-Each relation is also compared between the reference and every other graph
-of its KG, PyGraft included, over all the relation's test predictions: the
-difference in MRR, and tests and an effect size for the rank distributions.
+    metrics.csv                      one row per family, variant and model:
+                                     Hits@1/3/5/10/15, MRR and predictions
+    <family>/
+        metrics.csv                  Hits@1 to Hits@1000 and MRR per variant and model
+        relations.csv                the same per relation
+        relation_comparison.csv      each relation, the original vs every variant:
+                                     MRR difference with a bootstrap interval,
+                                     Cliff's delta, Mann-Whitney and KS tests
+        ranking_agreement.csv        Kendall's tau of the model rankings, the
+                                     original vs every variant
+        training_losses.csv          one row per training epoch, every run
+        relations.png                MRR and Hits@10 per relation, model and variant
+        models_hits_at_1-15.png      Hits@1 to Hits@15 per variant, one line per model
+        training_loss.png            training loss per model, one line per variant
+        plots/<model>/               Hits@k curves per relation, one line per variant
+        cropped/                     with --crop: every plot without its caption band
+        <variant>/<model>/
+            predictions.csv.gz       the rank of every held-out prediction of that run
 
-The reference is also compared with every other graph of its KG as a
-benchmark: how the two rank the models trained on both, by Hits@k and by
-MRR, as a Kendall's tau per metric (see kendall_tau.py).
+A run's ranks are computed once (on the GPU when there is one) and read back
+from its predictions.csv.gz afterwards, unless --force is given.
 
-The plots name each graph by its FOLDER_NAMES entry, or by its folder name
-when it has none. The CSV files and the plot file names keep folder names.
+Usage, from the repository root:
 
-Each KG's analysis is written to its own folder, `<root>/<kg>/prediction_analysis`
-(or `<analysis-dir>/<kg>` with `--analysis-dir`), since a KG's graphs are
-only compared with each other:
-
-    metrics_report.csv               the metrics table's rows of this KG
-    predictions.csv                  one row per test prediction, every run
-    relation_report.csv              the table's metrics per relation
-    training_losses.csv              one row per training epoch, every run
-    relation_comparison.csv          each relation's ranks, reference vs every graph
-    query_comparison.csv             one row per query paired between two graphs
-    query_comparison_summary.csv     correlation and agreement per stratum and k
-    ranking_agreement.csv            Kendall's tau of the model rankings, reference vs every graph
-    relations.png                    MRR and Hits@10 per relation, model and graph
-    models_hits_at_1-15.png          Hits@1 to Hits@15 per graph, one line per model
-    training_loss.png                training loss per model, one line per graph
-    <model>/                         the plots of one model:
-        <model>_hits_at_k.png        Hits@k curves per relation, one line per graph
-        <model>_relations_hits_at_1-15.png
-                                     Hits@1 to Hits@15 per relation, one line per graph
-        <compared>_<model>.png       rank distributions and rank transitions
-    cropped/                         with --crop: every plot without its caption
-                                     band, in the same folders
-
-Usage:
-
-    python report_results.py
-    python report_results.py --root Output/french_royalty
-    python report_results.py --reference source --compare "skgg*" --analysis-dir analysis
-    python report_results.py --crop
+    python kgc_benchmark/report_results.py
+    python kgc_benchmark/report_results.py --families french family
+    python kgc_benchmark/report_results.py --variants original ours --crop
 """
 
 from __future__ import annotations
@@ -87,35 +63,38 @@ import csv
 import json
 import textwrap
 from collections import defaultdict
-from fnmatch import fnmatchcase
 from pathlib import Path, PurePosixPath
 
 import numpy as np
 import pandas as pd
 import torch
-from matplotlib import path as mpath
-from matplotlib import pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap, to_rgb
-from matplotlib.lines import Line2D
-from matplotlib.patches import Patch, PathPatch
-from matplotlib.ticker import FuncFormatter, LogLocator, PercentFormatter
-from PIL import Image
-from pykeen.triples import TriplesFactory
-from scipy.stats import ks_2samp, mannwhitneyu, spearmanr
-
 from cliffs_delta import cliffs_delta, effect_size
 from kendall_tau import ranking_agreement
+from matplotlib import path as mpath
+from matplotlib import pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch, PathPatch
+from matplotlib.ticker import FuncFormatter, LogLocator
+from PIL import Image
+from pykeen.triples import TriplesFactory
+from scipy.stats import ks_2samp, mannwhitneyu
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_ROOT = SCRIPT_DIR / "Output"
-# The metrics table, written to `<root>/REPORT_NAME` (or --output) for every
-# KG and to each KG's analysis folder for that KG.
-REPORT_NAME = "metrics_report.csv"
-# The folder of each KG's per-prediction analysis, inside the KG's folder.
-ANALYSIS_FOLDER = "prediction_analysis"
-# Subfolder of a KG's analysis folder for the plots without their caption band
-# (--crop).
+DEFAULT_RESULTS = SCRIPT_DIR.parent / "exp_results"
+DEFAULT_OUTPUT = SCRIPT_DIR.parent / "exp_analysis"
+# The summary of every run, in the output folder, and each family's metrics
+# table and per-relation table, in its folder.
+SUMMARY_NAME = "metrics.csv"
+REPORT_NAME = "metrics.csv"
+RELATIONS_NAME = "relations.csv"
+# Each run's ranks, in `<output>/<family>/<variant>/<model>/`.
+PREDICTIONS_FILE = "predictions.csv.gz"
+# Subfolder of a family's folder for the plots of each model, and for the plots
+# without their caption band (--crop).
+PLOTS_FOLDER = "plots"
 CROPPED_FOLDER = "cropped"
+# The splits a model never trained on, ranked together as its held-out set.
+HELD_OUT_SPLITS = ("valid", "test")
 
 
 # pykeen's evaluation report is sliced by rank_type ("head"/"tail"/"both")
@@ -126,22 +105,41 @@ CROPPED_FOLDER = "cropped"
 RANK_TYPE = "both"
 FILTERING = "realistic"
 
-# The dataset whose predictions the others are compared with, and
-# shell-style patterns naming its sibling datasets to compare: graphs
-# generated from that KG that keep its entity names (PyGraft's don't).
-DEFAULT_REFERENCE = "source"
-DEFAULT_COMPARED = ["skgg*"]
+# The suffixes of the synthetic copies' dataset folders, as in
+# scripts/train_kge.py: `french_kbgen` is the `kbgen` variant of the `french`
+# family. A folder without one is its family's original, the reference that
+# the other variants are compared with.
+COPY_SETS = ("ours", "kbgen", "pygraft")
+REFERENCE_VARIANT = "original"
+# The order of the variants in every plot, which fixes their colors.
+VARIANT_ORDER = [REFERENCE_VARIANT, *COPY_SETS]
 
-# Names shown in the plots for the folders of a results_path: the KG folders
-# (e.g. french_royalty) and each graph's own folder (e.g. source). A folder
-# that isn't listed is shown by its folder name. The CSV files and the plot
-# file names keep the folder names.
+# Names shown in the plots for the families and variants. One that isn't
+# listed is shown by its folder name. The CSV files and the file names keep
+# the folder names.
 FOLDER_NAMES = {
-    "french_royalty": "French Royalty",
-    "source": "Original KG",
-    "skgg.pca=0.9.filled": "SKGG (PCA 0.9)",
-    "skgg.std=1.filled": "SKGG",
+    "original": "Original",
+    "ours": "SKGG",
+    "kbgen": "kbgen",
     "pygraft": "PyGraft",
+    "family": "Family",
+    "Family1_1": "Family 1-1",
+    "Family1_N": "Family 1-N",
+    "FamilyM_N": "Family M-N",
+    "FamilyN_1": "Family N-1",
+    "french": "French Royalty",
+    "french1_1": "French Royalty 1-1",
+    "french1_N": "French Royalty 1-N",
+    "frenchN_1": "French Royalty N-1",
+    "frenchN_M": "French Royalty N-M",
+    "WN18RR1_1": "WN18RR 1-1",
+    "WN18RR1_N": "WN18RR 1-N",
+    "WN18RRN_1": "WN18RR N-1",
+    "WN18RRN_M": "WN18RR N-M",
+    "YAGO3-10_1_1": "YAGO3-10 1-1",
+    "YAGO3-10_1_N": "YAGO3-10 1-N",
+    "YAGO3-10_N_1": "YAGO3-10 N-1",
+    "YAGO3-10_N_M": "YAGO3-10 N-M",
 }
 
 # Every k of the metrics tables (metrics_report.csv and relation_report.csv).
@@ -154,17 +152,13 @@ REPORT_HITS_COLUMNS = [f"hits_at_{k}" for k in REPORT_HITS_AT]
 HITS_AT = tuple(range(1, 16))
 HITS_COLUMNS = [f"hits_at_{k}" for k in HITS_AT]
 HITS_RANGE = f"Hits@{min(HITS_AT)} to Hits@{max(HITS_AT)}"
-# The `relation` of the comparisons over all of a graph's test predictions,
+# The `relation` of the comparisons over all of a variant's held-out predictions,
 # and the title of their plot panels.
 ALL_RELATIONS = "all"
 ALL_RELATIONS_TITLE = "all relations"
 # The k of the headline Hits@k in the relation plots, the relation comparison
 # and the comparison plots.
 HEADLINE_K = 10
-# The k compared query by query, kept to the usual four so that the query
-# comparison tables stay readable.
-COMPARISON_HITS_AT = (1, 3, 5, 10)
-COMPARISON_HITS_COLUMNS = [f"hits_at_{k}" for k in COMPARISON_HITS_AT]
 # The metrics of the metrics table that the models are ranked by in each graph,
 # to compare the graphs' rankings (ranking_agreement.csv). Hits@15 is not in
 # results.json, so a run without recomputed ranks has none.
@@ -172,15 +166,21 @@ AGREEMENT_HITS_AT = (1, 3, 5, 10, 15)
 AGREEMENT_METRICS = [*(f"hits_at_{k}" for k in AGREEMENT_HITS_AT), "mrr"]
 
 CSV_FIELDS = ["dataset", "model", *REPORT_HITS_COLUMNS, "mrr", "count"]
-# A query is "accurate at k" in a graph when at least this share of its
-# held-out answers rank within the top k. Most queries have one answer, so
-# this is usually just a hit or a miss.
-ACCURATE_SHARE = 0.5
+# The columns of the summary of every run (SUMMARY_NAME).
+SUMMARY_HITS_AT = (1, 3, 5, 10, 15)
+SUMMARY_FIELDS = [
+    "family",
+    "variant",
+    "model",
+    *(f"hits_at_{k}" for k in SUMMARY_HITS_AT),
+    "mrr",
+    "count",
+]
 # Largest gap allowed between the MRR recomputed from a run's saved model
 # and splits and the MRR in its results.json. A bigger gap means the splits
 # on disk were written by another run.
 MRR_TOLERANCE = 1e-3
-# Test triples scored per forward pass when recomputing ranks.
+# Held-out triples scored per forward pass when ranking.
 SCORE_BATCH_SIZE = 256
 # Resamples of the bootstrap interval of each relation's MRR difference, with
 # a fixed seed so that reruns write identical files.
@@ -192,6 +192,7 @@ SIGNIFICANCE = 0.05
 PREDICTION_COLUMNS = [
     "dataset",
     "model",
+    "split",
     "side",
     "head",
     "relation",
@@ -201,11 +202,6 @@ PREDICTION_COLUMNS = [
     "reciprocal_rank",
     *HITS_COLUMNS,
 ]
-
-# Rank buckets of the plots, as (lower, upper] edges. Realistic ranks are
-# fractional when scores tie, e.g. 1.5 falls in "2–3".
-BUCKET_EDGES = [0, 1, 3, 10, 100, np.inf]
-BUCKET_LABELS = ["1", "2–3", "4–10", "11–100", ">100"]
 
 # Plot colors and mark sizes, from the dataviz reference palette (light).
 PLOT_DPI = 150
@@ -227,25 +223,6 @@ CATEGORICAL = [
     "#4a3aa7",  # violet
     "#e34948",  # red
 ]
-SERIES_COLORS = CATEGORICAL[:2]  # reference graph, compared graph
-SEQUENTIAL = LinearSegmentedColormap.from_list(
-    "blue",
-    [
-        "#cde2fb",
-        "#b7d3f6",
-        "#9ec5f4",
-        "#86b6ef",
-        "#6da7ec",
-        "#5598e7",
-        "#3987e5",
-        "#2a78d6",
-        "#256abf",
-        "#1c5cab",
-        "#184f95",
-        "#104281",
-        "#0d366b",
-    ],
-)
 BAR_WIDTH_PX = 24
 BAR_GAP_PX = 2
 BAR_RADIUS_PX = 4
@@ -266,39 +243,54 @@ CAPTION_LINE_CHARS = 120
 CAPTION_LINES = 7
 # How the Hits@k of every plot is computed, for their captions.
 HITS_DEFINITION = (
-    "Hits@k is the fraction of test predictions (head and tail pooled) whose correct "
+    "Hits@k is the fraction of held-out predictions (valid and test, head and tail pooled) whose correct "
     "entity ranks in the top k of all candidates, under filtered ranking with ties at "
     "their mean rank."
 )
 
 
-def dataset_base(root: Path) -> Path:
+def dataset_family(dataset: str) -> tuple[str, str]:
     """
-    The folder that datasets are named relative to: `root`, or its parent
-    when `root` is one KG's folder, with every run in a graph folder right
-    under it (`<root>/<graph>/<model>/results.json`). A dataset is then
-    named with its KG either way, e.g. `french_royalty/source`, and the CSV
-    files are the same for a run over one KG as for a run over all of them.
+    The family and variant of a dataset folder of `exp_results`: a copy's folder
+    is its source's name with the copy set as suffix, e.g. `french_kbgen` is
+    (`french`, `kbgen`), and a source dataset is its own family's `original`.
     """
-    depths = {len(p.relative_to(root).parts) for p in root.rglob("results.json")}
-    return root.absolute().parent if depths == {3} else root
+    for variant in COPY_SETS:
+        if dataset.endswith(f"_{variant}"):
+            return dataset[: -len(variant) - 1], variant
+    return dataset, REFERENCE_VARIANT
 
 
-def find_results(root: Path, base: Path):
+def find_runs(
+    results_dir: Path,
+    families: list[str] | None = None,
+    variants: list[str] | None = None,
+) -> list[dict]:
     """
-    Yield (dataset, model, results_json_path) for every pykeen
-    `results.json` found under `root`, assuming the
-    `<root>/<dataset...>/<model>/results.json` layout that `KGC.py` produces
-    (`<dataset...>` is the `results_path` folder chain relative to `base`,
-    see `dataset_base`, e.g. `french_royalty/skgg.std=1.filled`, reported
-    with "/").
+    Every finished run of `results_dir` (train_kge.py's `--output`): one dict
+    per `<dataset>/<model>/results.json`, with its `dataset` label
+    `<family>/<variant>` (see `dataset_family`), its `model`, the dataset's
+    folder `dataset_dir` and the model's folder `model_dir`. `families` and
+    `variants` keep only those.
     """
-    for results_json in sorted(root.absolute().rglob("results.json")):
+    runs = []
+    for results_json in sorted(results_dir.glob("*/*/results.json")):
         model_dir = results_json.parent
-        dataset = model_dir.parent.relative_to(base.absolute()).as_posix()
-        if dataset == ".":
+        dataset_dir = model_dir.parent
+        family, variant = dataset_family(dataset_dir.name)
+        if families and family not in families:
             continue
-        yield dataset, model_dir.name, results_json
+        if variants and variant not in variants:
+            continue
+        runs.append(
+            {
+                "dataset": f"{family}/{variant}",
+                "model": model_dir.name,
+                "dataset_dir": dataset_dir,
+                "model_dir": model_dir,
+            }
+        )
+    return runs
 
 
 def extract_metrics(results_json: Path) -> dict | None:
@@ -327,126 +319,133 @@ def extract_metrics(results_json: Path) -> dict | None:
         return None
 
 
-def build_report(root: Path, base: Path) -> list[dict]:
-    rows = []
-    for dataset, model, results_json in find_results(root, base):
-        metrics = extract_metrics(results_json)
-        if metrics is None:
-            continue
-        rows.append({"dataset": dataset, "model": model, **metrics})
-    return rows
-
-
-def build_losses(base: Path, rows: list[dict]) -> pd.DataFrame:
+def build_report(predictions: pd.DataFrame) -> list[dict]:
     """
-    The training loss of every run in the table (`rows` from `build_report`,
-    their datasets relative to `base`), one row per epoch, from the "losses" pykeen's `results.json` keeps: the
-    loss of each epoch, averaged over the training triples.
+    The metrics table: one row per run of `predictions`, with Hits@k for every k
+    of REPORT_HITS_AT and the MRR over its whole held-out set (valid and test,
+    head and tail predictions pooled, like pykeen's "both" slice), and the number
+    of predictions.
+    """
+    if predictions.empty:
+        return []
+    by = ["dataset", "model"]
+    table = hits_by(predictions, by)
+    grouped = predictions.groupby(by)
+    table["mrr"] = grouped["reciprocal_rank"].mean()
+    table["count"] = grouped.size()
+    return table.reset_index().to_dict("records")
+
+
+def build_losses(runs: list[dict]) -> pd.DataFrame:
+    """
+    The training loss of every run of `runs` (from `find_runs`), one row per
+    epoch, from the "losses" pykeen's `results.json` keeps: the loss of each
+    epoch, averaged over the training triples.
     """
     frames = []
-    for row in rows:
-        results_json = base / row["dataset"] / row["model"] / "results.json"
-        with results_json.open(encoding="utf-8") as f:
+    for run in runs:
+        with (run["model_dir"] / "results.json").open(encoding="utf-8") as f:
             losses = json.load(f).get("losses") or []
         frames.append(
             pd.DataFrame(
                 {
-                    "dataset": row["dataset"],
-                    "model": row["model"],
+                    "dataset": run["dataset"],
+                    "model": run["model"],
                     "epoch": np.arange(1, len(losses) + 1),
                     "loss": losses,
                 }
             )
         )
+    if not frames:
+        return pd.DataFrame(columns=["dataset", "model", "epoch", "loss"])
     return pd.concat(frames, ignore_index=True)
 
 
-def write_csv(rows: list[dict], output: Path) -> None:
+def write_csv(rows: list[dict], output: Path, fields: list[str] = CSV_FIELDS) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
+        writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)
 
 
 def read_split(path: Path) -> np.ndarray:
-    """Read a split KGC.py saved with `save_splits`: one tab-separated labeled triple per line."""
+    """Read a split train_kge.py saved: one tab-separated labeled triple per line."""
     return pd.read_csv(
         path, sep="\t", header=None, dtype=str, keep_default_na=False
-    ).to_numpy()
+    ).to_numpy().reshape(-1, 3)
 
 
-def rank_predictions(dataset_dir: Path, model_dir: Path) -> pd.DataFrame | None:
+def rank_predictions(
+    dataset_dir: Path, model_dir: Path, device: torch.device
+) -> pd.DataFrame | None:
     """
-    Rank both predictions of every test triple of one run, as pykeen did.
+    Rank both predictions of every held-out triple of one run: the `valid` and
+    `test` splits train_kge.py saved in `dataset_dir`, which the model never
+    trained on, as one held-out set.
 
-    Each test triple (h, r, t) gives a tail prediction (h, r, ?) and a head
-    prediction (?, r, t). Like `pipeline()`'s filtered evaluation, the other
+    Each held-out triple (h, r, t) gives a tail prediction (h, r, ?) and a head
+    prediction (?, r, t). As in train_kge.py's filtered evaluation, the other
     answers known to be true -- the training triples saved in
-    `training_triples/`, the `test` split KGC.py saved in `dataset_dir`, and a
-    `valid` split if the folder has one -- are removed before ranking, and
-    ties get the "realistic" rank: the mean of the best and worst position
-    among equal scores.
+    `training_triples/` and both held-out splits -- are removed before
+    ranking, and ties get the "realistic" rank: the mean of the best and worst
+    position among equal scores.
 
-    Returns one row per prediction (side, head, relation, tail, rank,
-    candidates), where `side` is the entity being predicted and `candidates`
-    the number of entities it was ranked among (all but the filtered
-    answers, pykeen's "number of options"), or None (and prints a warning)
-    if a file is missing or the test labels aren't in the model's vocabulary.
+    Returns one row per prediction (split, side, head, relation, tail, rank,
+    candidates), where `split` is the triple's split, `side` the entity being
+    predicted and `candidates` the number of entities it was ranked among (all
+    but the filtered answers, pykeen's "number of options"), or None (and
+    prints a warning) if a file is missing or a label isn't in the model's
+    vocabulary.
     """
     needed = [
-        dataset_dir / "test",
+        *(dataset_dir / split for split in HELD_OUT_SPLITS),
         model_dir / "trained_model.pkl",
         model_dir / "training_triples",
     ]
     missing = [str(p) for p in needed if not p.exists()]
     if missing:
-        print(
-            f"warning: no prediction analysis for {model_dir} (missing {', '.join(missing)})"
-        )
+        print(f"warning: cannot rank {model_dir} (missing {', '.join(missing)})")
         return None
 
-    test = read_split(dataset_dir / "test")
+    splits = {split: read_split(dataset_dir / split) for split in HELD_OUT_SPLITS}
+    held_out = np.concatenate(list(splits.values()))
+    split_names = np.repeat(HELD_OUT_SPLITS, [len(splits[s]) for s in HELD_OUT_SPLITS])
     training = TriplesFactory.from_path_binary(model_dir / "training_triples")
-    # PyKEEN reloads a column of all-numeric labels as integers; test labels are strings.
+    # PyKEEN reloads a column of all-numeric labels as integers; split labels are strings.
     entity_to_id = {str(label): i for label, i in training.entity_to_id.items()}
     relation_to_id = {str(label): i for label, i in training.relation_to_id.items()}
-    # Runs trained with a validation split (not KGC.py's) filter it too.
-    valid_path = dataset_dir / "valid"
-    valid = read_split(valid_path) if valid_path.is_file() else []
     try:
-        test_ids, valid_ids = (
-            torch.tensor(
-                [[entity_to_id[h], relation_to_id[r], entity_to_id[t]] for h, r, t in split],
-                dtype=torch.long,
-            ).reshape(-1, 3)
-            for split in (test, valid)
-        )
+        held_out_ids = torch.tensor(
+            [[entity_to_id[h], relation_to_id[r], entity_to_id[t]] for h, r, t in held_out],
+            dtype=torch.long,
+        ).reshape(-1, 3)
     except KeyError as e:
         print(
-            f"warning: no prediction analysis for {model_dir} (label {e} is not in the "
-            "model's vocabulary, so its splits were written by another run)"
+            f"warning: cannot rank {model_dir} (label {e} is not in the model's "
+            "vocabulary, so its splits were written by another run)"
         )
         return None
 
     # Every answer known to be true, per tail query (h, r) and head query (r, t).
     tails, heads = defaultdict(list), defaultdict(list)
-    for h, r, t in torch.cat([training.mapped_triples, test_ids, valid_ids]).tolist():
+    for h, r, t in torch.cat([training.mapped_triples, held_out_ids]).tolist():
         tails[h, r].append(t)
         heads[r, t].append(h)
 
     # The pickle holds the whole model object, not just its weights.
     model = torch.load(
-        model_dir / "trained_model.pkl", map_location="cpu", weights_only=False
+        model_dir / "trained_model.pkl", map_location=device, weights_only=False
     )
     model.eval()
     ranks, candidates = {}, {}
     with torch.inference_mode():
         for side, column in (("head", 0), ("tail", 2)):
             side_ranks, side_candidates = [], []
-            for batch in torch.split(test_ids, SCORE_BATCH_SIZE):
+            for batch in torch.split(held_out_ids, SCORE_BATCH_SIZE):
+                batch = batch.to(device)
                 scores = model.predict(hrt_batch=batch, target=side)
-                rows = torch.arange(len(batch))
+                rows = torch.arange(len(batch), device=device)
                 true_scores = scores[rows, batch[:, column]]
                 for i, (h, r, t) in enumerate(batch.tolist()):
                     scores[i, heads[r, t] if side == "head" else tails[h, r]] = float(
@@ -456,8 +455,8 @@ def rank_predictions(dataset_dir: Path, model_dir: Path) -> pd.DataFrame | None:
                 # Filtered (NaN) scores compare False, so they never count.
                 better = (scores > true_scores[:, None]).sum(dim=1)
                 not_worse = (scores >= true_scores[:, None]).sum(dim=1)
-                side_ranks.append((better + 1 + not_worse) / 2)
-                side_candidates.append(torch.isfinite(scores).sum(dim=1))
+                side_ranks.append(((better + 1 + not_worse) / 2).cpu())
+                side_candidates.append(torch.isfinite(scores).sum(dim=1).cpu())
             ranks[side] = torch.cat(side_ranks).double().numpy()
             candidates[side] = torch.cat(side_candidates).numpy()
 
@@ -465,10 +464,11 @@ def rank_predictions(dataset_dir: Path, model_dir: Path) -> pd.DataFrame | None:
         [
             pd.DataFrame(
                 {
+                    "split": split_names,
                     "side": side,
-                    "head": test[:, 0],
-                    "relation": test[:, 1],
-                    "tail": test[:, 2],
+                    "head": held_out[:, 0],
+                    "relation": held_out[:, 1],
+                    "tail": held_out[:, 2],
                     "rank": ranks[side],
                     "candidates": candidates[side],
                 }
@@ -479,27 +479,47 @@ def rank_predictions(dataset_dir: Path, model_dir: Path) -> pd.DataFrame | None:
     )
 
 
-def build_predictions(base: Path, rows: list[dict]) -> pd.DataFrame:
+def predictions_path(output: Path, dataset: str, model: str) -> Path:
+    """Where a run's ranks are kept: `<output>/<family>/<variant>/<model>/`."""
+    return output / dataset / model / PREDICTIONS_FILE
+
+
+def build_predictions(
+    runs: list[dict], output: Path, device: torch.device, force: bool = False
+) -> pd.DataFrame:
     """
-    Recompute the per-prediction ranks of every run in the table (`rows`
-    from `build_report`, their datasets relative to `base`), keeping only the
-    runs whose ranks reproduce the MRR in their results.json.
+    The ranks of every held-out prediction of every run of `runs` (from
+    `find_runs`). A run's ranks are computed once and kept in
+    `predictions_path`, which later calls read back unless `force` is given.
+    A run whose test predictions don't reproduce the MRR in its results.json
+    is left out: its splits or model on disk don't match.
     """
     frames = []
-    for row in rows:
-        dataset, model = row["dataset"], row["model"]
-        ranks = rank_predictions(base / dataset, base / dataset / model)
-        if ranks is None:
-            continue
-        mrr = (1 / ranks["rank"]).mean()
-        if abs(mrr - row["mrr"]) > MRR_TOLERANCE:
+    for run in runs:
+        dataset, model = run["dataset"], run["model"]
+        path = predictions_path(output, dataset, model)
+        if path.is_file() and not force:
+            ranks = pd.read_csv(
+                path, dtype={"head": str, "relation": str, "tail": str},
+                keep_default_na=False,
+            )
+        else:
+            ranks = rank_predictions(run["dataset_dir"], run["model_dir"], device)
+            if ranks is None:
+                continue
+            path.parent.mkdir(parents=True, exist_ok=True)
+            ranks.to_csv(path, index=False)
+            print(f"Ranked {len(ranks)} held-out predictions of {dataset}/{model}")
+
+        metrics = extract_metrics(run["model_dir"] / "results.json")
+        test = ranks[ranks["split"] == "test"]
+        mrr = (1 / test["rank"]).mean()
+        if metrics is not None and abs(mrr - metrics["mrr"]) > MRR_TOLERANCE:
             print(
-                f"warning: no prediction analysis for {dataset}/{model} (MRR {mrr:.4f} from its "
-                f"saved model and splits vs {row['mrr']:.4f} in results.json, so the splits on "
-                "disk were written by another run)"
+                f"warning: {dataset}/{model} left out (test MRR {mrr:.4f} from its saved "
+                f"model and splits vs {metrics['mrr']:.4f} in results.json)"
             )
             continue
-        print(f"Ranked {len(ranks)} test predictions of {dataset}/{model}")
         frames.append(ranks.assign(dataset=dataset, model=model))
 
     if not frames:
@@ -531,20 +551,6 @@ def hits_by(predictions: pd.DataFrame, by: list[str]) -> pd.DataFrame:
     )
 
 
-def add_hits_from_ranks(rows: list[dict], predictions: pd.DataFrame) -> None:
-    """
-    Fill Hits@k for every k of REPORT_HITS_AT into the table's `rows`, from
-    the recomputed ranks of each run (head and tail pooled, like the "both"
-    slice). A run that couldn't be ranked keeps the k that results.json
-    holds, and the other columns stay empty.
-    """
-    hits = hits_by(predictions, ["dataset", "model"])
-    for row in rows:
-        key = (row["dataset"], row["model"])
-        if key in hits.index:
-            row.update(hits.loc[key].to_dict())
-
-
 def relation_report(predictions: pd.DataFrame) -> pd.DataFrame:
     """The table's metrics per relation, head and tail predictions pooled like the "both" slice."""
     by = ["dataset", "model", "relation"]
@@ -555,30 +561,10 @@ def relation_report(predictions: pd.DataFrame) -> pd.DataFrame:
     return report.reset_index()
 
 
-def query_table(predictions: pd.DataFrame) -> pd.DataFrame:
-    """
-    Group predictions by query, one row per (dataset, model, side, relation,
-    entity), where `entity` is the query's known entity: the head of a tail
-    query (h, r, ?) and the tail of a head query (?, r, t). A query has one
-    prediction per held-out answer; `answers` counts them, and `mrr` and
-    `hits_at_k` (the share of answers within the top k) average over them.
-    """
-    entity = predictions["head"].where(
-        predictions["side"] == "tail", predictions["tail"]
-    )
-    grouped = predictions.assign(entity=entity).groupby(
-        ["dataset", "model", "side", "relation", "entity"]
-    )
-    queries = grouped[["reciprocal_rank", *COMPARISON_HITS_COLUMNS]].mean()
-    queries = queries.rename(columns={"reciprocal_rank": "mrr"})
-    queries.insert(0, "answers", grouped.size())
-    return queries.reset_index()
-
-
 def split_dataset(table: pd.DataFrame) -> pd.DataFrame:
     """
     Add the `kg` and `graph` columns: the dataset's parent folder and its own
-    name, e.g. `french_royalty` and `skgg.std=1.filled`.
+    name, e.g. `french` and `kbgen`.
     """
     dataset = table["dataset"].map(PurePosixPath)
     return table.assign(
@@ -602,138 +588,13 @@ def kg_name(kg: str, *rest: str) -> str:
     )
 
 
-def is_compared(graph: str, reference: str, patterns: list[str]) -> bool:
-    """Whether `graph` is compared with the reference graph: it matches a pattern."""
-    return graph != reference and any(fnmatchcase(graph, p) for p in patterns)
-
-
-def graph_order(graphs, reference: str, patterns: list[str]) -> list[str]:
+def graph_order(graphs) -> list[str]:
     """
-    Sort a KG's graphs for the plots: the reference first, then the graphs
-    compared with it, then the rest, so the colors follow the graphs.
+    Sort a family's variants for the plots in VARIANT_ORDER (the original
+    first), then any other in name order, so each variant keeps its color.
     """
-    return sorted(
-        set(graphs),
-        key=lambda g: (g != reference, not is_compared(g, reference, patterns), g),
-    )
-
-
-def compare_queries(
-    queries: pd.DataFrame, reference: str, patterns: list[str]
-) -> pd.DataFrame:
-    """
-    Pair the queries of `<kg>/<reference>` with those of every sibling
-    dataset `<kg>/<compared>` whose name matches one of `patterns`, for the
-    models trained on both. A query pairs when it is held out in both
-    graphs; each graph keeps its own answers and values, in the
-    `reference_*` and `compared_*` columns.
-    """
-    queries = split_dataset(queries)
-    keys = ["kg", "model", "side", "relation", "entity"]
-    values = ["answers", "mrr", *COMPARISON_HITS_COLUMNS]
-    compared_rows = queries["graph"].map(
-        lambda graph: is_compared(graph, reference, patterns)
-    )
-    ref = (
-        queries[queries["graph"] == reference]
-        .set_index(keys)[values]
-        .add_prefix("reference_")
-    )
-    cmp = queries[compared_rows].set_index(keys)[["graph", *values]]
-    cmp = cmp.rename(
-        columns={"graph": "compared", **{v: f"compared_{v}" for v in values}}
-    )
-    paired = ref.join(cmp, how="inner").reset_index()
-    paired.insert(1, "reference", reference)
-    paired.insert(2, "compared", paired.pop("compared"))
-    paired.insert(
-        len(keys) + 2,
-        "query",
-        np.where(
-            paired["side"] == "tail",
-            "(" + paired["entity"] + ", " + paired["relation"] + ", ?)",
-            "(?, " + paired["relation"] + ", " + paired["entity"] + ")",
-        ),
-    )
-    return paired.sort_values(
-        ["kg", "compared", "model", "relation", "side", "entity"], ignore_index=True
-    )
-
-
-def spearman(x: pd.Series, y: pd.Series) -> tuple[float, float]:
-    """Spearman's rho and its p-value; NaN under 3 pairs or when a side is constant."""
-    if len(x) < 3 or x.nunique() < 2 or y.nunique() < 2:
-        return float("nan"), float("nan")
-    result = spearmanr(x, y)
-    return float(result.statistic), float(result.pvalue)
-
-
-def ratio(numerator: float, denominator: float) -> float:
-    return numerator / denominator if denominator else float("nan")
-
-
-def agreement(paired: pd.DataFrame, k: int) -> dict:
-    """
-    Cross-tabulate the paired queries by whether they are accurate at k in
-    each graph, and how often the compared graph is accurate after the
-    reference graph is (or isn't).
-    """
-    ref = paired[f"reference_hits_at_{k}"] >= ACCURATE_SHARE
-    cmp = paired[f"compared_hits_at_{k}"] >= ACCURATE_SHARE
-    both, only_ref = int((ref & cmp).sum()), int((ref & ~cmp).sum())
-    only_cmp, neither = int((~ref & cmp).sum()), int((~ref & ~cmp).sum())
-    # Cohen's kappa: the observed agreement corrected for the agreement
-    # expected by chance from how often each graph is accurate.
-    observed = (both + neither) / len(paired)
-    expected = ref.mean() * cmp.mean() + (1 - ref.mean()) * (1 - cmp.mean())
-    return {
-        "both_accurate": both,
-        "only_reference": only_ref,
-        "only_compared": only_cmp,
-        "neither": neither,
-        "compared_accurate_when_reference_accurate": ratio(both, both + only_ref),
-        "compared_accurate_when_reference_inaccurate": ratio(
-            only_cmp, only_cmp + neither
-        ),
-        "cohen_kappa": ratio(observed - expected, 1 - expected),
-    }
-
-
-def summarize_comparison(paired: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compare each pair of graphs per KG and model, over all paired queries,
-    head and tail queries apart, and each relation (the strata), with one
-    row per k: the per-query MRR of each graph, their rank correlation, and
-    the agreement on which queries are accurate at k.
-    """
-    rows = []
-    for (kg, reference, compared, model), group in paired.groupby(
-        ["kg", "reference", "compared", "model"]
-    ):
-        strata = [("all", "both", group)]
-        strata += [("all", side, g) for side, g in group.groupby("side")]
-        strata += [(relation, "both", g) for relation, g in group.groupby("relation")]
-        for relation, side, g in strata:
-            rho, p = spearman(g["reference_mrr"], g["compared_mrr"])
-            for k in COMPARISON_HITS_AT:
-                rows.append(
-                    {
-                        "kg": kg,
-                        "reference": reference,
-                        "compared": compared,
-                        "model": model,
-                        "relation": relation,
-                        "side": side,
-                        "k": k,
-                        "paired_queries": len(g),
-                        "reference_mrr": g["reference_mrr"].mean(),
-                        "compared_mrr": g["compared_mrr"].mean(),
-                        "spearman_rho": rho,
-                        "spearman_p": p,
-                        **agreement(g, k),
-                    }
-                )
-    return pd.DataFrame(rows)
+    order = {variant: i for i, variant in enumerate(VARIANT_ORDER)}
+    return sorted(set(graphs), key=lambda g: (order.get(g, len(order)), g))
 
 
 def normalized_rank(predictions: pd.DataFrame) -> pd.Series:
@@ -765,12 +626,12 @@ def bootstrap_difference(
 
 def compare_relations(predictions: pd.DataFrame, reference: str) -> pd.DataFrame:
     """
-    Compare each relation's test predictions in the reference graph with
-    those in every other graph of the same KG (`predictions` with the `kg`
+    Compare each relation's held-out predictions in the reference variant with
+    those in every other variant of the same family (`predictions` with the `kg`
     and `graph` columns of `split_dataset`), for each model trained on both,
-    and all their test predictions as one more relation, ALL_RELATIONS.
-    Unlike `compare_queries`, this needs no shared entities, so PyGraft is
-    compared too, and it uses every test prediction.
+    and all their held-out predictions as one more relation, ALL_RELATIONS.
+    It needs no shared entities, only shared relation names, so every
+    variant is compared.
 
     `mrr_difference` (compared - reference) comes with a 95% bootstrap
     interval. The rank distributions are compared on `normalized_rank`:
@@ -852,25 +713,6 @@ def compare_relations(predictions: pd.DataFrame, reference: str) -> pd.DataFrame
         ["kg", "model", "compared", "pooled"], kind="stable"
     )
     return comparison.loc[order.index].reset_index(drop=True)
-
-
-def rank_buckets(ranks: pd.Series) -> pd.Series:
-    """Label each rank with its plot bucket ("1", "2–3", ..., ">100")."""
-    return pd.cut(ranks, bins=BUCKET_EDGES, labels=BUCKET_LABELS)
-
-
-def ink_on(fill) -> str:
-    """Ink or white, whichever has the higher WCAG contrast against `fill`."""
-
-    def luminance(color) -> float:
-        c = np.array(to_rgb(color))
-        c = np.where(c <= 0.03928, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
-        return float(c @ [0.2126, 0.7152, 0.0722])
-
-    fill_luminance = luminance(fill)
-    on_white = 1.05 / (fill_luminance + 0.05)
-    on_ink = (fill_luminance + 0.05) / (luminance(INK) + 0.05)
-    return "#ffffff" if on_white > on_ink else INK
 
 
 def draw_column(ax, x: float, width: float, height: float, color: str) -> None:
@@ -993,189 +835,6 @@ def draw_grouped_columns(
     ax.spines["bottom"].set(visible=True, color=BASELINE, linewidth=PX)
 
 
-def fmt(value: float, spec: str) -> str:
-    return "n/a" if pd.isna(value) else format(value, spec)
-
-
-def plot_comparison(runs: pd.DataFrame, paired: pd.DataFrame, path: Path) -> None:
-    """
-    Plot one comparison of two graphs with one model (`paired` holds its
-    `compare_queries` rows only, `runs` the KG's predictions with the `graph`
-    column of `split_dataset`). Left: how the ranks of all test predictions
-    of each graph spread over the rank buckets. Right: for the
-    paired queries, where the queries of each reference bucket land in the
-    compared graph, as a share of the row and a count. A query is bucketed
-    by 1 / its MRR, its rank when it has a single held-out answer.
-    """
-    kg, reference, compared, model = paired[
-        ["kg", "reference", "compared", "model"]
-    ].iloc[0]
-    # Heights in inches: the caption band, the panel titles and legend, the
-    # panels, the bottom axis.
-    header, panel, footer = CAPTION_HEIGHT + 0.8, 3.36, 0.67
-    height = header + panel + footer
-    fig, (left, right) = plt.subplots(
-        1,
-        2,
-        figsize=(12, height),
-        dpi=PLOT_DPI,
-        gridspec_kw={"width_ratios": [1.2, 1]},
-    )
-    fig.patch.set_facecolor(SURFACE)
-    fig.subplots_adjust(
-        left=0.07,
-        right=0.97,
-        top=1 - header / height,
-        bottom=footer / height,
-        wspace=0.28,
-    )
-    for ax in (left, right):
-        style_axes(ax)
-
-    # Headline: does accurate in the reference graph mean accurate in the other?
-    k = HEADLINE_K
-    rho, _ = spearman(paired["reference_mrr"], paired["compared_mrr"])
-    rates = agreement(paired, k)
-    when_accurate = rates["compared_accurate_when_reference_accurate"]
-    when_inaccurate = rates["compared_accurate_when_reference_inaccurate"]
-    ref_name, cmp_name = folder_name(reference), folder_name(compared)
-    draw_caption(
-        fig,
-        height,
-        0.07,
-        f"{kg_name(kg, model)}: {ref_name} vs {cmp_name}",
-        f"Agreement between the link predictions of {model} on the two graphs. Left: "
-        "filtered rank of the correct entity over all test predictions of each graph, in "
-        f"rank buckets. Right: for the {len(paired):,} queries (h, r, ?) or (?, r, t) held "
-        f"out in both graphs, the rank bucket in {cmp_name} of the queries in each rank "
-        f"bucket of {ref_name}; a query with several held-out answers is bucketed by its "
-        "inverse MRR. The per-query MRRs of the two graphs have a Spearman correlation of "
-        f"ρ\u00a0=\u00a0{fmt(rho, '.2f')}. At Hits@{k}, {cmp_name} is accurate on "
-        f"{fmt(when_accurate, '.0%')} of the queries on which {ref_name} is accurate and on "
-        f"{fmt(when_inaccurate, '.0%')} of the others, a query being accurate when at least "
-        f"{ACCURATE_SHARE:.0%} of its answers rank in the top {k}.",
-    )
-
-    # Left: rank distribution of every test prediction, one column per graph and bucket.
-    shares, totals = {}, {}
-    for graph in (reference, compared):
-        run = (runs["graph"] == graph) & (runs["model"] == model)
-        totals[graph] = int(run.sum())
-        shares[graph] = rank_buckets(runs.loc[run, "rank"]).value_counts(
-            normalize=True, sort=False
-        )
-    draw_grouped_columns(
-        left,
-        BUCKET_LABELS,
-        [
-            (shares[graph].reindex(BUCKET_LABELS).to_numpy(dtype=float), color)
-            for graph, color in zip((reference, compared), SERIES_COLORS)
-        ],
-        top=max(s.max() for s in shares.values()) * 1.12,
-    )
-    left.yaxis.set_major_formatter(PercentFormatter(1, decimals=0))
-    left.set_xlabel("Rank of the true answer", color=INK_SECONDARY, fontsize=9.5)
-    left.set_ylabel("Share of test predictions", color=INK_SECONDARY, fontsize=9.5)
-    left.set_title(
-        "All test predictions",
-        loc="left",
-        color=INK,
-        fontsize=10.5,
-        fontweight="bold",
-        pad=32,
-    )
-    left.legend(
-        handles=[
-            Patch(
-                facecolor=color,
-                label=f"{folder_name(graph)} ({totals[graph]:,} predictions)",
-            )
-            for graph, color in zip((reference, compared), SERIES_COLORS)
-        ],
-        loc="lower left",
-        bbox_to_anchor=(0, 1.03),
-        ncols=2,
-        frameon=False,
-        fontsize=9,
-        labelcolor=INK_SECONDARY,
-        handlelength=0.9,
-        handleheight=0.9,
-        borderaxespad=0.1,
-        borderpad=0,
-    )
-
-    # Right: rank transitions of the paired queries, one row per reference bucket.
-    counts = pd.crosstab(
-        rank_buckets(1 / paired["reference_mrr"]),
-        rank_buckets(1 / paired["compared_mrr"]),
-        dropna=False,
-    ).reindex(index=BUCKET_LABELS, columns=BUCKET_LABELS, fill_value=0)
-    row_shares = counts.div(counts.sum(axis=1), axis=0)
-    right.pcolormesh(
-        np.ma.masked_invalid(row_shares.to_numpy(dtype=float)),
-        cmap=SEQUENTIAL,
-        vmin=0,
-        vmax=1,
-        edgecolors=SURFACE,
-        linewidth=BAR_GAP_PX * PX,
-    )
-    right.set_aspect("equal")
-    right.invert_yaxis()
-    for i in range(len(BUCKET_LABELS)):
-        for j in range(len(BUCKET_LABELS)):
-            share = row_shares.iat[i, j]
-            if np.isnan(share):
-                continue
-            color = ink_on(SEQUENTIAL(share))
-            right.text(
-                j + 0.5,
-                i + 0.47,
-                f"{share:.0%}",
-                ha="center",
-                va="bottom",
-                color=color,
-                fontsize=10,
-                fontweight="bold",
-            )
-            right.text(
-                j + 0.5,
-                i + 0.55,
-                f"n={counts.iat[i, j]:,}",
-                ha="center",
-                va="top",
-                color=color,
-                fontsize=8,
-            )
-    ticks = np.arange(len(BUCKET_LABELS)) + 0.5
-    right.set_xticks(ticks, BUCKET_LABELS)
-    right.set_yticks(ticks, BUCKET_LABELS)
-    right.set_xlabel(
-        f"Rank in {folder_name(compared)}", color=INK_SECONDARY, fontsize=9.5
-    )
-    right.set_ylabel(
-        f"Rank in {folder_name(reference)}", color=INK_SECONDARY, fontsize=9.5
-    )
-    right.set_title(
-        "Paired queries, by rank in each graph",
-        loc="left",
-        color=INK,
-        fontsize=10.5,
-        fontweight="bold",
-        pad=32,
-    )
-    right.text(
-        0,
-        1.035,
-        "Each cell: share of its row, and number of queries",
-        transform=right.transAxes,
-        color=INK_SECONDARY,
-        fontsize=9,
-    )
-
-    fig.savefig(path, dpi=PLOT_DPI, facecolor=SURFACE)
-    plt.close(fig)
-
-
 def plot_relations(report: pd.DataFrame, graphs: list[str], path: Path) -> None:
     """
     Plot one KG's `relation_report` rows (with `kg` and `graph` columns): one
@@ -1215,7 +874,7 @@ def plot_relations(report: pd.DataFrame, graphs: list[str], path: Path) -> None:
         0.06,
         f"{name}: metrics per relation" if name else "Metrics per relation",
         "Link prediction performance per relation. MRR is the mean reciprocal filtered rank "
-        "of the correct entity over the test predictions of the relation (head and tail "
+        "of the correct entity over the held-out predictions of the relation (head and tail "
         f"pooled), and Hits@{k} the fraction of them ranked in the top {k} of all "
         "candidates; both range from 0 to 1, higher being better. A missing column means "
         "that the relation does not occur in that graph.",
@@ -1278,7 +937,7 @@ def graph_notes(
     runs: pd.DataFrame, comparison: pd.DataFrame, graphs: list[str]
 ) -> list[tuple[str, tuple[str, ...], bool]]:
     """
-    The number of test predictions of every graph in one relation's `runs`,
+    The number of held-out predictions of every graph in one relation's `runs`,
     with its Cliff's delta against the reference and the Holm-adjusted
     Mann-Whitney p from the relation's `compare_relations` rows, as (graph,
     cells, bold) triples in the order of `graphs`, where the cells are the
@@ -1341,7 +1000,7 @@ def plot_hits_curves(
     graph, giving the share of predictions ranked within the top k for every
     k, so the height at k = 1 and k = 10 is Hits@1 and Hits@10. Lines are
     colored in the order of `graphs`. Each panel lists every graph's number
-    of test predictions and its Cliff's delta against the reference from
+    of held-out predictions and its Cliff's delta against the reference from
     `comparison`, the `compare_relations` rows of this KG and model.
     """
     kg, model = predictions["kg"].iat[0], predictions["model"].iat[0]
@@ -1395,11 +1054,11 @@ def plot_hits_curves(
 
     ref_name = folder_name(reference)
     subtitle = (
-        f"Cumulative distribution of the rank of the correct entity in the test predictions "
+        f"Cumulative distribution of the rank of the correct entity in the held-out predictions "
         f"of {model} on a logarithmic rank axis, over all relations (first panel) and per "
         f"relation, so that the height of a curve at k is its Hits@k. {HITS_DEFINITION} "
         "Curves that rise earlier indicate better link "
-        "prediction. Under each panel title, n is the number of test predictions of each "
+        "prediction. Under each panel title, n is the number of held-out predictions of each "
         "graph"
     )
     if comparison.empty:
@@ -1598,14 +1257,14 @@ def draw_hits_lines(
     ax.set_axisbelow(True)
     ax.spines["bottom"].set(visible=True, color=BASELINE, linewidth=PX)
     ax.set_title(title, loc="left", color=INK, fontsize=10.5, fontweight="bold", pad=20)
-    # The models of one graph share its test split, but graphs have their own.
+    # The models of one graph share its held-out set, but graphs have their own.
     counts = grouped.size()
     low, high = int(counts.min()), int(counts.max())
     count = f"{low:,}" if low == high else f"{low:,} to {high:,}"
     ax.text(
         0,
         1.03,
-        f"{count} test predictions per {by}",
+        f"{count} held-out predictions per {by}",
         transform=ax.transAxes,
         color=INK_SECONDARY,
         fontsize=8,
@@ -1638,8 +1297,8 @@ def plot_model_hits(
         f"{name}: {HITS_RANGE} per model" if name else f"{HITS_RANGE} per model",
         f"Hits@k of each knowledge graph embedding model on each graph. {HITS_DEFINITION} "
         "Hits@k cannot decrease with k, and a steep segment means that many correct "
-        "entities rank around that k. Under each panel title, the number of test "
-        "predictions behind its lines; the models of a graph share its test split.",
+        "entities rank around that k. Under each panel title, the number of held-out "
+        "predictions behind its lines; the models of a graph share its held-out set.",
         present(colors, predictions, "model"),
         "k",
         "Hits@k",
@@ -1679,7 +1338,7 @@ def plot_relation_hits(
         f"Hits@k of {model} on each graph, over all relations (first panel) and per "
         f"relation. {HITS_DEFINITION} Hits@k cannot decrease with k, and a steep segment "
         "means that many correct entities rank around that k. Under each panel title, the "
-        "number of test predictions behind its lines; lines resting on few predictions are "
+        "number of held-out predictions behind its lines; lines resting on few predictions are "
         "less reliable. A graph without a line in a panel does not contain that relation.",
         {
             folder_name(graph): color
@@ -1771,32 +1430,33 @@ def write_analysis(
     rows: list[dict],
     predictions: pd.DataFrame,
     losses: pd.DataFrame,
-    base: Path,
-    analysis_dir: Path | None,
+    output: Path,
     reference: str,
-    patterns: list[str],
     crop: bool = False,
 ) -> None:
     """
-    Write the per-prediction analysis (see the module docstring) of the
-    `build_predictions` ranks, with the training losses of `build_losses`
-    and the KG's rows of the metrics table (`rows`), one folder per KG, since the graphs of a KG are only compared with each
-    other: `<base>/<kg>/prediction_analysis` (`base` from `dataset_base`), or
-    `<analysis_dir>/<kg>` when
-    `analysis_dir` is given. With `crop`, every plot also gets a copy without
-    its caption band in that folder's CROPPED_FOLDER.
+    Write each family's analysis (see the module docstring) to
+    `<output>/<family>/`, since the variants of a family are only compared with
+    each other, and the summary of every run to `<output>/SUMMARY_NAME`. With
+    `crop`, every plot also gets a copy without its caption band in its
+    family's CROPPED_FOLDER.
     """
     if predictions.empty:
-        print("warning: no run could be ranked, so no prediction analysis was written")
+        print("warning: no run could be ranked, so no analysis was written")
         return
+
+    summary = [
+        {**dict(zip(("family", "variant"), row["dataset"].split("/"))), **row}
+        for row in rows
+    ]
+    write_csv(summary, output / SUMMARY_NAME, SUMMARY_FIELDS)
+    print(f"Wrote {len(summary)} row(s) to {output / SUMMARY_NAME}")
 
     runs = split_dataset(predictions)
     losses = split_dataset(losses)
     for kg, kg_runs in runs.groupby("kg"):
-        out = analysis_dir / kg if analysis_dir else base / kg / ANALYSIS_FOLDER
-        kg_rows = [
-            row for row in rows if PurePosixPath(row["dataset"]).parent.as_posix() == kg
-        ]
+        out = output / kg
+        kg_rows = [row for row in rows if row["dataset"].split("/")[0] == kg]
         write_csv(kg_rows, out / REPORT_NAME)
         print(f"Wrote {len(kg_rows)} row(s) to {out / REPORT_NAME}")
         write_kg_analysis(
@@ -1805,7 +1465,6 @@ def write_analysis(
             pd.DataFrame(kg_rows, columns=CSV_FIELDS),
             out,
             reference,
-            patterns,
             crop,
         )
 
@@ -1816,57 +1475,47 @@ def write_kg_analysis(
     metrics: pd.DataFrame,
     out: Path,
     reference: str,
-    patterns: list[str],
     crop: bool = False,
 ) -> None:
     """
-    Write the analysis of one KG to `out`: its `runs` (the `build_predictions`
-    rows of its graphs, with the `kg` and `graph` columns of `split_dataset`),
-    the training `losses` of its graphs and its rows of the metrics table
-    (`metrics`), as CSV files and plots, and with `crop` a copy of every plot
-    without its caption band (`write_cropped`).
+    Write the analysis of one family to `out`: from its `runs` (the
+    `build_predictions` rows of its variants, with the `kg` and `graph`
+    columns of `split_dataset`), the training `losses` of its variants and its
+    rows of the metrics table (`metrics`), the CSV files and plots of the
+    module docstring, and with `crop` a copy of every plot without its caption
+    band (`write_cropped`).
     """
     kg = runs["kg"].iat[0]
     predictions = runs[PREDICTION_COLUMNS]
     relation_comparison = compare_relations(runs, reference)
     rankings = ranking_agreement(split_dataset(metrics), reference, AGREEMENT_METRICS)
-    paired = compare_queries(query_table(predictions), reference, patterns)
     report = relation_report(predictions)
     tables = {
-        "predictions.csv": predictions,
-        "relation_report.csv": report,
+        RELATIONS_NAME: report,
         "training_losses.csv": losses[["dataset", "model", "epoch", "loss"]],
     }
     if relation_comparison.empty:
-        print(f"note: {kg} has no '{reference}' graph, so no relations were compared")
+        print(f"note: {kg} has no '{reference}' variant, so no relations were compared")
     else:
         tables["relation_comparison.csv"] = relation_comparison
     if rankings.empty:
         print(
-            f"note: {kg} has no '{reference}' graph or no other graph, so no model rankings "
-            "were compared"
+            f"note: {kg} has no '{reference}' variant or no other variant, so no model "
+            "rankings were compared"
         )
     else:
         tables["ranking_agreement.csv"] = rankings
-    if paired.empty:
-        print(
-            f"note: no query of {kg} is held out in both '{reference}' and a graph matching "
-            f"{' '.join(patterns)} with the same model, so no graphs were compared"
-        )
-    else:
-        tables["query_comparison.csv"] = paired
-        tables["query_comparison_summary.csv"] = summarize_comparison(paired)
 
     out.mkdir(parents=True, exist_ok=True)
     for name, table in tables.items():
         table.to_csv(out / name, index=False)
         print(f"Wrote {len(table)} row(s) to {out / name}")
 
-    # One graph order per KG, so that each graph keeps its color in every plot.
-    graphs = graph_order(runs["graph"], reference, patterns)
+    # One variant order per family, so that each variant keeps its color in every plot.
+    graphs = graph_order(runs["graph"])
     if len(graphs) > len(CATEGORICAL):
         print(
-            f"warning: {kg} has {len(graphs)} graphs, the relation plots show "
+            f"warning: {kg} has {len(graphs)} variants, the relation plots show "
             f"the first {len(CATEGORICAL)}"
         )
         graphs = graphs[: len(CATEGORICAL)]
@@ -1877,16 +1526,17 @@ def write_kg_analysis(
     plots.append(out / "relations.png")
     plot_relations(report[report["graph"].isin(graphs)], graphs, plots[-1])
     shown = runs[runs["graph"].isin(graphs)]
-    # The plots of one model go to its own folder, those of the whole KG to `out`.
+    # The plots of one model go to its own folder under PLOTS_FOLDER.
     for model, model_runs in shown.groupby("model"):
-        (out / model).mkdir(exist_ok=True)
-        plots.append(out / model / f"{model}_hits_at_k.png")
+        model_plots = out / PLOTS_FOLDER / model
+        model_plots.mkdir(parents=True, exist_ok=True)
+        plots.append(model_plots / f"{model}_hits_at_k.png")
         deltas = relation_comparison[relation_comparison["model"] == model]
         plot_hits_curves(model_runs, deltas, graphs, reference, plots[-1])
-        plots.append(out / model / f"{model}_relations_{hits_range}.png")
+        plots.append(model_plots / f"{model}_relations_{hits_range}.png")
         plot_relation_hits(model_runs, dict(zip(graphs, CATEGORICAL)), plots[-1])
 
-    # One model order per KG, so that each model keeps its color in the Hits@k line plots.
+    # One model order per family, so that each model keeps its color in the Hits@k line plots.
     models = sorted(shown["model"].unique())
     if len(models) > len(CATEGORICAL):
         print(
@@ -1907,10 +1557,6 @@ def write_kg_analysis(
         plots.append(out / "training_loss.png")
         plot_training_losses(shown_losses, graphs, plots[-1])
 
-    for (compared, model), group in paired.groupby(["compared", "model"]):
-        (out / model).mkdir(exist_ok=True)
-        plots.append(out / model / f"{compared}_{model}.png")
-        plot_comparison(runs, group, plots[-1])
     for plot in plots:
         print(f"Wrote {plot}")
         if crop:
@@ -1919,48 +1565,56 @@ def write_kg_analysis(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="Collect Hits@k / MRR from pykeen results.json files into one CSV, "
-        "and analyse every test prediction behind them.",
+        description="Rank every held-out prediction of the models train_kge.py trained, "
+        "and compare the variants of each dataset family.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     p.add_argument(
-        "--root",
+        "--results",
         type=Path,
-        default=DEFAULT_ROOT,
-        help="Results directory to scan, expected to contain <dataset...>/<model>/results.json",
+        default=DEFAULT_RESULTS,
+        help="train_kge.py's output, with <dataset>/<model>/results.json",
     )
     p.add_argument(
         "--output",
         "-o",
         type=Path,
-        default=None,
-        help=f"Output CSV path; when unset, <root>/{REPORT_NAME}",
+        default=DEFAULT_OUTPUT,
+        help="Folder for the ranks and the analysis of every family",
     )
     p.add_argument(
-        "--analysis-dir",
-        type=Path,
+        "--families",
+        nargs="+",
         default=None,
-        help="Directory to write each KG's per-prediction analysis to, as "
-        f"<analysis-dir>/<kg>/; when unset, <root>/<kg>/{ANALYSIS_FOLDER}/",
+        help="Families to analyse, by their original dataset's name (default: all)",
+    )
+    p.add_argument(
+        "--variants",
+        nargs="+",
+        default=None,
+        choices=VARIANT_ORDER,
+        help="Variants to analyse (default: all)",
     )
     p.add_argument(
         "--reference",
-        default=DEFAULT_REFERENCE,
-        help="Dataset folder whose predictions are compared with its siblings'",
+        default=REFERENCE_VARIANT,
+        help="Variant whose relations and model ranking the others are compared with",
     )
     p.add_argument(
-        "--compare",
-        nargs="+",
-        default=DEFAULT_COMPARED,
-        metavar="PATTERN",
-        help="Sibling dataset folders compared with --reference query by query, as "
-        "shell-style patterns (quote them): graphs that keep the reference's entity names",
+        "--device",
+        default="cuda" if torch.cuda.is_available() else "cpu",
+        help="Device that scores the held-out predictions",
+    )
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help=f"Rank every run again, even those with a {PREDICTIONS_FILE}",
     )
     p.add_argument(
         "--crop",
         action="store_true",
         help="Also write every plot without its caption band (title and explanation) to "
-        f"a {CROPPED_FOLDER}/ subfolder of its KG's analysis folder, for a publication",
+        f"a {CROPPED_FOLDER}/ subfolder of its family's folder, for a publication",
     )
     return p.parse_args(argv)
 
@@ -1968,34 +1622,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
-    if not args.root.exists():
-        print(f"error: results directory not found: {args.root}")
+    if not args.results.is_dir():
+        print(f"error: results directory not found: {args.results}")
         return 1
-
-    base = dataset_base(args.root)
-    rows = build_report(args.root, base)
-    if not rows:
-        print(f"error: no results.json files found under {args.root}")
+    runs = find_runs(args.results, args.families, args.variants)
+    if not runs:
+        print(f"error: no finished run (results.json) under {args.results}")
         return 1
+    print(f"Found {len(runs)} finished run(s) under {args.results}")
 
-    # The ranks come first, since the table's Hits@k beyond results.json's come from them.
-    predictions = build_predictions(base, rows)
-    add_hits_from_ranks(rows, predictions)
-    output = args.output or args.root / REPORT_NAME
-    write_csv(rows, output)
-    print(f"Wrote {len(rows)} row(s) to {output}")
-
-    losses = build_losses(base, rows)
-    write_analysis(
-        rows,
-        predictions,
-        losses,
-        base,
-        args.analysis_dir,
-        args.reference,
-        args.compare,
-        args.crop,
-    )
+    predictions = build_predictions(runs, args.output, torch.device(args.device), args.force)
+    rows = build_report(predictions)
+    losses = build_losses(runs)
+    write_analysis(rows, predictions, losses, args.output, args.reference, args.crop)
     return 0
 
 
