@@ -43,6 +43,10 @@ REMOTE = "origin"
 WORKTREE = ".kge-results"
 RESULTS_DIR = "exp_results"
 PUSH_ATTEMPTS = 5
+# Most bytes of runs per commit and push. A push of a few hundred MB takes under
+# a minute, so it rarely meets another machine's push and, if it does, its retry
+# is short; GitHub refuses any push over 2 GB.
+BATCH_MB = 200
 DATASET_FILES = ("settings.json", "train", "valid", "test")
 
 
@@ -175,13 +179,45 @@ def identity_args(root: Path, machine: str) -> list[str]:
     ]
 
 
+def run_bytes(results: Path, dataset: str, model: str) -> int:
+    """The size of a run's files: its model folder and its status file."""
+    files = [p for p in (results / dataset / model).rglob("*") if p.is_file()]
+    files.append(results / dataset / "status" / f"{model}.json")
+    return sum(p.stat().st_size for p in files if p.is_file())
+
+
+def batches(
+    results: Path, runs: list[tuple[str, str]], batch_bytes: int
+) -> Iterator[list[tuple[str, str]]]:
+    """`runs` in order, grouped into batches of at most `batch_bytes` (a larger
+    run makes a batch of its own)."""
+    batch: list[tuple[str, str]] = []
+    size = 0
+    for run in runs:
+        run_size = run_bytes(results, *run)
+        if batch and size + run_size > batch_bytes:
+            yield batch
+            batch, size = [], 0
+        batch.append(run)
+        size += run_size
+    if batch:
+        yield batch
+
+
 def upload(
     results: Path = Path(RESULTS_DIR),
     remote: str = REMOTE,
     branch: str = BRANCH,
     machine: str | None = None,
+    batch_mb: int = BATCH_MB,
 ) -> int:
-    """Uploads the finished runs the branch lacks and returns how many."""
+    """
+    Uploads the finished runs the branch lacks and returns how many, in
+    commits and pushes of at most `batch_mb` MB of runs each, so a large
+    upload neither nears GitHub's 2 GB limit per push nor keeps losing the
+    race with other machines' pushes. The batches pushed before an error stay
+    uploaded; the next upload sends the rest.
+    """
     machine = machine or socket.gethostname()
     results = results.resolve()
     root = repository_root()
@@ -195,22 +231,39 @@ def upload(
                 push(worktree, remote, branch)
                 logger.info("Pushed the runs a failed push had left.")
             return 0
-        for dataset, model in new:
-            copy_run(results, target, dataset, model)
-        names = ", ".join(f"{d}/{m}" for d, m in new)
-        # -f: the code branches' .gitignore lists exp_results.
-        git("add", "-A", "-f", RESULTS_DIR, cwd=worktree)
-        git(
-            *identity_args(root, machine),
-            "commit",
-            "-q",
-            "-m",
-            f"Add {len(new)} runs trained on {machine}\n\n{names}",
-            cwd=worktree,
-        )
-        push(worktree, remote, branch)
-        logger.info("Uploaded %d runs to %s/%s: %s.", len(new), remote, branch, names)
-        return len(new)
+        # A commit left by a failed push goes first, so batches stack on it.
+        if unpushed(worktree, remote, branch):
+            push(worktree, remote, branch)
+        groups = list(batches(results, new, batch_mb * 1024 * 1024))
+        uploaded = 0
+        for number, batch in enumerate(groups, start=1):
+            for dataset, model in batch:
+                copy_run(results, target, dataset, model)
+            names = ", ".join(f"{d}/{m}" for d, m in batch)
+            # -f: the code branches' .gitignore lists exp_results.
+            git("add", "-A", "-f", RESULTS_DIR, cwd=worktree)
+            git(
+                *identity_args(root, machine),
+                "commit",
+                "-q",
+                "-m",
+                f"Add {len(batch)} runs trained on {machine}\n\n{names}",
+                cwd=worktree,
+            )
+            push(worktree, remote, branch)
+            uploaded += len(batch)
+            logger.info(
+                "Batch %d/%d: uploaded %d runs to %s/%s (%d of %d): %s.",
+                number,
+                len(groups),
+                len(batch),
+                remote,
+                branch,
+                uploaded,
+                len(new),
+                names,
+            )
+        return uploaded
 
 
 def download(
@@ -262,13 +315,21 @@ def main() -> int:
     parser.add_argument("--results", type=Path, default=Path(RESULTS_DIR))
     parser.add_argument("--remote", default=REMOTE)
     parser.add_argument("--branch", default=BRANCH)
+    parser.add_argument(
+        "--batch-mb",
+        type=int,
+        default=BATCH_MB,
+        help="most MB of runs per commit and push (default: %(default)s)",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     try:
         if args.download:
             download(args.results, args.remote, args.branch)
         else:
-            count = upload(args.results, args.remote, args.branch)
+            count = upload(
+                args.results, args.remote, args.branch, batch_mb=args.batch_mb
+            )
             if not count:
                 logger.info("Nothing to upload: the branch has every finished run.")
     except RuntimeError as error:
