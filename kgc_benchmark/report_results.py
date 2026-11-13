@@ -28,7 +28,9 @@ variants.
 Output, under `--output` (`exp_analysis/`):
 
     metrics.csv                      one row per family, variant and model:
-                                     Hits@1/3/5/10/15, MRR and predictions
+                                     Hits@1/3/5/10/15, MRR and predictions;
+                                     a run limited with --families or
+                                     --variants replaces only its own rows
     <family>/
         metrics.csv                  Hits@1 to Hits@1000 and MRR per variant and model
         relations.csv                the same per relation
@@ -54,6 +56,7 @@ Usage, from the repository root:
     python kgc_benchmark/report_results.py
     python kgc_benchmark/report_results.py --families french family
     python kgc_benchmark/report_results.py --variants original ours --crop
+    python kgc_benchmark/report_results.py --ranked-only   # plot now, rank later
 """
 
 from __future__ import annotations
@@ -63,6 +66,7 @@ import csv
 import fcntl
 import gzip
 import json
+import multiprocessing
 import os
 import signal
 import textwrap
@@ -70,6 +74,7 @@ import time
 import zlib
 from collections import defaultdict
 from collections.abc import Iterator
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
@@ -645,12 +650,25 @@ def rank_predictions(
     )
     model.eval()
     ranks, candidates = {}, {}
+    # Scoring a batch against every entity can take GBs (TransD on YAGO3-10:
+    # 256 x 123,000 x 50 floats), more than a GPU shared by several workers
+    # has free. A batch that runs out of memory is halved and scored again;
+    # each prediction is scored on its own, so the ranks don't depend on it.
+    batch_size = SCORE_BATCH_SIZE
     with torch.inference_mode():
         for side, column in (("head", 0), ("tail", 2)):
             side_ranks, side_candidates = [], []
-            for batch in torch.split(held_out_ids, SCORE_BATCH_SIZE):
-                batch = batch.to(device)
-                scores = model.predict(hrt_batch=batch, target=side)
+            start = 0
+            while start < len(held_out_ids):
+                batch = held_out_ids[start : start + batch_size].to(device)
+                try:
+                    scores = model.predict(hrt_batch=batch, target=side)
+                except torch.OutOfMemoryError:
+                    if batch_size == 1:
+                        raise
+                    batch_size //= 2
+                    torch.cuda.empty_cache()
+                    continue
                 rows = torch.arange(len(batch), device=device)
                 true_scores = scores[rows, batch[:, column]]
                 for i, (h, r, t) in enumerate(batch.tolist()):
@@ -663,6 +681,8 @@ def rank_predictions(
                 not_worse = (scores >= true_scores[:, None]).sum(dim=1)
                 side_ranks.append(((better + 1 + not_worse) / 2).cpu())
                 side_candidates.append(torch.isfinite(scores).sum(dim=1).cpu())
+                del scores
+                start += len(batch)
             ranks[side] = torch.cat(side_ranks).double().numpy()
             candidates[side] = torch.cat(side_candidates).numpy()
 
@@ -690,71 +710,194 @@ def predictions_path(output: Path, dataset: str, model: str) -> Path:
     return output / dataset / model / PREDICTIONS_FILE
 
 
+def init_ranking_worker(threads: int) -> None:
+    """
+    Set up a ranking worker process. The main process stops the workers, so
+    Ctrl-C reaching them too is ignored, and SIGTERM raises KeyboardInterrupt
+    so that `atomic_path` removes the half-written file of the run in hand.
+    """
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    signal.signal(signal.SIGTERM, signal.default_int_handler)
+    torch.set_num_threads(threads)
+
+
+def rank_run(
+    dataset_dir: Path, model_dir: Path, path: Path, device: str
+) -> tuple[float, str | None]:
+    """
+    Rank one run (`rank_predictions`) and write its ranks to `path`,
+    atomically. Returns the seconds it took and an error message, or None.
+    Runs in a worker process with --workers, so it takes and returns only
+    picklable values.
+    """
+    start = time.monotonic()
+    ranks = rank_predictions(dataset_dir, model_dir, torch.device(device))
+    if ranks is None:
+        return time.monotonic() - start, "could not rank, see the log"
+    with atomic_path(path) as temporary:
+        ranks.to_csv(temporary, index=False, compression="gzip")
+    return time.monotonic() - start, None
+
+
+def rank_pending(
+    pending: list[dict],
+    output: Path,
+    device: torch.device,
+    progress: Progress,
+    workers: int,
+) -> None:
+    """
+    Rank the `pending` runs and write their caches, one at a time or in
+    `workers` processes at once. Each run is ranked by one process, so the
+    ranks are those of a single process. At most `workers` runs are handed
+    out at a time, so the runs marked "ranking" in `progress` are those being
+    ranked. A line reports each ranked run with an estimate of the time left.
+    """
+    left = sum(progress.rows[r["dataset"], r["model"]]["held_out"] for r in pending)
+    ranked_triples, busy_seconds, done = 0, 0.0, 0
+    start = time.monotonic()
+
+    def finished(run: dict, seconds: float, error: str | None) -> None:
+        nonlocal left, ranked_triples, busy_seconds, done
+        dataset, model = run["dataset"], run["model"]
+        held_out = progress.rows[dataset, model]["held_out"]
+        left -= held_out
+        if error is not None:
+            progress.set(dataset, model, status="failed", error=error)
+            print(f"warning: {dataset}/{model} failed: {error}", flush=True)
+            return
+        progress.set(dataset, model, status="ranked", seconds=round(seconds, 1))
+        done += 1
+        ranked_triples += held_out
+        busy_seconds += seconds
+        # With several workers, the speed that counts is the wall-clock one.
+        elapsed = time.monotonic() - start
+        rate = ranked_triples / elapsed if elapsed else 0
+        eta = f", ETA {duration(left / rate)}" if rate and left > 0 else ""
+        print(
+            f"[{done}/{len(pending)}] {dataset}/{model}: {held_out:,} held-out triples "
+            f"in {duration(seconds)}; {rate:.0f} triples/s overall; {left:,} left{eta}",
+            flush=True,
+        )
+
+    def started(run: dict) -> None:
+        progress.set(run["dataset"], run["model"], status="ranking", error="")
+
+    if workers <= 1:
+        for run in pending:
+            progress.stage("ranking", f"{run['dataset']}/{run['model']}")
+            started(run)
+            path = predictions_path(output, run["dataset"], run["model"])
+            seconds, error = rank_run(
+                run["dataset_dir"], run["model_dir"], path, str(device)
+            )
+            finished(run, seconds, error)
+        return
+
+    # CUDA can't be used in a forked process. The cores are shared out so the
+    # workers' PyTorch threads don't compete.
+    threads = max(1, (os.cpu_count() or 1) // workers)
+    executor = ProcessPoolExecutor(
+        max_workers=workers,
+        mp_context=multiprocessing.get_context("spawn"),
+        initializer=init_ranking_worker,
+        initargs=(threads,),
+    )
+    queue = list(pending)
+    running: dict = {}
+
+    def submit() -> None:
+        while queue and len(running) < workers:
+            run = queue.pop(0)
+            started(run)
+            path = predictions_path(output, run["dataset"], run["model"])
+            future = executor.submit(
+                rank_run, run["dataset_dir"], run["model_dir"], path, str(device)
+            )
+            running[future] = run
+        progress.stage(
+            "ranking",
+            ", ".join(f"{r['dataset']}/{r['model']}" for r in running.values()),
+        )
+
+    try:
+        submit()
+        while running:
+            completed, _ = wait(running, return_when=FIRST_COMPLETED)
+            for future in completed:
+                run = running.pop(future)
+                try:
+                    seconds, error = future.result()
+                except Exception as e:  # e.g. the GPU ran out of memory
+                    seconds, error = 0.0, f"{type(e).__name__}: {e}"
+                finished(run, seconds, error)
+            submit()
+    except BaseException:
+        # Stop every worker; each removes its half-written file (see
+        # init_ranking_worker) and its run goes back to pending.
+        for process in list(getattr(executor, "_processes", {}).values()):
+            if process.is_alive():
+                process.terminate()
+        executor.shutdown(wait=True, cancel_futures=True)
+        raise
+    executor.shutdown(wait=True)
+
+
 def build_predictions(
     runs: list[dict],
     output: Path,
     device: torch.device,
     progress: Progress,
     force: bool = False,
+    workers: int = 1,
+    ranked_only: bool = False,
 ) -> pd.DataFrame:
     """
     The ranks of every held-out prediction of every run of `runs` (from
     `find_runs`). A run's ranks are computed once and kept in
     `predictions_path`, written atomically, which later calls read back unless
-    `force` is given, so an interrupted validation resumes where it stopped. A
+    `force` is given, so an interrupted validation resumes where it stopped.
+    The runs to rank are ranked by `rank_pending`, in `workers` processes. A
     run whose test predictions don't reproduce the MRR in its results.json is
-    left out: its splits or model on disk don't match. `progress` records each
-    run's status, and a line reports each newly ranked run with an estimate of
-    the time left.
+    left out: its splits or model on disk don't match. With `ranked_only`,
+    no run is ranked: the runs without cached ranks are left out and stay
+    pending for a later call.
     """
-    pending = [
-        run
-        for run in runs
-        if force or not predictions_path(output, run["dataset"], run["model"]).is_file()
-    ]
+    cached: dict[tuple[str, str], pd.DataFrame] = {}
+    pending = []
+    for run in runs:
+        path = predictions_path(output, run["dataset"], run["model"])
+        ranks = read_cached_ranks(path) if not force and path.is_file() else None
+        if ranks is None:
+            pending.append(run)
+        else:
+            cached[run["dataset"], run["model"]] = ranks
     left = sum(progress.rows[r["dataset"], r["model"]]["held_out"] for r in pending)
-    print(
-        f"{len(runs) - len(pending)} run(s) already ranked, {len(pending)} to rank "
-        f"({left:,} held-out triples)"
-    )
-    ranked_triples, ranking_seconds, done = 0, 0.0, 0
+    if ranked_only:
+        print(
+            f"{len(cached)} run(s) already ranked; --ranked-only leaves out the "
+            f"{len(pending)} run(s) still to rank ({left:,} held-out triples)",
+            flush=True,
+        )
+        pending = []
+    else:
+        print(
+            f"{len(cached)} run(s) already ranked, {len(pending)} to rank "
+            f"({left:,} held-out triples) with {workers} worker(s)",
+            flush=True,
+        )
+    rank_pending(pending, output, device, progress, workers)
+
     frames = []
     for run in runs:
         dataset, model = run["dataset"], run["model"]
-        path = predictions_path(output, dataset, model)
-        cached = not force and path.is_file()
-        ranks = read_cached_ranks(path) if cached else None
-        if cached and ranks is None:
-            # An unreadable cache: one more run to rank than counted above.
-            pending.append(run)
-            left += progress.rows[dataset, model]["held_out"]
+        ranks = cached.get((dataset, model))
         if ranks is None:
-            progress.stage("ranking", f"{dataset}/{model}")
-            progress.set(dataset, model, status="ranking", error="")
-            start = time.monotonic()
-            ranks = rank_predictions(run["dataset_dir"], run["model_dir"], device)
-            if ranks is None:
-                progress.set(
-                    dataset, model, status="failed", error="could not rank, see the log"
-                )
+            if progress.rows[dataset, model]["status"] != "ranked":
                 continue
-            with atomic_path(path) as temporary:
-                ranks.to_csv(temporary, index=False, compression="gzip")
-            seconds = time.monotonic() - start
-            held_out = progress.rows[dataset, model]["held_out"]
-            progress.set(dataset, model, status="ranked", seconds=round(seconds, 1))
-            done += 1
-            ranked_triples += held_out
-            ranking_seconds += seconds
-            left -= held_out
-            rate = ranked_triples / ranking_seconds if ranking_seconds else 0
-            eta = f", ETA {duration(left / rate)}" if rate and left > 0 else ""
-            print(
-                f"[{done}/{len(pending)}] {dataset}/{model}: {held_out:,} held-out triples "
-                f"in {duration(seconds)} ({rate:.0f}/s); {left:,} left{eta}",
-                flush=True,
-            )
-
+            ranks = read_cached_ranks(predictions_path(output, dataset, model))
+            if ranks is None:
+                continue
         metrics = extract_metrics(run["model_dir"] / "results.json")
         test = ranks[ranks["split"] == "test"]
         mrr = (1 / test["rank"]).mean()
@@ -1680,6 +1823,33 @@ def write_cropped(plot: Path, out: Path) -> Path:
     return cropped
 
 
+def merge_summary(summary: list[dict], path: Path) -> tuple[list[dict], int]:
+    """
+    Merge the summary rows of this run into the summary already at `path`.
+
+    A run limited with --families or --variants only covers some runs, so
+    the rows of the other runs are read back from the existing file and
+    kept. A row of this run replaces the row with the same family, variant
+    and model. The rows are sorted by family, variant and model.
+
+    Returns:
+        The merged rows, and how many of them were kept from the file.
+    """
+
+    def key(row: dict) -> tuple[str, str, str]:
+        return row["family"], row["variant"], row["model"]
+
+    merged = {key(row): row for row in summary}
+    kept = 0
+    if path.is_file():
+        with path.open(newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                if key(row) not in merged:
+                    merged[key(row)] = row
+                    kept += 1
+    return [merged[k] for k in sorted(merged)], kept
+
+
 def write_analysis(
     rows: list[dict],
     predictions: pd.DataFrame,
@@ -1704,8 +1874,12 @@ def write_analysis(
         {**dict(zip(("family", "variant"), row["dataset"].split("/"))), **row}
         for row in rows
     ]
-    write_csv(summary, output / SUMMARY_NAME, SUMMARY_FIELDS)
-    print(f"Wrote {len(summary)} row(s) to {output / SUMMARY_NAME}")
+    merged, kept = merge_summary(summary, output / SUMMARY_NAME)
+    write_csv(merged, output / SUMMARY_NAME, SUMMARY_FIELDS)
+    print(
+        f"Wrote {len(merged)} row(s) to {output / SUMMARY_NAME} "
+        f"({len(summary)} from this run, {kept} kept from earlier runs)"
+    )
 
     runs = split_dataset(predictions)
     losses = split_dataset(losses)
@@ -1864,9 +2038,21 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Device that scores the held-out predictions",
     )
     p.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Runs ranked at once, each in its own process (use MPS to share the GPU)",
+    )
+    p.add_argument(
         "--force",
         action="store_true",
         help=f"Rank every run again, even those with a {PREDICTIONS_FILE}",
+    )
+    p.add_argument(
+        "--ranked-only",
+        action="store_true",
+        help="Rank no run: write the tables and plots of the runs already ranked, "
+        "and leave the others pending for a later run without this flag",
     )
     p.add_argument(
         "--crop",
@@ -1888,6 +2074,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: no finished run (results.json) under {args.results}")
         return 1
     print(f"Found {len(runs)} finished run(s) under {args.results}")
+    if args.workers < 1:
+        print("error: --workers must be at least 1")
+        return 2
 
     # Ctrl-C and SIGTERM (e.g. kill) stop the validation cleanly. SIGINT is set
     # explicitly: a process started in the background inherits it ignored.
@@ -1903,7 +2092,13 @@ def main(argv: list[str] | None = None) -> int:
         progress = Progress(args.output, runs, args.force, args.families, args.variants)
         try:
             predictions = build_predictions(
-                runs, args.output, torch.device(args.device), progress, args.force
+                runs,
+                args.output,
+                torch.device(args.device),
+                progress,
+                args.force,
+                args.workers,
+                args.ranked_only,
             )
             rows = build_report(predictions)
             losses = build_losses(runs)
