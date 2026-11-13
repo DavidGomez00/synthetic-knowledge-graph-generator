@@ -320,7 +320,15 @@ def find_datasets(
         if missing:
             raise ValueError(f"Datasets not found under {root}: {', '.join(missing)}")
         folders = {name: folders[name] for name in names}
-    return sorted(folders.values(), key=lambda d: (d / "train").stat().st_size)
+    # Lines, not bytes: YAGO3-10's splits hold integer IDs, so its train file is
+    # smaller in bytes than those of datasets with half its triples.
+    return sorted(folders.values(), key=lambda d: count_lines(d / "train"))
+
+
+def count_lines(path: Path) -> int:
+    """The number of lines of a file, read in binary chunks."""
+    with path.open("rb") as f:
+        return sum(chunk.count(b"\n") for chunk in iter(lambda: f.read(1 << 20), b""))
 
 
 @contextmanager
