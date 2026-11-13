@@ -9,7 +9,9 @@ block of rows per family. Each table has one row per model of MODELS and
 one group of columns (Hits@1/3/5/10/15 and MRR) for the original dataset and
 each generator of GENERATORS. A run missing from `metrics.csv` (not trained or
 not ranked yet, or a generator without copies of the dataset, such as PyGraft
-on YAGO3-10) is shown as "-".
+on YAGO3-10) is shown as "-". In each block, the highest value of each metric
+of each variant over the models is bold (all of them on a tie); a column whose
+models all show the same value has no bold.
 
 Each table goes to its own file in `--output-dir` (default
 `exp_analysis/results_tables/`), named after its label: `family_french.tex`,
@@ -107,12 +109,42 @@ def latex_name(dataset: str) -> str:
     return dataset.replace("_", "\\_")
 
 
-def cells(metrics: Metrics, dataset: str, model: str) -> list[str]:
+def best_values(metrics: Metrics, dataset: str) -> dict[tuple[str, str], float]:
+    """The highest value, rounded as shown, of each metric of each variant of a
+    dataset over the models of MODELS, keyed by (variant, metric). A column whose
+    models all show the same value has no best and is left out."""
+    best = {}
+    for _, variant in GENERATORS:
+        for _, key in METRICS:
+            values = [
+                round(float(row[key]), DECIMALS)
+                for model in MODELS
+                if variant and (row := metrics.get((dataset, variant, model)))
+            ]
+            if len(set(values)) > 1:
+                best[variant, key] = max(values)
+    return best
+
+
+def cells(
+    metrics: Metrics,
+    dataset: str,
+    model: str,
+    best: dict[tuple[str, str], float],
+) -> list[str]:
+    """A model's row of values, the best of each column (`best_values`) in bold."""
     out = []
     for _, variant in GENERATORS:
         row = metrics.get((dataset, variant, model)) if variant else None
         for _, key in METRICS:
-            out.append(f"{float(row[key]):.{DECIMALS}f}" if row else MISSING)
+            if not row:
+                out.append(MISSING)
+                continue
+            value = round(float(row[key]), DECIMALS)
+            text = f"{value:.{DECIMALS}f}"
+            if best.get((variant, key)) == value:
+                text = f"\\textbf{{{text}}}"
+            out.append(text)
     return out
 
 
@@ -137,7 +169,8 @@ def build_table(
         "\\centering",
         "\\setlength{\\tabcolsep}{3pt}",
         "\\renewcommand{\\arraystretch}{0.8}",
-        f"\\caption{{{caption}}}",
+        f"\\caption{{{caption} In each graph, the best model of each metric is "
+        "in bold, for the original graph and each generator.}",
         f"\\label{{{label}}}",
         "\\resizebox{\\textwidth}{!}{%",
         f"\\begin{{tabular}}{{l|l||{columns}}}",
@@ -151,11 +184,12 @@ def build_table(
         "\\hline\\hline",
     ]
     for block_label, dataset in blocks:
+        best = best_values(metrics, dataset)
         for i, model in enumerate(MODELS):
             first = (
                 f"\\multirow{{{len(MODELS)}}}{{*}}{{{block_label}}}" if i == 0 else ""
             )
-            row = [first, model, *cells(metrics, dataset, model)]
+            row = [first, model, *cells(metrics, dataset, model, best)]
             lines.append(" & ".join(row) + " \\\\")
         lines.append("\\hline")
     lines += ["\\end{tabular}%", "}", "\\end{table*}"]
