@@ -133,10 +133,6 @@ class HornRule:
         head_coverage: Head coverage of the rule.
         functional_variable: The head variable AMIE computed the PCA confidence
             on (e.g. `?b`), or None if the rules CSV doesn't give it.
-        pca_body_size: The rule's PCA body size in the source (the denominator of
-            its PCA confidence), or None if the rules CSV doesn't give it.
-        partial_target: How the EDB targets a partial rule, one of
-            `PARTIAL_TARGETS` (see `grounding_target`); set per run.
     """
 
     signature: RuleSignature
@@ -145,10 +141,8 @@ class HornRule:
     std_confidence: float | None = None
     pca_confidence: float | None = None
     functional_variable: str | None = None
-    pca_body_size: float | None = None
     classification: str = "UNKNOWN"
     closed: bool = False
-    partial_target: str = "pca-body"
 
     @property
     def head(self) -> Atom:
@@ -204,31 +198,12 @@ class HornRule:
     @property
     def grounding_target(self) -> int:
         """The support the generator builds for the rule: the whole support for a
-        complete rule, and for a partial rule with `partial_target` "pca-body". With
-        "pca-support", a partial rule's target is PCA confidence x support, rounded
-        half up (support 300 at PCA confidence 0.5 gives 150)."""
-        if self.is_complete or self.partial_target == "pca-body":
+        complete rule, and PCA confidence x support, rounded half up, for a partial
+        rule (support 300 at PCA confidence 0.5 gives 150)."""
+        if self.is_complete:
             return int(self.support)
         return math.floor((self.pca_confidence or 0.0) * self.support + 0.5)
 
-    @property
-    def counterexample_ratio(self) -> float | None:
-        """The PCA counter-examples the EDB builds per supported grounding of a
-        partial rule with `partial_target` "pca-body": (PCA body size - support) /
-        support, so that support / PCA body size is the source's PCA confidence. A
-        counter-example is a body grounding without its head whose functional
-        variable has some value of the head relation. None, meaning none are built,
-        for any other rule or if the CSV lacks the functional variable or the PCA
-        body size."""
-        if (
-            self.is_complete
-            or self.partial_target != "pca-body"
-            or self.functional_variable is None
-            or not self.pca_body_size
-            or self.support <= 0
-        ):
-            return None
-        return max(self.pca_body_size - self.support, 0) / self.support
 
     def get_edb_atoms(self, intensional_preds: set[str]) -> frozenset[Atom]:
         """Returns the atoms the EDB grounds for the rule: the extensional body of a
@@ -247,10 +222,6 @@ class HornRule:
 # Rule parsing.
 # ---------------------------------------------------------------------------
 ATOM_PATTERN = re.compile(r"(\?\w+)\s+(\S+)\s+(\S+)")
-# How the EDB targets a partial rule (`HornRule.partial_target`): its support plus
-# the PCA counter-examples of its source PCA body ("pca-body"), or PCA confidence x
-# support supported groundings ("pca-support").
-PARTIAL_TARGETS = ("pca-body", "pca-support")
 # Std confidence a rule needs to be kept when no PCA threshold is given.
 DEFAULT_STD_THRESHOLD = 1.0
 
@@ -318,9 +289,8 @@ def _parse_horn_rule(
         """Returns float or Python None for Pandas/Numpy NaNs securely."""
         return 0.0 if (pd.isna(value) or value is None) else float(value)
 
-    # Optional columns: rules CSVs not written by run_amie.py may lack them.
+    # Optional column: rules CSVs not written by run_amie.py may lack it.
     functional_variable = getattr(row, "functional_variable", None)
-    pca_body_size = getattr(row, "pca_body_size", None)
 
     rule = HornRule(
         signature=RuleSignature(
@@ -337,7 +307,6 @@ def _parse_horn_rule(
             if pd.isna(functional_variable)
             else str(functional_variable).strip() or None
         ),
-        pca_body_size=None if pd.isna(pca_body_size) else float(pca_body_size),
         classification=row.classification,
     )
 

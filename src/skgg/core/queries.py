@@ -955,35 +955,6 @@ def get_new_head_bindings(
     ]
 
 
-def get_headless_body_bindings(
-    client: SPARQLWrapper, rule: HornRule, graph_uri: str
-) -> list[dict[str, str]]:
-    """Returns the distinct bindings of the rule's head variables for which its body
-    holds in the graph and its head triple doesn't: the body groundings the rule
-    leaves without a head. Those whose functional variable has some value of the
-    head relation are its PCA counter-examples.
-
-    Values come back as bracketed terms, as in `get_atom_bindings`.
-    """
-    patterns = "\n          ".join(f"{atom} ." for atom in sorted(rule.body))
-    proj = " ".join(sorted(rule.get_head_variables()))
-
-    query = f"""
-    SELECT DISTINCT {proj} WHERE {{
-      GRAPH <{graph_uri}> {{
-          {patterns}
-      }}
-      FILTER NOT EXISTS {{
-        GRAPH <{graph_uri}> {{ {rule.head} . }}
-      }}
-    }}"""
-
-    return [
-        {f"?{name}": format_term(cell["value"]) for name, cell in row.items()}
-        for row in execute_select_query(client, query)
-    ]
-
-
 def get_unsupported_head_bindings(
     client: SPARQLWrapper,
     rule: HornRule,

@@ -147,8 +147,8 @@ class RulesConfig:
             or missing the confidence it filters on, so only the remaining
             rules flow into EDB generation and completion. A kept rule with
             std confidence below 1 is partial (`HornRule.is_complete`): the EDB
-            builds its groundings with their head, to the target that
-            `--partial-target` picks, and completion doesn't apply it.
+            builds round(PCA confidence x support) of its groundings with their
+            head, after the complete rules, and completion doesn't apply it.
             Overridable per run with `--pca-conf` on the CLI.
     """
 

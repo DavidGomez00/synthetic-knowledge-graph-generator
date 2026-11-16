@@ -25,7 +25,6 @@ from skgg.core.queries import (
 )
 from skgg.core.rules import (
     DEFAULT_STD_THRESHOLD,
-    PARTIAL_TARGETS,
     Atom,
     HornRule,
     get_impacted_rules,
@@ -428,7 +427,6 @@ def run_synthetic_graph_experiment(
     base_uri: str | None = None,
     namespace: str | None = None,
     skip_reflexivity: bool = False,
-    partial_target: str = "pca-body",
 ) -> None:
     """Runs a Synthetic Graph generation experiment.
 
@@ -448,10 +446,9 @@ def run_synthetic_graph_experiment(
     round(PCA confidence x support) groundings of their body together with their
     head (`HornRule.grounding_target`), completion doesn't apply them, and their
     head relation stays extensional, so random triples fill the rest of it.
-    `partial_target` (one of `PARTIAL_TARGETS`) sets their target: "pca-body"
-    builds their whole support plus body groundings without a head, their PCA
-    counter-examples, in the source's ratio (`HornRule.counterexample_ratio`), and
-    "pca-support" builds round(PCA confidence x support) supported groundings.
+    Every complete rule is grounded before the partial rules, and the frequency
+    the complete rules derive is held back from the partial rules
+    (`edb._reserve_derived_budget`).
 
     The run's graphs are named after its rule filter (`rule_filter_label`, e.g.
     `pca=0.9`), so runs at different thresholds keep separate graphs: the EDB plus
@@ -552,37 +549,21 @@ def run_synthetic_graph_experiment(
         )
     # Completion forward-chains the complete rules only. The EDB grounds each
     # partial rule with its head, `grounding_target` times.
-    if partial_target not in PARTIAL_TARGETS:
-        raise ValueError(
-            f"Unknown partial target {partial_target!r}: use one of {PARTIAL_TARGETS}."
-        )
-    for rule in rules.values():
-        rule.partial_target = partial_target
     complete_rules = {r_id: r for r_id, r in rules.items() if r.is_complete}
     partial_rules = {r_id: r for r_id, r in rules.items() if not r.is_complete}
     logger.info(
         "%d rules: %d complete (std confidence 1, forward-chained), %d partial "
-        "(target %s: %s).",
+        "(grounded round(PCA confidence x support) times in the EDB, after the "
+        "complete rules).",
         len(rules),
         len(complete_rules),
         len(partial_rules),
-        partial_target,
-        "their support plus their PCA counter-examples"
-        if partial_target == "pca-body"
-        else "round(PCA confidence x support) supported groundings",
     )
     if partial_rules:
-
-        def target(rule: HornRule) -> str:
-            text = f"{rule.grounding_target}"
-            if (ratio := rule.counterexample_ratio) is not None:
-                text += f" + {round(rule.grounding_target * ratio)} counter-examples"
-            return text
-
         logger.debug(
-            "Partial rules (target, of support): %s",
+            "Partial rules (grounding target/support): %s",
             ", ".join(
-                f"{r_id} {target(r)} of {int(r.support)}"
+                f"{r_id} {r.grounding_target}/{int(r.support)}"
                 for r_id, r in partial_rules.items()
             ),
         )
@@ -820,16 +801,6 @@ def _parse_args() -> argparse.Namespace:
         "self-loops by chance. By default each relation gets exactly the source's "
         "self-loops.",
     )
-    parser.add_argument(
-        "--partial-target",
-        choices=PARTIAL_TARGETS,
-        default="pca-body",
-        help="How the EDB targets a partial rule (std confidence below 1, kept by "
-        "--pca-conf): pca-body (default) builds its whole support plus body "
-        "groundings without a head, its PCA counter-examples, so support / PCA "
-        "body is its source PCA confidence; pca-support builds round(PCA "
-        "confidence x support) supported groundings.",
-    )
     return parser.parse_args()
 
 
@@ -845,5 +816,4 @@ if __name__ == "__main__":
         base_uri=args.base_uri,
         namespace=args.namespace,
         skip_reflexivity=args.skip_reflexivity,
-        partial_target=args.partial_target,
     )

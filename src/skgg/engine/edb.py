@@ -11,9 +11,8 @@ extensional predicate's target frequency is reached ("closed"):
      constructed directly from the profiles (`generator.sample_groundings`) so a
      chosen triple never violates another predicate's remaining domain/range budget.
      A partial rule (`HornRule.is_complete` is False) is grounded with its head,
-     `HornRule.grounding_target` times, since completion doesn't apply it, and,
-     with `partial_target` "pca-body", gets body groundings without a head as
-     well, its PCA counter-examples (`_insert_counterexamples`).
+     `HornRule.grounding_target` times, since completion doesn't apply it, and
+     only once every complete rule is grounded.
   3. `insert_random_triples`: random assignment for whatever isn't pinned down
      by the first two steps, with subjects and objects drawn weighted by their
      remaining budget, still respecting the Gale-Ryser/Havel-Hakimi
@@ -28,7 +27,6 @@ left. If another rule also derives the relation, the EDB leaves it empty and
 
 import heapq
 import logging
-import math
 import random
 from collections import Counter
 from collections.abc import Collection, Iterator
@@ -41,7 +39,6 @@ from skgg.core.queries import (
     get_atom_bindings,
     get_domain,
     get_frequency,
-    get_headless_body_bindings,
     get_reflexivity,
     get_support,
     initialize_graph,
@@ -58,7 +55,6 @@ from skgg.core.utils import format_triple, short_term
 from skgg.engine.generator import (
     decrement_counts,
     is_assignment_solvable,
-    sample_grounding_groups,
     sample_groundings,
     update_closed_preds,
 )
@@ -297,7 +293,6 @@ def check_triples_from_rule(
     chunk_size: int,
     undirected_preds: Collection[str] = (),
     skip_reflexivity: bool = False,
-    source_keys: dict[str, tuple[frozenset[str], frozenset[str]]] | None = None,
 ) -> int:
     """Builds groundings of the rule's EDB atoms (`HornRule.get_edb_atoms`) up to its
     `grounding_target` and inserts them into the EDB.
@@ -310,10 +305,6 @@ def check_triples_from_rule(
     the new triples join existing EDB facts of those atoms instead
     (`fixed_bindings`), and if there are none the rule gets nothing.
 
-    A partial rule with a `counterexample_ratio` then gets its PCA counter-examples
-    (`_insert_counterexamples`), so its support over its PCA body matches its
-    source PCA confidence.
-
     Args:
         rule: The HornRule being evaluated.
         intensional_preds: Set of intensional predicate strings.
@@ -325,8 +316,6 @@ def check_triples_from_rule(
         undirected_preds: Predicates whose triples are inserted in both directions.
         skip_reflexivity: Use the grounding logic before the self-loop fix (see
             `generator.sample_grounding_groups`).
-        source_keys: Each predicate's source domain and range keys, before any
-            budget was spent; needed for the counter-examples.
 
     Returns:
         The number of successfully inserted triples.
@@ -394,125 +383,8 @@ def check_triples_from_rule(
                 triple_stream=iter(triples),
                 chunk_size=chunk_size,
             )
-
-    if rule.counterexample_ratio is not None and source_keys is not None:
-        inserted += _insert_counterexamples(
-            rule=rule,
-            profiles=profiles,
-            client=client,
-            term_mapping=term_mapping,
-            edb_uri=edb_uri,
-            chunk_size=chunk_size,
-            undirected_preds=undirected_preds,
-            skip_reflexivity=skip_reflexivity,
-            source_keys=source_keys,
-        )
     return inserted
 
-
-def _insert_counterexamples(
-    rule: HornRule,
-    profiles: dict[str, PredicateProfile],
-    client: SPARQLWrapper,
-    term_mapping: dict[str, str],
-    edb_uri: str,
-    chunk_size: int,
-    undirected_preds: Collection[str],
-    skip_reflexivity: bool,
-    source_keys: dict[str, tuple[frozenset[str], frozenset[str]]],
-) -> int:
-    """Builds the PCA counter-examples of a partial rule and inserts them into the
-    EDB: groundings of its body whose head triple is absent and whose functional
-    variable takes an entity of the head relation's source domain (or range, if the
-    variable is the head's object). The head relation is generated to its profile,
-    so that entity ends with a head fact and the grounding counts in the rule's PCA
-    body without adding support.
-
-    The rule needs `round(support in the EDB x counterexample_ratio)` of them, so
-    its support over its PCA body is the source's PCA confidence even when it fell
-    short of its support. Counter-examples already in the EDB count. Body atoms
-    whose predicate has no budget left join existing facts, as in
-    `check_triples_from_rule`.
-
-    Returns:
-        The number of triples inserted.
-    """
-    ratio, variable, head = (
-        rule.counterexample_ratio,
-        rule.functional_variable,
-        rule.head,
-    )
-    if ratio is None or variable is None or head.predicate not in source_keys:
-        return 0
-    if variable not in (head.subject, head.obj):
-        logger.warning(
-            "Functional variable %s of rule %s is not in its head; no "
-            "counter-examples.",
-            variable,
-            rule.rule_id,
-        )
-        return 0
-    domain_keys, range_keys = source_keys[head.predicate]
-    entities = domain_keys if variable == head.subject else range_keys
-
-    support = get_support(client, rule, edb_uri)
-    target = math.floor(support * ratio + 0.5)
-    existing = sum(
-        1
-        for row in get_headless_body_bindings(client, rule, edb_uri)
-        if row.get(variable) in entities
-    )
-    if (missing := target - existing) <= 0:
-        return 0
-
-    spent_preds = _spent_preds(profiles)
-    atoms = [
-        a
-        for a in rule.body
-        if a.predicate in profiles and a.predicate not in spent_preds
-    ]
-    fixed = (
-        _join_rows(client, rule, atoms, edb_uri, ROWS_PER_GROUNDING * missing)
-        if atoms
-        else []
-    )
-    if fixed is not None and not fixed:
-        logger.debug(
-            "Partial rule %s: no budget or EDB facts left for its %d counter-examples.",
-            rule.rule_id,
-            missing,
-        )
-        return 0
-
-    groups = sample_grounding_groups(
-        client=client,
-        target_uri=edb_uri,
-        atoms=atoms,
-        head_vars=rule.get_head_variables(),
-        profiles=profiles,
-        missing_heads=missing,
-        term_mapping=term_mapping,
-        chunk_size=chunk_size,
-        fixed_bindings=fixed,
-        undirected=undirected_preds,
-        skip_reflexivity=skip_reflexivity,
-        allowed={variable: entities},
-        headless=head,
-    )
-    logger.debug(
-        "Partial rule %s: %d of %d missing counter-examples (support %d, target %d).",
-        rule.rule_id,
-        len(groups),
-        missing,
-        support,
-        target,
-    )
-    return insert_triples_sparql(
-        client=client,
-        graph_uri=edb_uri,
-        triple_stream=(triple for group in groups for triple in group),
-        chunk_size=chunk_size,
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -968,11 +840,6 @@ def generate_extensional_predicates(
     # Target frequency per predicate, copied before the steps below spend
     # `PredicateProfile.frequency` as a remaining budget.
     targets = {p: pr.frequency for p, pr in profiles.items()}
-    # Source domain and range keys per predicate, before any budget is spent: the
-    # entities that end with a fact of the relation (see `_insert_counterexamples`).
-    source_keys = {
-        p: (frozenset(pr.domain), frozenset(pr.range)) for p, pr in profiles.items()
-    }
     intensional_preds = get_intensional_preds(rules)
     symmetric_preds = get_undirected_preds(rules)
     # Relations that only their symmetric rule derives.
@@ -1121,11 +988,9 @@ def generate_extensional_predicates(
 
                 produced = produced_groundings(client, r, intensional_preds, edb_uri)
                 if produced >= r.grounding_target:
+                    checked_rules.add(r_id)
                     r.closed = True
-                    # A rule with counter-examples still needs them.
-                    if r.counterexample_ratio is None:
-                        checked_rules.add(r_id)
-                        continue
+                    continue
 
                 if len(r.get_edb_atoms(intensional_preds)) <= 1:
                     # We can just use random assignments
@@ -1145,7 +1010,6 @@ def generate_extensional_predicates(
                     chunk_size=chunk_size,
                     undirected_preds=undirected_preds,
                     skip_reflexivity=skip_reflexivity,
-                    source_keys=source_keys,
                 )
                 checked_rules.add(r_id)
 
