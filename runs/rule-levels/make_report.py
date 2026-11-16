@@ -78,6 +78,88 @@ def produced_row(d: str, level: str, r: dict[str, str]) -> str:
     )
 
 
+DOC = REPO / "docs" / "generation-times.md"
+DOC_BEGIN = "<!-- rule-level times: written by runs/rule-levels/make_report.py -->"
+DOC_END = "<!-- end of rule-level times -->"
+LEVELS = ["std1", "r25", "r50", "r75", "r100"]
+
+
+def doc_cell(r: dict[str, str] | None) -> str:
+    """Time of our copy / kbgen's copy at one level, for docs/generation-times.md."""
+    if r is None:
+        return ""
+    if r["ours"] == "no-rules":
+        return "no rule"
+    if r["ours"].startswith("same-as"):
+        return f"as {r['ours'][8:]}"
+
+    def one(status: str, seconds: str) -> str:
+        return duration(seconds) if status == "valid" and seconds else "pending"
+
+    return (
+        f"{one(r['ours'], r['ours_seconds'])} / {one(r['kbgen'], r['kbgen_seconds'])}"
+    )
+
+
+def write_doc_times(status: list[dict[str, str]]) -> None:
+    """Rewrites the table between DOC_BEGIN and DOC_END of docs/generation-times.md:
+    per dataset, the time of each level's copy by our generator and by kbgen, the
+    sum of each method and kbgen's shared steps."""
+    text = DOC.read_text(encoding="utf-8")
+    if DOC_BEGIN not in text or DOC_END not in text:
+        return
+    rows = {(r["dataset"], r["level"]): r for r in status}
+    lines = [
+        DOC_BEGIN,
+        "",
+        f"Last written on {dt.datetime.now():%Y-%m-%d %H:%M}. Each cell is ours / kbgen. *Pending*: the copy is not made yet, or was made before its run recorded what `check_copies.py` checks. *No rule*: our generator uses no rule at that level, so neither method makes a copy. *As r100*: the level has the rules of `r100`, whose copy stands for it.",
+        "",
+        "| Dataset | std1 | r25 | r50 | r75 | r100 | Ours, sum | kbgen, sum | kbgen shared steps |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    grand = {"ours": 0.0, "kbgen": 0.0}
+    grand_complete = {"ours": True, "kbgen": True}
+    for d in dict.fromkeys(r["dataset"] for r in status):
+        sums = {"ours": 0.0, "kbgen": 0.0}
+        complete = {"ours": True, "kbgen": True}
+        for level in LEVELS:
+            r = rows.get((d, level))
+            if r is None or r["ours"].startswith(("no-rules", "same-as")):
+                continue
+            for m in sums:
+                if r[m] == "valid" and r[f"{m}_seconds"]:
+                    sums[m] += float(r[f"{m}_seconds"])
+                else:
+                    complete[m] = False
+        for m in grand:
+            grand[m] += sums[m]
+            grand_complete[m] = grand_complete[m] and complete[m]
+        timings = HERE / "kbgen-work" / d / "timings.json"
+        shared = ""
+        if timings.is_file():
+            seconds = json.loads(timings.read_text())
+            shared = duration(sum(seconds.get(k, 0) for k in SHARED_STEPS))
+        cells = " | ".join(doc_cell(rows.get((d, level))) for level in LEVELS)
+        total = {m: duration(s) if complete[m] else "pending" for m, s in sums.items()}
+        lines.append(
+            f"| {d} | {cells} | {total['ours']} | {total['kbgen']} | {shared} |"
+        )
+    all_sums = {
+        m: duration(s)
+        if grand_complete[m]
+        else f"pending ({duration(s) or '0 s'} so far)"
+        for m, s in grand.items()
+    }
+    lines += [
+        f"| All | | | | | | {all_sums['ours']} | {all_sums['kbgen']} | |",
+        "",
+        DOC_END,
+    ]
+    start, end = text.index(DOC_BEGIN), text.index(DOC_END) + len(DOC_END)
+    DOC.write_text(text[:start] + "\n".join(lines) + text[end:], encoding="utf-8")
+    print(f"Updated {DOC}")
+
+
 def main() -> None:
     status = read_tsv(HERE / "status.tsv")
     times = {
@@ -207,6 +289,7 @@ def main() -> None:
     ]
     (HERE / "REPORT.md").write_text("\n".join(out), encoding="utf-8")
     print(f"Wrote {HERE / 'REPORT.md'}")
+    write_doc_times(status)
 
 
 if __name__ == "__main__":

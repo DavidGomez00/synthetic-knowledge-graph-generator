@@ -1,6 +1,6 @@
 # Generation times of the benchmark copies
 
-This page gives the wall-clock time it took to make each synthetic copy of the 24 benchmark datasets in `exp_datasets/`, with this project's generator (`<dataset>_ours`) and with the two baselines, kbgen (`<dataset>_kbgen`) and PyGraft (`<dataset>_pygraft`). All three ran on the development machine, a laptop with an Intel i5-11300H (4 cores, 8 threads) and 15 GB of RAM. PyGraft has no copy of the five YAGO3-10 datasets yet. [`benchmark-copies.md`](benchmark-copies.md) describes how each set was made. The last section gives the times of kbgen's rule-level copies, made on the laptop and on a second machine.
+This page gives the wall-clock time it took to make each synthetic copy of the 24 benchmark datasets in `exp_datasets/`, with this project's generator (`<dataset>_ours`) and with the two baselines, kbgen (`<dataset>_kbgen`) and PyGraft (`<dataset>_pygraft`). All three ran on the development machine, a laptop with an Intel i5-11300H (4 cores, 8 threads) and 15 GB of RAM. PyGraft has no copy of the five YAGO3-10 datasets yet. [`benchmark-copies.md`](benchmark-copies.md) describes how each set was made. The section "Rule-level copies" gives the times of the copies of both generators at each rule level, and the last section those of kbgen's first rule-level copies, which they replace.
 
 ## What each time covers
 
@@ -126,7 +126,52 @@ Two more things affect the times of 11 November:
 
 `scripts/check_outputs.py` finds that 22 of the 24 new copies match their source on every relation, including the number of self-loops. french and family differ as `docs/generate-benchmarks.md` describes: french's `parent` is 47 triples short, and family has more triples than its source and 104 self-loops that its source doesn't have.
 
-## kbgen's rule-level copies
+## Rule-level copies
+
+The rule-level copies in use ([`rule-levels.md`](rule-levels.md)) were made by `runs/rule-levels/reproduce.sh`, on Hefesto (Intel i9-7900X, 10 cores, 20 threads, 62 GB of RAM), from 16 November 2026: each of the 24 datasets at `std1`, `r25`, `r50`, `r75` and `r100`, by this generator and by kbgen with the same rules. [`runs/rule-levels/README.md`](../runs/rule-levels/README.md) says how, and `runs/rule-levels/REPORT.md` gives every copy's rules, triples, time, date and commit.
+
+A time covers one copy. For ours it is the upload of the source to a GraphDB repository, `cli/main.py` and the download of the copy, read from `runs/rule-levels/ours/times.tsv`. For kbgen it is model M3, `synthesize.py` and writing the copy, read from the driver's `summary.csv`; the tensor and models M1 and M2, made once per dataset and shared by its levels, are the last column. Several copies ran at once: up to four batches of our generator, two of them on the YAGO3-10 datasets, and kbgen with up to 8 levels at a time, next to each other on the same machine. A copy took longer than it would alone, and a method's sum is CPU time, not wall-clock time.
+
+The table below is rewritten by `runs/rule-levels/make_report.py` (step `report` of `reproduce.sh`) from the run's records.
+
+<!-- rule-level times: written by runs/rule-levels/make_report.py -->
+
+Last written on 2026-11-16 20:31. Each cell is ours / kbgen. *Pending*: the copy is not made yet, or was made before its run recorded what `check_copies.py` checks. *No rule*: our generator uses no rule at that level, so neither method makes a copy. *As r100*: the level has the rules of `r100`, whose copy stands for it.
+
+| Dataset | std1 | r25 | r50 | r75 | r100 | Ours, sum | kbgen, sum | kbgen shared steps |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| family | pending / pending | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending |  |
+| Family1_1 | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 5 s |
+| Family1_N | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 4 s |
+| FamilyM_N | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 4 s |
+| FamilyN_1 | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 4 s |
+| french | 17 s / pending | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 7 s |
+| french1_1 | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 5 s |
+| french1_N | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 4 s |
+| frenchN_1 | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 5 s |
+| frenchN_M | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 4 s |
+| SGKG1 | as r100 | as r100 | as r100 | as r100 | pending / pending | pending | pending |  |
+| SGKG2 | as r100 | as r100 | as r100 | as r100 | pending / pending | pending | pending |  |
+| SGKG3 | as r100 | as r100 | as r100 | as r100 | pending / pending | pending | pending |  |
+| SGKG4 | as r100 | as r100 | as r100 | as r100 | pending / pending | pending | pending |  |
+| WN18RR | pending / pending | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 18 s |
+| WN18RR1_1 | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 15 s |
+| WN18RR1_N | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 9 s |
+| WN18RRN_1 | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 14 s |
+| WN18RRN_M | pending / pending | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 18 s |
+| YAGO3-10 | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending |  |
+| YAGO3-10_1_1 | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 1 min 2 s |
+| YAGO3-10_1_N | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending |  |
+| YAGO3-10_N_1 | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 2 min 5 s |
+| YAGO3-10_N_M | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending |  |
+| All | | | | | | pending (17 s so far) | pending (0 s so far) | |
+
+<!-- end of rule-level times -->
+
+## kbgen's first rule-level copies (superseded)
+
+This section records kbgen's first rule-level copies. Most were made again by `runs/rule-levels/` (previous section), given exactly the rules this generator used and recording how many facts kbgen's rules added; the copies in `exp_datasets/` are those of the previous section once it lists them.
+
 
 The rule-level experiment ([`rule-levels.md`](rule-levels.md)) copies every dataset with kbgen at the levels `r0`, `r25`, `r50` and `r75`, each with part of the dataset's mined rules; for most datasets `r100` is the copy of the tables above. The SGKG datasets need only `r0`. The copies were made on two machines, with kbgen at `e5d06bc` plus `baselines/kbgen.patch` and its driver `synthesize_exp_datasets.py --levels`:
 
