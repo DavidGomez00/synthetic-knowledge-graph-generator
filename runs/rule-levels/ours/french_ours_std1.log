@@ -1,0 +1,92 @@
+16:19:47 | __main__ | INFO   | Inserted /home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets/french/french.unified.tsv into <http://skgg.org/french/base> with 10332 triples.
+16:19:50 | __main__ | INFO   | Confifuration correctly initialized.
+16:19:50 | __main__ | INFO   | [1/5] Extracting metrics and rules
+16:19:50 | __main__ | INFO   | Rule filter std=1: EDB at <http://skgg.org/french/skgg/std=1/edb>, synthetic graph at <http://skgg.org/french/skgg/std=1>.
+16:19:50 | skgg.core.rules | INFO   | Kept 12/240 rules with std confidence >= 1.000 (classification == POSITIVE); dropped 228 (NEGATIVE or UNKNOWN).
+16:19:50 | __main__ | INFO   | 12 rules: 12 complete (std confidence 1, forward-chained), 0 partial (grounded round(PCA confidence x support) times in the EDB, after the complete rules).
+16:19:51 | skgg.core.visualization | INFO   | Saved relation graph visualization (9 predicates, 6 in a cycle) to <logs/relation_graph_french.png>
+16:19:51 | skgg.core.cycles | INFO   | Cycle of hasSpouse: keeping 0 of 2 cyclic rules with the order hasSpouse.
+16:19:51 | skgg.core.cycles | INFO   | Removed rule 10: recursive.
+16:19:51 | skgg.core.cycles | INFO   | Removed rule 12: recursive.
+16:19:51 | skgg.core.cycles | INFO   | Cycle of spouse: keeping 0 of 4 cyclic rules with the order spouse.
+16:19:51 | skgg.core.cycles | INFO   | Removed rule 6: recursive.
+16:19:51 | skgg.core.cycles | INFO   | Removed rule 7: recursive.
+16:19:51 | skgg.core.cycles | INFO   | Removed rule 8: recursive.
+16:19:51 | skgg.core.cycles | INFO   | Removed rule 9: recursive.
+16:19:51 | skgg.core.cycles | INFO   | Cycle of predecessor, successor: keeping 1 of 2 cyclic rules with the order predecessor < successor.
+16:19:51 | skgg.core.cycles | INFO   | Removed rule 1: successor after predecessor in the order.
+16:19:51 | skgg.core.cycles | INFO   | Cycle of gender: keeping 0 of 1 cyclic rules with the order gender.
+16:19:51 | skgg.core.cycles | INFO   | Removed rule 11: recursive.
+16:19:51 | skgg.core.cycles | INFO   | Cycle of name: keeping 0 of 1 cyclic rules with the order name.
+16:19:51 | skgg.core.cycles | INFO   | Removed rule 5: recursive.
+16:19:51 | skgg.core.cycles | INFO   | Predicates made extensional by cyclic rule removal: gender, hasSpouse, name, predecessor, spouse
+16:19:51 | skgg.core.cycles | INFO   | Removed 9 cyclic rules; 3 rules left.
+16:19:51 | __main__ | INFO   | Extensional relations (9, target frequency): child 1897, father 658, gender 1049, hasSpouse 2212, marriedTo 20, mother 534, name 629, predecessor 471, spouse 1152
+16:19:51 | __main__ | INFO   | Intensional relations (2, target frequency): parent 1239, successor 471
+16:19:51 | __main__ | INFO   | [2/5] Generating EDB
+16:19:51 | skgg.core.rules | INFO   | Saved 3 used rules to `/home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets/french/french_used.csv`.
+16:19:51 | skgg.engine.edb | INFO   | [Self-loops] Placed 122 self-loops (placed/target): name 122/122
+16:19:51 | skgg.engine.edb | INFO   | Start warm-up.
+16:19:51 | skgg.engine.edb | INFO   | [Warm-up] No direct matches.
+16:19:51 | skgg.engine.edb | INFO   | Creating EDB
+16:19:51 | skgg.engine.edb | INFO   | Extensional relations to generate (9/9, current/target): child 0/1897 (open), father 0/658 (open), gender 0/1049 (open), hasSpouse 0/2212 (open), marriedTo 0/20 (open), mother 0/534 (open), name 122/629 (open), predecessor 0/471 (open), spouse 0/1152 (open)
+16:19:51 | skgg.engine.edb | INFO   | Closed predicates [0/11].
+16:19:51 | skgg.engine.edb | INFO   | [Step 277] Closed predicates [1/11].
+16:19:54 | skgg.engine.edb | INFO   | [Step 3024] Closed predicates [2/11].
+16:19:55 | skgg.engine.edb | INFO   | [Step 3370] Closed predicates [3/11].
+16:19:55 | skgg.engine.edb | INFO   | [Step 3841] Closed predicates [4/11].
+16:19:55 | skgg.engine.edb | INFO   | [Step 3910] Closed predicates [5/11].
+16:19:55 | skgg.engine.edb | INFO   | [Step 4620] Closed predicates [6/11].
+16:19:55 | skgg.engine.edb | INFO   | [Step 5324] Closed predicates [7/11].
+16:19:56 | skgg.engine.edb | INFO   | [Step 5629] Closed predicates [8/11].
+16:19:56 | skgg.engine.edb | INFO   | [Step 6756] Closed predicates [9/11].
+16:19:56 | __main__ | INFO   | EDB generated in 5.3s at <http://skgg.org/french/skgg/std=1/edb> with 8622 triples.
+16:19:56 | __main__ | INFO   | [3/5] Completing graph
+16:19:56 | __main__ | INFO   | [EDB] Closed predicates: 9/11, closed rules: 0/3.
+16:19:56 | __main__ | INFO   | [EDB] Newly closed predicates: child, father, gender, hasSpouse, marriedTo, mother, name, predecessor, spouse
+16:19:56 | __main__ | INFO   | [EDB] Open intensional predicates (current/target): parent 0/1239, successor 0/471
+16:19:56 | __main__ | INFO   | Applying the 3 complete rules (3 open): 2 (open), 3 (open), 4 (open)
+16:19:57 | skgg.engine.completion | INFO   | [initial] Pass 1: +1663 triples (rule 2 +471, rule 3 +658, rule 4 +534).
+16:19:57 | skgg.engine.completion | INFO   | [initial] Pass 2: no triples added.
+16:19:57 | skgg.engine.completion | INFO   | [initial] +1663 triples in 2 passes (stale state): rule 2 +471, rule 3 +658, rule 4 +534.
+16:19:58 | __main__ | INFO   | [initial] Closed predicates: 10/11, closed rules: 3/3.
+16:19:58 | __main__ | INFO   | [initial] Newly closed predicates: successor
+16:19:58 | __main__ | INFO   | [initial] Newly closed rules: 2, 3, 4
+16:19:58 | __main__ | INFO   | [initial] Open intensional predicates (current/target): parent 1192/1239
+16:19:58 | __main__ | INFO   | [4/5] Filling open relations
+16:19:58 | __main__ | INFO   | Skipping the fill step (pass --fill to run it); synthetic graph at <http://skgg.org/french/skgg/std=1>.
+16:19:58 | __main__ | INFO   | [5/5] Summary
+16:19:58 | __main__ | INFO   | Experiment summary, <http://skgg.org/french/base> -> <http://skgg.org/french/skgg/std=1>:
+Triples: 10332 -> 10285 (-47, -0.5%)
+
+Predicates (11):
+  child        1897 -> 1897  ( +0)  [CLOSED]  [EXTENSIONAL]
+  father        658 -> 658   ( +0)  [CLOSED]  [EXTENSIONAL]
+  gender       1049 -> 1049  ( +0)  [CLOSED]  [EXTENSIONAL]
+  hasSpouse    2212 -> 2212  ( +0)  [CLOSED]  [EXTENSIONAL]
+  marriedTo      20 -> 20    ( +0)  [CLOSED]  [EXTENSIONAL]
+  mother        534 -> 534   ( +0)  [CLOSED]  [EXTENSIONAL]
+  name          629 -> 629   ( +0)  [CLOSED]  [EXTENSIONAL]
+  parent       1239 -> 1192  (-47)  [OPEN]    [INTENSIONAL]
+  predecessor   471 -> 471   ( +0)  [CLOSED]  [EXTENSIONAL]
+  spouse       1152 -> 1152  ( +0)  [CLOSED]  [EXTENSIONAL]
+  successor     471 -> 471   ( +0)  [CLOSED]  [INTENSIONAL]
+
+Rules (3), support, std and PCA confidence, original -> synthetic:
+  2   ?b predecessor ?a => ?a successor ?b               471 -> 471  (  +0)  std 1.000 -> 1.000 (+0.000)  pca 1.000 -> 1.000 (+0.000)  [CLOSED]  [COMPLETE]
+  3   ?a father ?b => ?a parent ?b                       658 -> 658  (  +0)  std 1.000 -> 1.000 (+0.000)  pca 1.000 -> 1.000 (+0.000)  [CLOSED]  [COMPLETE]
+  4   ?a mother ?b => ?a parent ?b                       534 -> 534  (  +0)  std 1.000 -> 1.000 (+0.000)  pca 1.000 -> 1.000 (+0.000)  [CLOSED]  [COMPLETE]
+
+Removed cyclic rules (9):
+  1   ?b successor ?a => ?a predecessor ?b               471 -> 471  (  +0)  std 1.000 -> 1.000 (+0.000)  pca 1.000 -> 1.000 (+0.000)
+  5   ?a name ?f & ?f name ?b => ?a name ?b              125 -> 125  (  +0)  std 1.000 -> 1.000 (+0.000)  pca 1.000 -> 1.000 (+0.000)
+  6   ?b predecessor ?a & ?b spouse ?a => ?a spouse ?b    12 -> 0    ( -12)  std 1.000 ->   n/a (   n/a)  pca 1.000 ->   n/a (   n/a)
+  7   ?a successor ?b & ?b spouse ?a => ?a spouse ?b      12 -> 0    ( -12)  std 1.000 ->   n/a (   n/a)  pca 1.000 ->   n/a (   n/a)
+  8   ?a predecessor ?b & ?b spouse ?a => ?a spouse ?b    12 -> 0    ( -12)  std 1.000 ->   n/a (   n/a)  pca 1.000 ->   n/a (   n/a)
+  9   ?b spouse ?a & ?b successor ?a => ?a spouse ?b      12 -> 0    ( -12)  std 1.000 ->   n/a (   n/a)  pca 1.000 ->   n/a (   n/a)
+  10  ?a spouse ?f & ?f hasSpouse ?b => ?a hasSpouse ?b  980 -> 534  (-446)  std 1.000 -> 0.507 (-0.493)  pca 1.000 -> 0.507 (-0.493)
+  11  ?a name ?f & ?f gender ?b => ?a gender ?b          125 -> 123  (  -2)  std 1.000 -> 0.984 (-0.016)  pca 1.000 -> 0.984 (-0.016)
+  12  ?e hasSpouse ?b & ?e spouse ?a => ?a hasSpouse ?b  980 -> 543  (-437)  std 1.000 -> 0.517 (-0.483)  pca 1.000 -> 0.517 (-0.483)
+16:19:58 | __main__ | INFO   | Execution finished after 8.8s.
+16:20:00 | skgg.core.triples | INFO   | Wrote 10285 triples to /tmp/tmpv8i6jq4h/graph.tsv, skipping 0 duplicate triples and 0 invalid lines.
+16:20:00 | __main__ | INFO   | Downloaded <http://skgg.org/french/skgg/std=1>: 10285 triples to /tmp/tmpv8i6jq4h/graph.nt and /tmp/tmpv8i6jq4h/graph.tsv.

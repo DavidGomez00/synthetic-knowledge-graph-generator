@@ -330,9 +330,11 @@ def generate_all(
     skip_reflexivity: bool = False,
     levels: list[str] | None = None,
     levels_file: Path | None = None,
+    times_file: Path | None = None,
 ) -> list[str]:
     """Generates the datasets under `root`, or with `levels`, their copies at those
-    rule levels of `levels_file` (default `<root>/rule_levels.tsv`).
+    rule levels of `levels_file` (default `<root>/rule_levels.tsv`). With
+    `times_file`, appends a row per copy made (see `TIMES_COLUMNS`).
 
     Returns:
         The names of the datasets (or `<dataset> <level>`) that failed.
@@ -378,6 +380,7 @@ def generate_all(
 
         logger.info("[%d/%d] %s: generating.", number, len(jobs), label)
         log_path = log_dir / f"{output.stem}.log"
+        started = time.strftime("%Y-%m-%d %H:%M:%S")
         start = time.monotonic()
         try:
             generate_dataset(
@@ -393,18 +396,79 @@ def generate_all(
             )
             failed.append(label)
             continue
+        seconds = time.monotonic() - start
         logger.info(
             "%s: %d triples (source %d) in %.0f s.",
             label,
             _count_lines(output),
             _count_lines(triple_file(folder)),
-            time.monotonic() - start,
+            seconds,
         )
+        if times_file is not None:
+            used = output.with_name(f"{output.stem}_used.csv")
+            _append_time(
+                times_file,
+                {
+                    "dataset": folder.name,
+                    "level": "" if level is None else level.name,
+                    "rules_used": _count_lines(used) - 1 if used.is_file() else 0,
+                    "source_triples": _count_lines(triple_file(folder)),
+                    "triples": _count_lines(output),
+                    "seconds": round(seconds, 1),
+                    "started": started,
+                    "finished": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "commit": _git_commit(),
+                    "log": str(log_path),
+                },
+            )
 
     logger.info("%d of %d copies ok.", len(jobs) - len(failed), len(jobs))
     if failed:
         logger.error("Failed datasets: %s", ", ".join(failed))
     return failed
+
+
+TIMES_COLUMNS = [
+    "dataset",
+    "level",
+    "rules_used",
+    "source_triples",
+    "triples",
+    "seconds",
+    "started",
+    "finished",
+    "commit",
+    "log",
+]
+
+
+def _append_time(path: Path, row: dict[str, object]) -> None:
+    """Appends `row` to the tab-separated `path`, writing the header if it is new."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    new = not path.exists()
+    with path.open("a", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=TIMES_COLUMNS, delimiter="\t")
+        if new:
+            writer.writeheader()
+        writer.writerow(row)
+
+
+def _git_commit() -> str:
+    """The commit of the working tree, with `+dirty` if `src/` has uncommitted
+    changes, or an empty string outside git."""
+    try:
+        commit = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        dirty = subprocess.run(
+            ["git", "diff", "--quiet", "HEAD", "--", "src"], check=False
+        ).returncode
+    except (OSError, subprocess.CalledProcessError):
+        return ""
+    return commit + ("+dirty" if dirty else "")
 
 
 def _parse_args() -> argparse.Namespace:
@@ -476,6 +540,13 @@ def _parse_args() -> argparse.Namespace:
         help="Rule levels file of cli/rule_levels.py (default: "
         "<root>/rule_levels.tsv).",
     )
+    parser.add_argument(
+        "--times",
+        type=Path,
+        default=None,
+        help="Tab-separated file to append a row to per copy made: dataset, level, "
+        "rules used, triples, seconds, start and end, commit and log.",
+    )
     return parser.parse_args()
 
 
@@ -492,5 +563,6 @@ if __name__ == "__main__":
         args.skip_reflexivity,
         args.levels,
         args.rule_levels,
+        args.times,
     )
     sys.exit(1 if failures else 0)
