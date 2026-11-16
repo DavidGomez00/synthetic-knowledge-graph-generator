@@ -78,7 +78,7 @@ cd $KBGEN
 git switch -c exp-datasets e5d06bc
 git apply $REPO/baselines/kbgen.patch
 git status --short                   # 6 modified files and ?? synthesize_exp_datasets.py
-sha256sum synthesize_exp_datasets.py # cfc818184480375e2e99743bf3049df918db4ad01456bb3e217d13f639de5521
+sha256sum synthesize_exp_datasets.py # f8c727b20b4fb60ef2dd542e8c6a88557f1842a297a16cf75da9ff582175e6f5
 ```
 
 The patched files are identical to the ones that made the french copies. Don't change kbgen's code: the copies of every machine must come from the same code.
