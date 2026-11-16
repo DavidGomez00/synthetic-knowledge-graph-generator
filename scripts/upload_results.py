@@ -78,10 +78,18 @@ def worktree_name(branch: str) -> str:
 
 
 @contextmanager
-def worktree_lock(root: Path, branch: str = BRANCH) -> Iterator[None]:
+def worktree_lock(
+    root: Path, branch: str = BRANCH, wait: bool = True
+) -> Iterator[bool]:
+    """Holds the worktree's lock; yields whether it was taken. Without `wait`, it
+    yields False at once if another process holds it."""
     with (root / f"{worktree_name(branch)}.lock").open("a") as f:
-        fcntl.flock(f, fcntl.LOCK_EX)
-        yield
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | (0 if wait else fcntl.LOCK_NB))
+        except BlockingIOError:
+            yield False
+            return
+        yield True
 
 
 def remote_has_branch(root: Path, remote: str, branch: str) -> bool:
@@ -248,6 +256,7 @@ def upload(
     branch: str = BRANCH,
     machine: str | None = None,
     batch_mb: int = BATCH_MB,
+    wait: bool = True,
 ) -> int:
     """
     Uploads the finished runs the branch lacks and returns how many, in
@@ -255,11 +264,21 @@ def upload(
     upload neither nears GitHub's 2 GB limit per push nor keeps losing the
     race with other machines' pushes. The batches pushed before an error stay
     uploaded; the next upload sends the rest.
+
+    Without `wait`, it returns 0 at once if another process of this machine is
+    uploading to the branch. Every upload sends every finished run the branch lacks,
+    so a run that finished meanwhile goes with a later upload: train_kge.py's workers
+    upload this way after each run, instead of queuing for the lock.
     """
     machine = machine or socket.gethostname()
     results = results.resolve()
     root = repository_root()
-    with worktree_lock(root, branch):
+    with worktree_lock(root, branch, wait) as locked:
+        if not locked:
+            logger.debug(
+                "Another process is uploading; a later upload sends these runs."
+            )
+            return 0
         worktree = open_worktree(root, remote, branch)
         target = worktree / RESULTS_DIR
         done = uploaded_runs(worktree)

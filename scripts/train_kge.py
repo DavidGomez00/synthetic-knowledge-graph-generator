@@ -810,7 +810,9 @@ def run_jobs(
                 continue
             loaded = outcome
             if upload:
-                upload_finished(output, upload_branch)
+                # Don't queue behind another worker's upload: it, or a later one,
+                # sends this run, and the command's last upload sends the rest.
+                upload_finished(output, upload_branch, wait=False)
     return failed, busy
 
 
@@ -880,10 +882,16 @@ def train_job(
     return loaded
 
 
-def upload_finished(output: Path, branch: str = upload_results.BRANCH) -> None:
-    """Uploads the finished runs; a failure is logged and doesn't stop training."""
+def upload_finished(
+    output: Path, branch: str = upload_results.BRANCH, wait: bool = True
+) -> None:
+    """Uploads the finished runs; a failure is logged and doesn't stop training.
+
+    Without `wait`, it skips the upload if another process is uploading: that or a
+    later upload sends the run, and the command's last upload waits and sends the rest.
+    """
     try:
-        upload_results.upload(output, branch=branch)
+        upload_results.upload(output, branch=branch, wait=wait)
     except Exception:
         logger.exception("Could not upload the results; the next upload retries.")
 
