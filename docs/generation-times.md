@@ -136,7 +136,7 @@ The table below is rewritten by `runs/rule-levels/make_report.py` (step `report`
 
 <!-- rule-level times: written by runs/rule-levels/make_report.py -->
 
-Last written on 2026-11-16 22:26. Each cell is ours / kbgen. *Pending*: the copy is not made yet, or was made before its run recorded what `check_copies.py` checks. *No rule*: our generator uses no rule at that level, so neither method makes a copy. *As r100*: the level has the rules of `r100`, whose copy stands for it.
+Last written on 2026-11-16 22:49. Each cell is ours / kbgen. *Pending*: the copy is not made yet, or was made before its run recorded what `check_copies.py` checks. *No rule*: our generator uses no rule at that level, so neither method makes a copy. *As r100*: the level has the rules of `r100`, whose copy stands for it.
 
 | Dataset | std1 | r25 | r50 | r75 | r100 | Ours, sum | kbgen, sum | kbgen shared steps |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -154,17 +154,17 @@ Last written on 2026-11-16 22:26. Each cell is ours / kbgen. *Pending*: the copy
 | SGKG2 | as r100 | as r100 | as r100 | as r100 | pending / pending | pending | pending |  |
 | SGKG3 | as r100 | as r100 | as r100 | as r100 | pending / pending | pending | pending |  |
 | SGKG4 | as r100 | as r100 | as r100 | as r100 | pending / pending | pending | pending |  |
-| WN18RR | 11 min 53 s / 4 min 11 s | 9 min 1 s / 12 min 28 s | 8 min 56 s / pending | 9 min 5 s / pending | 9 min 16 s / pending | 48 min 12 s | pending | 18 s |
+| WN18RR | 11 min 53 s / 4 min 11 s | 9 min 1 s / 12 min 28 s | 8 min 56 s / 22 min 28 s | 9 min 5 s / 36 min 41 s | 9 min 16 s / 35 min 41 s | 48 min 12 s | 1 h 51 min | 18 s |
 | WN18RR1_1 | no rule | 11 min 55 s / 11 min 1 s | 10 min 28 s / 20 min 50 s | 8 min 4 s / 22 min 37 s | 9 min 4 s / 25 min 50 s | 39 min 30 s | 1 h 20 min | 15 s |
 | WN18RR1_N | no rule | 1 min 10 s / 15 s | 1 min 4 s / 23 s | 51 s / 27 s | 40 s / 29 s | 3 min 45 s | 1 min 34 s | 9 s |
 | WN18RRN_1 | no rule | 6 min 39 s / 7 min 53 s | 5 min 50 s / 12 min 21 s | 6 min 10 s / 12 min 28 s | 6 min 18 s / 12 min 28 s | 24 min 57 s | 45 min 11 s | 14 s |
-| WN18RRN_M | 13 min 7 s / pending | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 18 s |
+| WN18RRN_M | 13 min 7 s / pending | 12 min 40 s / pending | 9 min 46 s / pending | 9 min 31 s / pending | pending / pending | pending | pending | 18 s |
 | YAGO3-10 | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending |  |
-| YAGO3-10_1_1 | no rule | pending / pending | 56 min 42 s / pending | pending / pending | pending / pending | pending | pending | 1 min 2 s |
+| YAGO3-10_1_1 | no rule | pending / pending | 56 min 42 s / pending | 1 h 2 min / pending | pending / pending | pending | pending | 1 min 2 s |
 | YAGO3-10_1_N | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending |  |
 | YAGO3-10_N_1 | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 2 min 5 s |
 | YAGO3-10_N_M | no rule | pending / pending | 1 h 22 min / pending | pending / pending | pending / pending | pending | pending |  |
-| All | | | | | | pending (4 h 58 min so far) | pending (5 h 30 min so far) | |
+| All | | | | | | pending (6 h 32 min so far) | pending (7 h 5 min so far) | |
 
 <!-- end of rule-level times -->
 

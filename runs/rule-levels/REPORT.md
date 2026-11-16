@@ -1,6 +1,6 @@
 # Rule-level copies: results
 
-Written by `make_report.py` on 2026-11-16 22:26 from `status.tsv`, `ours/times.tsv`, `kbgen-results/rule-levels/summary.csv` and `kbgen-work/<dataset>/timings.json`. README.md says how the copies were made.
+Written by `make_report.py` on 2026-11-16 22:49 from `status.tsv`, `ours/times.tsv`, `kbgen-results/rule-levels/summary.csv` and `kbgen-work/<dataset>/timings.json`. README.md says how the copies were made.
 
 ## Machine
 
@@ -95,9 +95,9 @@ kbgen: upstream e5d06bc + baselines/kbgen.patch, driver sha256 1a5f71dbbda1a74ef
 | SGKG4 | r100 | PCA ≥ 0 | 6 | 4 |  |  |  |  |  |  |
 | WN18RR | std1 | std = 1 | 2 | 2 | 2 | 93,003 | 93,003 | 11 min 53 s | 92,550 | 4 min 11 s |
 | WN18RR | r25 | PCA ≥ 0.8 | 6 | 6 | 6 | 93,003 | 93,001 | 9 min 1 s | 92,550 | 12 min 28 s |
-| WN18RR | r50 | PCA ≥ 0.7 | 12 | 12 | 12 | 93,003 | 93,002 | 8 min 56 s | 92,550 | 37 min 7 s |
-| WN18RR | r75 | PCA ≥ 0.3 | 21 | 21 | 21 | 93,003 | 93,000 | 9 min 5 s | 92,550 | 1 h 1 min |
-| WN18RR | r100 | PCA ≥ 0 | 24 | 24 |  | 93,003 | 93,001 | 9 min 16 s |  |  |
+| WN18RR | r50 | PCA ≥ 0.7 | 12 | 12 | 12 | 93,003 | 93,002 | 8 min 56 s | 92,550 | 22 min 28 s |
+| WN18RR | r75 | PCA ≥ 0.3 | 21 | 21 | 21 | 93,003 | 93,000 | 9 min 5 s | 92,550 | 36 min 41 s |
+| WN18RR | r100 | PCA ≥ 0 | 24 | 24 | 24 | 93,003 | 93,001 | 9 min 16 s | 92,550 | 35 min 41 s |
 | WN18RR1_1 | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
 | WN18RR1_1 | r25 | PCA ≥ 0.85 | 5 | 5 | 5 | 71,015 | 71,015 | 11 min 55 s | 70,699 | 11 min 1 s |
 | WN18RR1_1 | r50 | PCA ≥ 0.7 | 9 | 9 | 9 | 71,015 | 71,015 | 10 min 28 s | 70,699 | 20 min 50 s |
@@ -114,9 +114,9 @@ kbgen: upstream e5d06bc + baselines/kbgen.patch, driver sha256 1a5f71dbbda1a74ef
 | WN18RRN_1 | r75 | PCA ≥ 0.126 | 12 | 12 | 12 | 65,379 | 65,377 | 6 min 10 s | 63,745 | 12 min 28 s |
 | WN18RRN_1 | r100 | PCA ≥ 0 | 15 | 15 | 15 | 65,379 | 65,379 | 6 min 18 s | 63,745 | 12 min 28 s |
 | WN18RRN_M | std1 | std = 1 | 2 | 2 |  | 93,003 | 93,003 | 13 min 7 s |  |  |
-| WN18RRN_M | r25 | PCA ≥ 0.8 | 6 | 6 | 6 | 93,003 |  |  | 92,550 | 18 min 50 s |
-| WN18RRN_M | r50 | PCA ≥ 0.7 | 12 | 12 | 12 | 93,003 |  |  | 92,550 | 37 min 34 s |
-| WN18RRN_M | r75 | PCA ≥ 0.3 | 21 | 21 | 21 | 93,003 |  |  | 92,550 | 1 h 1 min |
+| WN18RRN_M | r25 | PCA ≥ 0.8 | 6 | 6 | 6 | 93,003 | 93,002 | 12 min 40 s | 92,550 | 18 min 50 s |
+| WN18RRN_M | r50 | PCA ≥ 0.7 | 12 | 12 | 12 | 93,003 | 92,999 | 9 min 46 s | 92,550 | 37 min 34 s |
+| WN18RRN_M | r75 | PCA ≥ 0.3 | 21 | 21 | 21 | 93,003 | 93,000 | 9 min 31 s | 92,550 | 1 h 1 min |
 | WN18RRN_M | r100 | PCA ≥ 0 | 24 | 24 |  |  |  |  |  |  |
 | YAGO3-10 | std1 | std = 1 | 3 | 0 | | | no rule: no copy | | | |
 | YAGO3-10 | r25 | PCA ≥ 0.47 | 38 | 35 |  |  |  |  | 530,838 |  |
@@ -126,7 +126,7 @@ kbgen: upstream e5d06bc + baselines/kbgen.patch, driver sha256 1a5f71dbbda1a74ef
 | YAGO3-10_1_1 | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
 | YAGO3-10_1_1 | r25 | PCA ≥ 0.58 | 22 | 22 | 15 | 340,991 | 340,991 | 51 min 4 s | 188,150 | 1 h 10 min |
 | YAGO3-10_1_1 | r50 | PCA ≥ 0.397 | 44 | 44 | 33 | 340,991 | 340,987 | 56 min 42 s | 188,150 | 1 h 22 min |
-| YAGO3-10_1_1 | r75 | PCA ≥ 0.25 | 66 | 66 | 54 | 340,991 |  |  | 188,150 | 1 h 37 min |
+| YAGO3-10_1_1 | r75 | PCA ≥ 0.25 | 66 | 66 | 54 | 340,991 | 340,988 | 1 h 2 min | 188,150 | 1 h 37 min |
 | YAGO3-10_1_1 | r100 | PCA ≥ 0 | 88 | 88 |  |  |  |  |  |  |
 | YAGO3-10_1_N | std1 | std = 1 | 1 | 0 | | | no rule: no copy | | | |
 | YAGO3-10_1_N | r25 | PCA ≥ 0.362 | 20 | 19 |  |  |  |  | 192,150 |  |
@@ -198,9 +198,9 @@ Our generator: *derived* is what completion forward-chained from the complete ru
 | SGKG4 | r100 |  |  |  |  |  |  |  |  |
 | WN18RR | std1 | 93,003 | 0 (0.0%) | 0 (0.0%) | 0 (0.0%) | 93,003 (100.0%) | 92,550 | 18,198 (19.7%) | 74,352 (80.3%) |
 | WN18RR | r25 | 93,001 | 0 (0.0%) | 1,119 (1.2%) | 1,119 (1.2%) | 91,882 (98.8%) | 92,550 | 19,588 (21.2%) | 72,962 (78.8%) |
-| WN18RR | r50 | 93,002 | 0 (0.0%) | 1,173 (1.3%) | 1,173 (1.3%) | 91,829 (98.7%) | 92,550 |  |  |
-| WN18RR | r75 | 93,000 | 0 (0.0%) | 1,725 (1.9%) | 1,725 (1.9%) | 91,275 (98.1%) | 92,550 |  |  |
-| WN18RR | r100 | 93,001 | 0 (0.0%) | 1,678 (1.8%) | 1,678 (1.8%) | 91,323 (98.2%) |  |  |  |
+| WN18RR | r50 | 93,002 | 0 (0.0%) | 1,173 (1.3%) | 1,173 (1.3%) | 91,829 (98.7%) | 92,550 | 20,019 (21.6%) | 72,531 (78.4%) |
+| WN18RR | r75 | 93,000 | 0 (0.0%) | 1,725 (1.9%) | 1,725 (1.9%) | 91,275 (98.1%) | 92,550 | 21,334 (23.1%) | 71,216 (76.9%) |
+| WN18RR | r100 | 93,001 | 0 (0.0%) | 1,678 (1.8%) | 1,678 (1.8%) | 91,323 (98.2%) | 92,550 | 21,293 (23.0%) | 71,257 (77.0%) |
 | WN18RR1_1 | r25 | 71,015 | 0 (0.0%) | 552 (0.8%) | 552 (0.8%) | 70,463 (99.2%) | 70,699 | 1,168 (1.7%) | 69,531 (98.3%) |
 | WN18RR1_1 | r50 | 71,015 | 0 (0.0%) | 1,055 (1.5%) | 1,055 (1.5%) | 69,960 (98.5%) | 70,699 | 1,496 (2.1%) | 69,203 (97.9%) |
 | WN18RR1_1 | r75 | 71,015 | 0 (0.0%) | 8,781 (12.4%) | 8,781 (12.4%) | 62,234 (87.6%) | 70,699 | 10,912 (15.4%) | 59,787 (84.6%) |
@@ -214,9 +214,9 @@ Our generator: *derived* is what completion forward-chained from the complete ru
 | WN18RRN_1 | r75 | 65,377 | 0 (0.0%) | 9,207 (14.1%) | 9,207 (14.1%) | 56,170 (85.9%) | 63,745 | 12,259 (19.2%) | 51,486 (80.8%) |
 | WN18RRN_1 | r100 | 65,379 | 0 (0.0%) | 9,207 (14.1%) | 9,207 (14.1%) | 56,172 (85.9%) | 63,745 | 12,219 (19.2%) | 51,526 (80.8%) |
 | WN18RRN_M | std1 | 93,003 | 0 (0.0%) | 0 (0.0%) | 0 (0.0%) | 93,003 (100.0%) |  |  |  |
-| WN18RRN_M | r25 |  |  |  |  |  | 92,550 |  |  |
-| WN18RRN_M | r50 |  |  |  |  |  | 92,550 |  |  |
-| WN18RRN_M | r75 |  |  |  |  |  | 92,550 |  |  |
+| WN18RRN_M | r25 | 93,002 | 0 (0.0%) | 1,119 (1.2%) | 1,119 (1.2%) | 91,883 (98.8%) | 92,550 |  |  |
+| WN18RRN_M | r50 | 92,999 | 0 (0.0%) | 1,181 (1.3%) | 1,181 (1.3%) | 91,818 (98.7%) | 92,550 |  |  |
+| WN18RRN_M | r75 | 93,000 | 0 (0.0%) | 1,721 (1.9%) | 1,721 (1.9%) | 91,279 (98.1%) | 92,550 |  |  |
 | WN18RRN_M | r100 |  |  |  |  |  |  |  |  |
 | YAGO3-10 | r25 |  |  |  |  |  | 530,838 |  |  |
 | YAGO3-10 | r50 |  |  |  |  |  | 530,838 |  |  |
@@ -224,7 +224,7 @@ Our generator: *derived* is what completion forward-chained from the complete ru
 | YAGO3-10 | r100 |  |  |  |  |  |  |  |  |
 | YAGO3-10_1_1 | r25 | 340,991 |  |  |  |  | 188,150 |  |  |
 | YAGO3-10_1_1 | r50 | 340,987 | 0 (0.0%) | 5,895 (1.7%) | 5,895 (1.7%) | 335,092 (98.3%) | 188,150 |  |  |
-| YAGO3-10_1_1 | r75 |  |  |  |  |  | 188,150 |  |  |
+| YAGO3-10_1_1 | r75 | 340,988 | 0 (0.0%) | 6,347 (1.9%) | 6,347 (1.9%) | 334,641 (98.1%) | 188,150 |  |  |
 | YAGO3-10_1_1 | r100 |  |  |  |  |  |  |  |  |
 | YAGO3-10_1_N | r25 |  |  |  |  |  | 192,150 |  |  |
 | YAGO3-10_1_N | r50 |  |  |  |  |  | 192,150 |  |  |
@@ -245,8 +245,8 @@ Sum of the copies' times; levels of kbgen ran several at a time, so its sum is C
 
 | Method | Copies | Sum of times |
 |---|---:|---:|
-| ours | 62 | 4 h 58 min |
-| kbgen | 53 | 5 h 30 min |
+| ours | 66 | 6 h 32 min |
+| kbgen | 56 | 7 h 5 min |
 
 ## kbgen's shared steps
 
@@ -326,9 +326,9 @@ When each copy was finished, from which commit of this repository (ours; `+dirty
 | SGKG4 | r100 |  |  | missing |  | missing |
 | WN18RR | std1 | 2026-11-16 21:24 | 986c4c8e | valid | 2026-11-16 22:15 | valid |
 | WN18RR | r25 | 2026-11-16 21:33 | bd509c53 | valid | 2026-11-16 22:24 | valid |
-| WN18RR | r50 | 2026-11-16 21:42 | bd509c53 | valid | 2026-11-16 14:43 | running |
-| WN18RR | r75 | 2026-11-16 21:51 | bd509c53 | valid | 2026-11-16 14:57 | running |
-| WN18RR | r100 | 2026-11-16 22:00 | ca52c2de | valid |  | running |
+| WN18RR | r50 | 2026-11-16 21:42 | bd509c53 | valid | 2026-11-16 22:34 | valid |
+| WN18RR | r75 | 2026-11-16 21:51 | bd509c53 | valid | 2026-11-16 22:48 | valid |
+| WN18RR | r100 | 2026-11-16 22:00 | ca52c2de | valid | 2026-11-16 22:47 | valid |
 | WN18RR1_1 | r25 | 2026-11-16 21:59 | bd509c53 | valid | 2026-11-16 22:10 | valid |
 | WN18RR1_1 | r50 | 2026-11-16 20:40 | ecce66e7 | valid | 2026-11-16 22:20 | valid |
 | WN18RR1_1 | r75 | 2026-11-16 20:48 | ecce66e7 | valid | 2026-11-16 22:22 | valid |
@@ -342,9 +342,9 @@ When each copy was finished, from which commit of this repository (ours; `+dirty
 | WN18RRN_1 | r75 | 2026-11-16 21:41 | bd509c53 | valid | 2026-11-16 21:28 | valid |
 | WN18RRN_1 | r100 | 2026-11-16 21:47 | bd509c53 | valid | 2026-11-16 21:28 | valid |
 | WN18RRN_M | std1 | 2026-11-16 22:13 | ca52c2de | valid |  | missing |
-| WN18RRN_M | r25 |  |  | missing | 2026-11-16 15:02 | invalid:no count of rule facts |
-| WN18RRN_M | r50 |  |  | missing | 2026-11-16 15:07 | invalid:no count of rule facts |
-| WN18RRN_M | r75 |  |  | missing | 2026-11-16 15:24 | invalid:no count of rule facts |
+| WN18RRN_M | r25 | 2026-11-16 22:26 | d34f407b | valid | 2026-11-16 15:02 | invalid:no count of rule facts |
+| WN18RRN_M | r50 | 2026-11-16 22:35 | d34f407b | valid | 2026-11-16 15:07 | invalid:no count of rule facts |
+| WN18RRN_M | r75 | 2026-11-16 22:45 | d34f407b | valid | 2026-11-16 15:24 | invalid:no count of rule facts |
 | WN18RRN_M | r100 |  |  | missing |  | missing |
 | YAGO3-10 | r25 |  |  | missing |  | invalid:no run record |
 | YAGO3-10 | r50 |  |  | missing |  | invalid:no run record |
@@ -352,7 +352,7 @@ When each copy was finished, from which commit of this repository (ours; `+dirty
 | YAGO3-10 | r100 |  |  | missing |  | missing |
 | YAGO3-10_1_1 | r25 | 2026-11-16 20:42 | ecce66e7 | invalid:log lacks the partial head count | 2026-11-16 16:03 | invalid:no count of rule facts |
 | YAGO3-10_1_1 | r50 | 2026-11-16 21:39 | bd509c53 | valid | 2026-11-16 14:53 | invalid:no count of rule facts |
-| YAGO3-10_1_1 | r75 |  |  | missing | 2026-11-16 15:08 | invalid:no count of rule facts |
+| YAGO3-10_1_1 | r75 | 2026-11-16 22:41 | d34f407b | valid | 2026-11-16 15:08 | invalid:no count of rule facts |
 | YAGO3-10_1_1 | r100 |  |  | missing |  | missing |
 | YAGO3-10_1_N | r25 |  |  | missing |  | invalid:no run record |
 | YAGO3-10_1_N | r50 |  |  | missing |  | invalid:no run record |
