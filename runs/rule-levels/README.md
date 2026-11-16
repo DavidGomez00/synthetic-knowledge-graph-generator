@@ -30,6 +30,15 @@ kbgen can apply fewer rules than it is given: it drops every triple whose object
 
 No copy is made at a level where our generator uses no rule (std1 of most variants, which have no std confidence 1 rule left after cycle removal), nor at a level whose rules are those of another level (SGKG std1 to r75, whose rules all have PCA confidence 1, are the r100 copy). `REPORT.md` names these levels.
 
+## Triples produced by rules
+
+Both methods record how many triples of a copy the rules produced, so the copies can be compared on deduced against instantiated triples (table "Triples produced by rules" of `REPORT.md`):
+
+- Our generator forward-chains the complete rules (std confidence 1) in completion; the log gives the triples each pass added (`+N triples in M passes`). A partial rule (std confidence below 1) is never forward-chained: the EDB places its head together with its body, as one grounding, round(PCA confidence × support) times, and the log gives the head triples placed this way (`[Partial] Head triples placed by the groundings of partial rules: N`, logged since commit `226bb8c`). Both count as produced by rules; the rest of the copy is instantiated.
+- kbgen fires a rule each time it adds a fact of the rule's body relation, with the rule's PCA confidence as probability, and adds the facts the rule then produces. Model M3 counts them (`count_rule_facts`); upstream logs that number only in debug mode, so `synthesize.py` here writes it to a counts file and the driver records it as `rule_facts` (since commit `77849c8`).
+
+A copy made before those commits has no count, and `check_copies.py` treats it as invalid, so `reproduce.sh` makes it again.
+
 ## How to reproduce
 
 `reproduce.sh` runs every step; each can run on its own, and `DATASETS` limits a run to some datasets:

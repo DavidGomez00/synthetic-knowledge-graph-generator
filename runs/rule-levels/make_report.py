@@ -47,6 +47,37 @@ def stamp(path: Path) -> str:
     return dt.datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
 
 
+def share(part: int, whole: str) -> str:
+    """`part` with its share of `whole`, e.g. `1,663 (16.1%)`."""
+    return f"{part:,} ({100 * part / int(whole):.1f}%)" if whole else f"{part:,}"
+
+
+def produced_row(d: str, level: str, r: dict[str, str]) -> str:
+    """A row of the table of triples produced by rules, from a status.tsv row."""
+    ours = kbgen = ["", "", "", ""]
+    if r["ours"] == "valid" and r["ours_derived"] and r["ours_partial_heads"]:
+        derived, heads = int(r["ours_derived"]), int(r["ours_partial_heads"])
+        total = int(r["ours_triples"])
+        ours = [
+            share(derived, r["ours_triples"]),
+            share(heads, r["ours_triples"]),
+            share(derived + heads, r["ours_triples"]),
+            share(total - derived - heads, r["ours_triples"]),
+        ]
+    if r["kbgen"] == "valid" and r["kbgen_rule_facts"]:
+        facts = int(r["kbgen_rule_facts"])
+        kbgen = [
+            share(facts, r["kbgen_triples"]),
+            share(int(r["kbgen_triples"]) - facts, r["kbgen_triples"]),
+        ]
+    else:
+        kbgen = ["", ""]
+    return (
+        f"| {d} | {level} | {number(r['ours_triples'])} | {' | '.join(ours)} | "
+        f"{number(r['kbgen_triples'])} | {' | '.join(kbgen)} |"
+    )
+
+
 def main() -> None:
     status = read_tsv(HERE / "status.tsv")
     times = {
@@ -85,6 +116,7 @@ def main() -> None:
     ]
     totals = {"ours": [0, 0.0], "kbgen": [0, 0.0]}
     provenance = []
+    produced = []
     for r in status:
         d, level = r["dataset"], r["level"]
         filt = (
@@ -117,6 +149,7 @@ def main() -> None:
             if valid == "valid" and seconds:
                 totals[method][0] += 1
                 totals[method][1] += float(seconds)
+        produced.append(produced_row(d, level, r))
         stats = HERE / "kbgen-work" / "rule-levels" / f"{d}-{level}" / "stats.json"
         provenance.append(
             f"| {d} | {level} | {t.get('finished', '')[:16]} | {t.get('commit', '')} | {r['ours']} | "
@@ -124,6 +157,19 @@ def main() -> None:
         )
 
     out += [
+        "",
+        "## Triples produced by rules",
+        "",
+        "Our generator: *derived* is what completion forward-chained from the complete rules (std confidence 1), and *partial heads* "
+        "the head triples the partial rules placed in the EDB, each with its body, as one grounding (`[Partial] Head triples "
+        "placed` in the copy's log). *By rules* is their sum, and *instantiated* the rest of the copy: random triples, the bodies "
+        "of the rules' groundings and the undirected edges. kbgen: *by rules* is the facts added by a rule firing during "
+        "synthesis, each with the rule's PCA confidence as probability (`count_rule_facts` of model M3), and *sampled* the rest. "
+        "A cell is empty when the copy's run did not record the count.",
+        "",
+        "| Dataset | Level | Ours triples | Ours derived | Ours partial heads | Ours by rules | Ours instantiated | kbgen triples | kbgen by rules | kbgen sampled |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        *produced,
         "",
         "## Totals",
         "",
