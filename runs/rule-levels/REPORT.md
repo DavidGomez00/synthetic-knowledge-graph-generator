@@ -1,6 +1,6 @@
 # Rule-level copies: results
 
-Written by `make_report.py` on 2026-11-16 21:29 from `status.tsv`, `ours/times.tsv`, `kbgen-results/rule-levels/summary.csv` and `kbgen-work/<dataset>/timings.json`. README.md says how the copies were made.
+Written by `make_report.py` on 2026-11-16 21:59 from `status.tsv`, `ours/times.tsv`, `kbgen-results/rule-levels/summary.csv` and `kbgen-work/<dataset>/timings.json`. README.md says how the copies were made.
 
 ## Machine
 
@@ -23,7 +23,7 @@ kbgen: upstream e5d06bc + baselines/kbgen.patch, driver sha256 1a5f71dbbda1a74ef
 
 | Dataset | Level | Filter | Rules kept | Used | kbgen parsed | Source triples | Ours triples | Ours time | kbgen triples | kbgen time |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| family | std1 | std = 1 | 37 | 18 |  | 28,358 | 86,443 | 54 s |  |  |
+| family | std1 | std = 1 | 37 | 18 | 18 | 28,358 | 86,443 | 54 s | 28,262 | 11 min 50 s |
 | family | r25 | PCA ≥ 0.796 | 93 | 74 |  | 28,358 | 91,369 | 1 min 52 s | 28,262 |  |
 | family | r50 | PCA ≥ 0.5059 | 185 | 166 |  | 28,358 | 98,362 | 2 min 16 s |  |  |
 | family | r75 | PCA ≥ 0.412 | 278 | 259 |  | 28,358 | 96,780 | 2 min 49 s | 28,265 |  |
@@ -94,12 +94,12 @@ kbgen: upstream e5d06bc + baselines/kbgen.patch, driver sha256 1a5f71dbbda1a74ef
 | SGKG4 | r75 | PCA ≥ 1 | 6 | 4 | | | same rules as r100: no copy | | | |
 | SGKG4 | r100 | PCA ≥ 0 | 6 | 4 |  |  |  |  |  |  |
 | WN18RR | std1 | std = 1 | 2 | 2 |  | 93,003 | 93,003 | 11 min 53 s |  |  |
-| WN18RR | r25 | PCA ≥ 0.8 | 6 | 6 | 6 | 93,003 |  |  | 92,550 | 19 min 23 s |
-| WN18RR | r50 | PCA ≥ 0.7 | 12 | 12 | 12 | 93,003 |  |  | 92,550 | 37 min 7 s |
-| WN18RR | r75 | PCA ≥ 0.3 | 21 | 21 | 21 | 93,003 |  |  | 92,550 | 1 h 1 min |
+| WN18RR | r25 | PCA ≥ 0.8 | 6 | 6 | 6 | 93,003 | 93,001 | 9 min 1 s | 92,550 | 19 min 23 s |
+| WN18RR | r50 | PCA ≥ 0.7 | 12 | 12 | 12 | 93,003 | 93,002 | 8 min 56 s | 92,550 | 37 min 7 s |
+| WN18RR | r75 | PCA ≥ 0.3 | 21 | 21 | 21 | 93,003 | 93,000 | 9 min 5 s | 92,550 | 1 h 1 min |
 | WN18RR | r100 | PCA ≥ 0 | 24 | 24 |  |  |  |  |  |  |
 | WN18RR1_1 | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
-| WN18RR1_1 | r25 | PCA ≥ 0.85 | 5 | 5 | 5 | 71,015 | 71,015 | 10 min 35 s | 70,699 | 16 min 8 s |
+| WN18RR1_1 | r25 | PCA ≥ 0.85 | 5 | 5 | 5 | 71,015 | 71,015 | 11 min 55 s | 70,699 | 16 min 8 s |
 | WN18RR1_1 | r50 | PCA ≥ 0.7 | 9 | 9 | 9 | 71,015 | 71,015 | 10 min 28 s | 70,699 | 29 min 29 s |
 | WN18RR1_1 | r75 | PCA ≥ 0.3 | 13 | 13 | 13 | 71,015 | 71,015 | 8 min 4 s | 70,699 | 31 min 37 s |
 | WN18RR1_1 | r100 | PCA ≥ 0 | 17 | 17 |  | 71,015 | 71,015 | 9 min 4 s |  |  |
@@ -109,10 +109,10 @@ kbgen: upstream e5d06bc + baselines/kbgen.patch, driver sha256 1a5f71dbbda1a74ef
 | WN18RR1_N | r75 | PCA ≥ 0.17 | 8 | 8 | 8 | 38,938 | 38,938 | 51 s | 21,808 | 27 s |
 | WN18RR1_N | r100 | PCA ≥ 0 | 10 | 10 | 10 | 38,938 | 38,938 | 40 s | 21,808 | 29 s |
 | WN18RRN_1 | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
-| WN18RRN_1 | r25 | PCA ≥ 0.7 | 4 | 4 | 4 | 65,379 | 65,379 | 5 min 22 s | 63,745 | 7 min 53 s |
-| WN18RRN_1 | r50 | PCA ≥ 0.2 | 8 | 8 | 8 | 65,379 | 65,378 | 5 min 24 s | 63,745 | 12 min 21 s |
-| WN18RRN_1 | r75 | PCA ≥ 0.126 | 12 | 12 | 12 | 65,379 | 65,376 | 5 min 24 s | 63,745 | 12 min 28 s |
-| WN18RRN_1 | r100 | PCA ≥ 0 | 15 | 15 | 15 | 65,379 | 65,378 | 5 min 23 s | 63,745 | 12 min 28 s |
+| WN18RRN_1 | r25 | PCA ≥ 0.7 | 4 | 4 | 4 | 65,379 | 65,379 | 6 min 39 s | 63,745 | 7 min 53 s |
+| WN18RRN_1 | r50 | PCA ≥ 0.2 | 8 | 8 | 8 | 65,379 | 65,377 | 5 min 50 s | 63,745 | 12 min 21 s |
+| WN18RRN_1 | r75 | PCA ≥ 0.126 | 12 | 12 | 12 | 65,379 | 65,377 | 6 min 10 s | 63,745 | 12 min 28 s |
+| WN18RRN_1 | r100 | PCA ≥ 0 | 15 | 15 | 15 | 65,379 | 65,379 | 6 min 18 s | 63,745 | 12 min 28 s |
 | WN18RRN_M | std1 | std = 1 | 2 | 2 |  |  |  |  |  |  |
 | WN18RRN_M | r25 | PCA ≥ 0.8 | 6 | 6 | 6 | 93,003 |  |  | 92,550 | 18 min 50 s |
 | WN18RRN_M | r50 | PCA ≥ 0.7 | 12 | 12 | 12 | 93,003 |  |  | 92,550 | 37 min 34 s |
@@ -125,7 +125,7 @@ kbgen: upstream e5d06bc + baselines/kbgen.patch, driver sha256 1a5f71dbbda1a74ef
 | YAGO3-10 | r100 | PCA ≥ 0 | 149 | 146 |  |  |  |  |  |  |
 | YAGO3-10_1_1 | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
 | YAGO3-10_1_1 | r25 | PCA ≥ 0.58 | 22 | 22 | 15 | 340,991 | 340,991 | 51 min 4 s | 188,150 | 1 h 10 min |
-| YAGO3-10_1_1 | r50 | PCA ≥ 0.397 | 44 | 44 | 33 | 340,991 |  |  | 188,150 | 1 h 22 min |
+| YAGO3-10_1_1 | r50 | PCA ≥ 0.397 | 44 | 44 | 33 | 340,991 | 340,987 | 56 min 42 s | 188,150 | 1 h 22 min |
 | YAGO3-10_1_1 | r75 | PCA ≥ 0.25 | 66 | 66 | 54 | 340,991 |  |  | 188,150 | 1 h 37 min |
 | YAGO3-10_1_1 | r100 | PCA ≥ 0 | 88 | 88 |  |  |  |  |  |  |
 | YAGO3-10_1_N | std1 | std = 1 | 1 | 0 | | | no rule: no copy | | | |
@@ -150,7 +150,7 @@ Our generator: *derived* is what completion forward-chained from the complete ru
 
 | Dataset | Level | Ours triples | Ours derived | Ours partial heads | Ours by rules | Ours instantiated | kbgen triples | kbgen by rules | kbgen sampled |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| family | std1 | 86,443 | 75,518 (87.4%) | 0 (0.0%) | 75,518 (87.4%) | 10,925 (12.6%) |  |  |  |
+| family | std1 | 86,443 | 75,518 (87.4%) | 0 (0.0%) | 75,518 (87.4%) | 10,925 (12.6%) | 28,262 | 10,148 (35.9%) | 18,114 (64.1%) |
 | family | r25 | 91,369 | 80,035 (87.6%) | 1,426 (1.6%) | 81,461 (89.2%) | 9,908 (10.8%) | 28,262 |  |  |
 | family | r50 | 98,362 | 86,276 (87.7%) | 1,696 (1.7%) | 87,972 (89.4%) | 10,390 (10.6%) |  |  |  |
 | family | r75 | 96,780 | 84,630 (87.4%) | 1,732 (1.8%) | 86,362 (89.2%) | 10,418 (10.8%) | 28,265 |  |  |
@@ -197,11 +197,11 @@ Our generator: *derived* is what completion forward-chained from the complete ru
 | SGKG3 | r100 |  |  |  |  |  |  |  |  |
 | SGKG4 | r100 |  |  |  |  |  |  |  |  |
 | WN18RR | std1 | 93,003 | 0 (0.0%) | 0 (0.0%) | 0 (0.0%) | 93,003 (100.0%) |  |  |  |
-| WN18RR | r25 |  |  |  |  |  | 92,550 |  |  |
-| WN18RR | r50 |  |  |  |  |  | 92,550 |  |  |
-| WN18RR | r75 |  |  |  |  |  | 92,550 |  |  |
+| WN18RR | r25 | 93,001 | 0 (0.0%) | 1,119 (1.2%) | 1,119 (1.2%) | 91,882 (98.8%) | 92,550 |  |  |
+| WN18RR | r50 | 93,002 | 0 (0.0%) | 1,173 (1.3%) | 1,173 (1.3%) | 91,829 (98.7%) | 92,550 |  |  |
+| WN18RR | r75 | 93,000 | 0 (0.0%) | 1,725 (1.9%) | 1,725 (1.9%) | 91,275 (98.1%) | 92,550 |  |  |
 | WN18RR | r100 |  |  |  |  |  |  |  |  |
-| WN18RR1_1 | r25 | 71,015 |  |  |  |  | 70,699 |  |  |
+| WN18RR1_1 | r25 | 71,015 | 0 (0.0%) | 552 (0.8%) | 552 (0.8%) | 70,463 (99.2%) | 70,699 |  |  |
 | WN18RR1_1 | r50 | 71,015 | 0 (0.0%) | 1,055 (1.5%) | 1,055 (1.5%) | 69,960 (98.5%) | 70,699 |  |  |
 | WN18RR1_1 | r75 | 71,015 | 0 (0.0%) | 8,781 (12.4%) | 8,781 (12.4%) | 62,234 (87.6%) | 70,699 |  |  |
 | WN18RR1_1 | r100 | 71,015 | 0 (0.0%) | 8,706 (12.3%) | 8,706 (12.3%) | 62,309 (87.7%) |  |  |  |
@@ -209,10 +209,10 @@ Our generator: *derived* is what completion forward-chained from the complete ru
 | WN18RR1_N | r50 | 38,937 | 0 (0.0%) | 8,849 (22.7%) | 8,849 (22.7%) | 30,088 (77.3%) | 21,809 | 7,965 (36.5%) | 13,844 (63.5%) |
 | WN18RR1_N | r75 | 38,938 | 0 (0.0%) | 8,832 (22.7%) | 8,832 (22.7%) | 30,106 (77.3%) | 21,808 | 7,953 (36.5%) | 13,855 (63.5%) |
 | WN18RR1_N | r100 | 38,938 | 0 (0.0%) | 8,824 (22.7%) | 8,824 (22.7%) | 30,114 (77.3%) | 21,808 | 7,961 (36.5%) | 13,847 (63.5%) |
-| WN18RRN_1 | r25 | 65,379 |  |  |  |  | 63,745 | 11,884 (18.6%) | 51,861 (81.4%) |
-| WN18RRN_1 | r50 | 65,378 |  |  |  |  | 63,745 | 12,160 (19.1%) | 51,585 (80.9%) |
-| WN18RRN_1 | r75 | 65,376 |  |  |  |  | 63,745 | 12,259 (19.2%) | 51,486 (80.8%) |
-| WN18RRN_1 | r100 | 65,378 |  |  |  |  | 63,745 | 12,219 (19.2%) | 51,526 (80.8%) |
+| WN18RRN_1 | r25 | 65,379 | 0 (0.0%) | 9,179 (14.0%) | 9,179 (14.0%) | 56,200 (86.0%) | 63,745 | 11,884 (18.6%) | 51,861 (81.4%) |
+| WN18RRN_1 | r50 | 65,377 | 0 (0.0%) | 9,197 (14.1%) | 9,197 (14.1%) | 56,180 (85.9%) | 63,745 | 12,160 (19.1%) | 51,585 (80.9%) |
+| WN18RRN_1 | r75 | 65,377 | 0 (0.0%) | 9,207 (14.1%) | 9,207 (14.1%) | 56,170 (85.9%) | 63,745 | 12,259 (19.2%) | 51,486 (80.8%) |
+| WN18RRN_1 | r100 | 65,379 | 0 (0.0%) | 9,207 (14.1%) | 9,207 (14.1%) | 56,172 (85.9%) | 63,745 | 12,219 (19.2%) | 51,526 (80.8%) |
 | WN18RRN_M | std1 |  |  |  |  |  |  |  |  |
 | WN18RRN_M | r25 |  |  |  |  |  | 92,550 |  |  |
 | WN18RRN_M | r50 |  |  |  |  |  | 92,550 |  |  |
@@ -223,7 +223,7 @@ Our generator: *derived* is what completion forward-chained from the complete ru
 | YAGO3-10 | r75 |  |  |  |  |  | 530,841 |  |  |
 | YAGO3-10 | r100 |  |  |  |  |  |  |  |  |
 | YAGO3-10_1_1 | r25 | 340,991 |  |  |  |  | 188,150 |  |  |
-| YAGO3-10_1_1 | r50 |  |  |  |  |  | 188,150 |  |  |
+| YAGO3-10_1_1 | r50 | 340,987 | 0 (0.0%) | 5,895 (1.7%) | 5,895 (1.7%) | 335,092 (98.3%) | 188,150 |  |  |
 | YAGO3-10_1_1 | r75 |  |  |  |  |  | 188,150 |  |  |
 | YAGO3-10_1_1 | r100 |  |  |  |  |  |  |  |  |
 | YAGO3-10_1_N | r25 |  |  |  |  |  | 192,150 |  |  |
@@ -245,8 +245,8 @@ Sum of the copies' times; levels of kbgen ran several at a time, so its sum is C
 
 | Method | Copies | Sum of times |
 |---|---:|---:|
-| ours | 50 | 1 h 12 min |
-| kbgen | 45 | 3 h 9 min |
+| ours | 59 | 3 h 13 min |
+| kbgen | 46 | 3 h 21 min |
 
 ## kbgen's shared steps
 
@@ -254,6 +254,7 @@ Made once per dataset and shared by its levels: the N-Triples file, the tensor a
 
 | Dataset | Time | Made |
 |---|---:|---|
+| family | 7 s | 2026-11-16 21:37 |
 | Family1_1 | 5 s | 2026-11-16 13:20 |
 | Family1_N | 4 s | 2026-11-16 13:20 |
 | FamilyM_N | 4 s | 2026-11-16 13:20 |
@@ -277,11 +278,11 @@ When each copy was finished, from which commit of this repository (ours; `+dirty
 
 | Dataset | Level | Ours finished | Ours commit | Ours check | kbgen finished | kbgen check |
 |---|---|---|---|---|---|---|
-| family | std1 | 2026-11-16 20:58 | 986c4c8e | valid |  | missing |
-| family | r25 | 2026-11-16 21:00 | 986c4c8e | valid |  | invalid:no run record |
-| family | r50 | 2026-11-16 21:03 | 986c4c8e | valid |  | missing |
-| family | r75 | 2026-11-16 21:05 | 986c4c8e | valid |  | invalid:no run record |
-| family | r100 | 2026-11-16 21:12 | 986c4c8e | valid |  | missing |
+| family | std1 | 2026-11-16 20:58 | 986c4c8e | valid | 2026-11-16 21:49 | valid |
+| family | r25 | 2026-11-16 21:00 | 986c4c8e | valid |  | running |
+| family | r50 | 2026-11-16 21:03 | 986c4c8e | valid |  | running |
+| family | r75 | 2026-11-16 21:05 | 986c4c8e | valid |  | running |
+| family | r100 | 2026-11-16 21:12 | 986c4c8e | valid |  | running |
 | Family1_1 | r25 | 2026-11-16 21:06 | 986c4c8e | valid | 2026-11-16 21:09 | valid |
 | Family1_1 | r50 | 2026-11-16 21:06 | 986c4c8e | valid | 2026-11-16 21:11 | valid |
 | Family1_1 | r75 | 2026-11-16 21:08 | 986c4c8e | valid | 2026-11-16 21:13 | valid |
@@ -324,22 +325,22 @@ When each copy was finished, from which commit of this repository (ours; `+dirty
 | SGKG3 | r100 |  |  | missing |  | missing |
 | SGKG4 | r100 |  |  | missing |  | missing |
 | WN18RR | std1 | 2026-11-16 21:24 | 986c4c8e | valid |  | missing |
-| WN18RR | r25 |  |  | missing | 2026-11-16 14:30 | invalid:no count of rule facts |
-| WN18RR | r50 |  |  | missing | 2026-11-16 14:43 | invalid:no count of rule facts |
-| WN18RR | r75 |  |  | missing | 2026-11-16 14:57 | invalid:no count of rule facts |
+| WN18RR | r25 | 2026-11-16 21:33 | bd509c53 | valid | 2026-11-16 14:30 | invalid:no count of rule facts |
+| WN18RR | r50 | 2026-11-16 21:42 | bd509c53 | valid | 2026-11-16 14:43 | invalid:no count of rule facts |
+| WN18RR | r75 | 2026-11-16 21:51 | bd509c53 | valid | 2026-11-16 14:57 | invalid:no count of rule facts |
 | WN18RR | r100 |  |  | missing |  | missing |
-| WN18RR1_1 | r25 | 2026-11-16 20:30 | 798ac8d1 | invalid:log lacks the partial head count | 2026-11-16 14:06 | invalid:no count of rule facts |
-| WN18RR1_1 | r50 | 2026-11-16 20:40 | ecce66e7 | valid | 2026-11-16 14:15 | invalid:no count of rule facts |
-| WN18RR1_1 | r75 | 2026-11-16 20:48 | ecce66e7 | valid | 2026-11-16 14:10 | invalid:no count of rule facts |
-| WN18RR1_1 | r100 | 2026-11-16 20:58 | 986c4c8e | valid |  | missing |
+| WN18RR1_1 | r25 | 2026-11-16 21:59 | bd509c53 | valid | 2026-11-16 14:06 | running |
+| WN18RR1_1 | r50 | 2026-11-16 20:40 | ecce66e7 | valid | 2026-11-16 14:15 | running |
+| WN18RR1_1 | r75 | 2026-11-16 20:48 | ecce66e7 | valid | 2026-11-16 14:10 | running |
+| WN18RR1_1 | r100 | 2026-11-16 20:58 | 986c4c8e | valid |  | running |
 | WN18RR1_N | r25 | 2026-11-16 21:19 | 986c4c8e | valid | 2026-11-16 21:14 | valid |
 | WN18RR1_N | r50 | 2026-11-16 21:20 | 986c4c8e | valid | 2026-11-16 21:15 | valid |
 | WN18RR1_N | r75 | 2026-11-16 21:21 | 986c4c8e | valid | 2026-11-16 21:15 | valid |
 | WN18RR1_N | r100 | 2026-11-16 21:22 | 986c4c8e | valid | 2026-11-16 21:15 | valid |
-| WN18RRN_1 | r25 | 2026-11-16 21:29 | 986c4c8e | invalid:log lacks the partial head count | 2026-11-16 21:23 | valid |
-| WN18RRN_1 | r50 | 2026-11-16 20:09 | da0f64cd | invalid:log lacks the partial head count | 2026-11-16 21:27 | valid |
-| WN18RRN_1 | r75 | 2026-11-16 20:14 | da0f64cd | invalid:log lacks the partial head count | 2026-11-16 21:28 | valid |
-| WN18RRN_1 | r100 | 2026-11-16 20:19 | 0b9da63b | invalid:log lacks the partial head count | 2026-11-16 21:28 | valid |
+| WN18RRN_1 | r25 | 2026-11-16 21:29 | 986c4c8e | valid | 2026-11-16 21:23 | valid |
+| WN18RRN_1 | r50 | 2026-11-16 21:34 | bd509c53 | valid | 2026-11-16 21:27 | valid |
+| WN18RRN_1 | r75 | 2026-11-16 21:41 | bd509c53 | valid | 2026-11-16 21:28 | valid |
+| WN18RRN_1 | r100 | 2026-11-16 21:47 | bd509c53 | valid | 2026-11-16 21:28 | valid |
 | WN18RRN_M | std1 |  |  | missing |  | missing |
 | WN18RRN_M | r25 |  |  | missing | 2026-11-16 15:02 | invalid:no count of rule facts |
 | WN18RRN_M | r50 |  |  | missing | 2026-11-16 15:07 | invalid:no count of rule facts |
@@ -350,7 +351,7 @@ When each copy was finished, from which commit of this repository (ours; `+dirty
 | YAGO3-10 | r75 |  |  | missing |  | invalid:no run record |
 | YAGO3-10 | r100 |  |  | missing |  | missing |
 | YAGO3-10_1_1 | r25 | 2026-11-16 20:42 | ecce66e7 | invalid:log lacks the partial head count | 2026-11-16 16:03 | invalid:no count of rule facts |
-| YAGO3-10_1_1 | r50 |  |  | missing | 2026-11-16 14:53 | invalid:no count of rule facts |
+| YAGO3-10_1_1 | r50 | 2026-11-16 21:39 | bd509c53 | valid | 2026-11-16 14:53 | invalid:no count of rule facts |
 | YAGO3-10_1_1 | r75 |  |  | missing | 2026-11-16 15:08 | invalid:no count of rule facts |
 | YAGO3-10_1_1 | r100 |  |  | missing |  | missing |
 | YAGO3-10_1_N | r25 |  |  | missing |  | invalid:no run record |
