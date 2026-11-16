@@ -95,7 +95,7 @@ On small datasets one update per epoch means 100 updates in all, which may lower
 - Realistic rank: when several candidates tie in score, the correct answer gets the mean of their ranks.
 - Metrics: Hits@k for k = 1, 3, 5, 10 and 15, the share of queries whose correct answer ranks in the top k, and MRR, the mean reciprocal rank, over head and tail queries together.
 - PyKEEN computes Hits@1, 3, 5 and 10 and MRR at the end of training. `report_results.py` then ranks every test triple again with the saved model, which gives Hits@15 and the per-relation results, and leaves out a run whose recomputed MRR differs from PyKEEN's by more than 0.001.
-- A copy is compared with its original by Kendall's τ between the two rankings of the models, per metric, and by the mean absolute difference of each metric over the models (`scripts/compare_results.py`, `scripts/results_table.py`).
+- A copy is compared with its original by Spearman's ρ between the two rankings of the models (`scipy.stats.spearmanr`), and by the mean squared error of each metric over the models trained on both (`sklearn.metrics.mean_squared_error`), both computed metric by metric (`kgc_benchmark/spearman_rho.py`, `scripts/compare_results.py`, `scripts/results_table.py`).
 
 ## 5. Differences from VANILLA's KGC.py
 

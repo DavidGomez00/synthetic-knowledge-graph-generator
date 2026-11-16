@@ -20,7 +20,7 @@ A family is an original dataset and its synthetic copies, the variants:
 `french` (variant `original`) with `french_ours` (`ours`), `french_kbgen`
 (`kbgen`) and `french_pygraft` (`pygraft`). The variants are compared only
 through aggregates: per model, per relation, whose names every generator
-keeps, and by how they rank the models (Kendall's tau, see kendall_tau.py). A
+keeps, and by how they rank the models (Spearman's rho, see spearman_rho.py). A
 held-out triple of a copy is not the same fact as one of the original, even
 when the copy keeps the entity names, so predictions are never paired across
 variants.
@@ -37,7 +37,7 @@ Output, under `--output` (`exp_analysis/`):
         relation_comparison.csv      each relation, the original vs every variant:
                                      MRR difference with a bootstrap interval,
                                      Cliff's delta, Mann-Whitney and KS tests
-        ranking_agreement.csv        Kendall's tau of the model rankings, the
+        ranking_agreement.csv        Spearman's rho of the model rankings, the
                                      original vs every variant
         training_losses.csv          one row per training epoch, every run
         relations.png                MRR and Hits@10 per relation, model and variant
@@ -83,7 +83,7 @@ import numpy as np
 import pandas as pd
 import torch
 from cliffs_delta import cliffs_delta, effect_size
-from kendall_tau import ranking_agreement
+from spearman_rho import ranking_agreement
 from matplotlib import path as mpath
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D

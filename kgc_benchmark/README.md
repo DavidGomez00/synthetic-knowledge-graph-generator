@@ -99,7 +99,7 @@ Then run `python report_results.py`. It writes:
     per graph for each relation, one figure per model (`<model>/<model>_relations_hits_at_1-15.png`)
   - **the training loss of every model**, one line per graph (`training_loss.png`)
   - the reference graph compared with the other versions, relation by relation and query by query
-  - **how alike each version ranks the models**: the Kendall's tau between its model ranking and the
+  - **how alike each version ranks the models**: the Spearman's rho between its model ranking and the
     reference's, by Hits@1, 3, 5, 10, 15 and MRR (`ranking_agreement.csv`)
   - the plots of each model go to a subfolder named after it, e.g. `CompGCN/`
 
@@ -122,7 +122,7 @@ dictionary at the top of `report_results.py`, e.g. `"french_royalty": "French Ro
 
 | Page | Contents |
 |---|---|
-| [KG completion and evaluation](docs/kgc.md) | How the scripts work, the metrics, the output files, the statistical tests and Kendall's tau |
+| [KG completion and evaluation](docs/kgc.md) | How the scripts work, the metrics, the output files, the statistical tests and Spearman's rho |
 | [Configuration](docs/configuration.md) | Every key of `input.json` |
 | [Troubleshooting](docs/troubleshooting.md) | The messages the scripts print, and what to do about them |
 | [Backlog](docs/backlog.md) | Planned improvements that aren't implemented yet |

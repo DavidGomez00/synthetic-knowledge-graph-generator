@@ -19,18 +19,16 @@ Each table goes to its own file in `--output-dir` (default
 `report_results.py` to update the tables.
 
 `ranking_agreement.tex` has one row per graph (every base graph, its 1:1, 1:N,
-N:1 and N:M sub-graphs, and SGKG1-4) and, per generator, Kendall's tau between
+N:1 and N:M sub-graphs, and SGKG1-4) and, per generator, Spearman's rho between
 the ranking of the models on the original graph and on the copy, by Hits@1 and
 by MRR, read from the `ranking_agreement.csv` that `report_results.py` writes
-in each graph's folder. `metric_distance.tex` has the same rows and columns,
-with the mean absolute difference of Hits@1 and of MRR between the original
-graph and the copy over the models trained on both, the smallest of each row
-in bold, and `metric_distance_relative.tex` divides that difference by the
-original's mean score over the same models (a copy on which every model scores
-0 gets 1). In `ranking_agreement.tex`, the highest tau of each row is bold,
-separately for Hits@1 and MRR, and ties are all bold. A tau with p < 0.05 is
-marked with an asterisk, and an undefined tau (every model with the same
-value, e.g. Hits@1 = 0) is "-". Only the Python standard library is used.
+in each graph's folder. `metric_mse.tex` has the same rows and columns, with
+the mean squared error of Hits@1 and of MRR between the original graph and the
+copy over the models trained on both (scikit-learn's `mean_squared_error`),
+computed metric by metric, the smallest of each metric in bold. In
+`ranking_agreement.tex`, the highest rho of each metric is bold, and ties are
+all bold. A rho with p < 0.05 is marked with an asterisk, and an undefined rho
+(every model with the same value, e.g. Hits@1 = 0) is "-".
 
     python scripts/results_table.py
     python scripts/results_table.py --output-dir paper/tables
@@ -39,6 +37,8 @@ value, e.g. Hits@1 = 0) is "-". Only the Python standard library is used.
 import argparse
 import csv
 from pathlib import Path
+
+from sklearn.metrics import mean_squared_error
 
 # Name, file/label key and caption name of each dataset family, in table order.
 FAMILIES = (
@@ -106,6 +106,12 @@ def read_metrics(path: Path) -> Metrics:
     """The rows of metrics.csv by family (dataset folder), variant and model."""
     with path.open(newline="", encoding="utf-8") as f:
         return {(r["family"], r["variant"], r["model"]): r for r in csv.DictReader(f)}
+
+
+def metric_list(metrics: tuple[tuple[str, str], ...]) -> str:
+    """The names of `metrics` as text: "Hits@1 and MRR", "Hits@1, Hits@3 and MRR"."""
+    names = [name for name, _ in metrics]
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
 
 
 def latex_name(dataset: str) -> str:
@@ -249,7 +255,7 @@ AGREEMENT_GRAPHS = (
     tuple(SGKG_GRAPHS),
 )
 AGREEMENT_METRICS = (("Hits@1", "hits_at_1"), ("MRR", "mrr"))
-# A tau with a p-value below this is marked with an asterisk.
+# A rho with a p-value below this is marked with an asterisk.
 SIGNIFICANCE = 0.05
 
 Agreement = dict[tuple[str, str, str], dict[str, str]]
@@ -269,30 +275,30 @@ def read_agreement(analysis: Path) -> Agreement:
     return rows
 
 
-def tau_value(row: dict[str, str] | None) -> float | None:
-    """A row's tau rounded as shown, or None when it is missing or undefined."""
-    if not row or not row["kendall_tau"]:
+def rho_value(row: dict[str, str] | None) -> float | None:
+    """A row's rho rounded as shown, or None when it is missing or undefined."""
+    if not row or not row["spearman_rho"]:
         return None
-    return round(float(row["kendall_tau"]), DECIMALS)
+    return round(float(row["spearman_rho"]), DECIMALS)
 
 
-def tau_cell(row: dict[str, str] | None, best: float | None) -> str:
-    """A tau as shown in the table: bold if it is the row's best for its
+def rho_cell(row: dict[str, str] | None, best: float | None) -> str:
+    """A rho as shown in the table: bold if it is the row's best for its
     metric, with an asterisk if p < SIGNIFICANCE."""
-    value = tau_value(row)
+    value = rho_value(row)
     if value is None or row is None:
         return MISSING
     text = f"{value:.{DECIMALS}f}"
     if value == best:
         text = f"\\textbf{{{text}}}"
-    if row["kendall_p"] and float(row["kendall_p"]) < SIGNIFICANCE:
+    if row["spearman_p"] and float(row["spearman_p"]) < SIGNIFICANCE:
         text += "$^*$"
     return text
 
 
 def build_agreement_table(agreement: Agreement) -> tuple[str, int, int]:
-    """The table of Kendall's tau between the model rankings of each graph
-    and of each generator's copy, with the number of taus filled and in all."""
+    """The table of Spearman's rho between the model rankings of each graph
+    and of each generator's copy, with the number of rhos filled and in all."""
     copies = [(name, variant) for name, variant in GENERATORS if variant != "original"]
     n = len(AGREEMENT_METRICS)
     groups = [
@@ -307,10 +313,10 @@ def build_agreement_table(agreement: Agreement) -> tuple[str, int, int]:
         "\\centering",
         "\\setlength{\\tabcolsep}{3pt}",
         "\\renewcommand{\\arraystretch}{0.8}",
-        "\\caption{Kendall's $\\tau$ between the ranking of the models on each "
-        "original graph and on the synthetic copy of each generator, by Hits@1 and "
-        f"MRR. The highest $\\tau$ of each row is in bold, separately for Hits@1 and "
-        f"MRR. $^*$: $p < {SIGNIFICANCE}$.}}",
+        "\\caption{Spearman's $\\rho$ between the ranking of the models on each "
+        "original graph and on the synthetic copy of each generator, by "
+        f"{metric_list(AGREEMENT_METRICS)}. The highest $\\rho$ of each metric is in "
+        f"bold. $^*$: $p < {SIGNIFICANCE}$.}}",
         "\\label{tab:ranking_agreement}",
         "\\resizebox{\\columnwidth}{!}{%",
         f"\\begin{{tabular}}{{l||{columns}}}",
@@ -329,7 +335,7 @@ def build_agreement_table(agreement: Agreement) -> tuple[str, int, int]:
                     (
                         v
                         for _, variant in copies
-                        if (v := tau_value(agreement.get((graph, variant, metric))))
+                        if (v := rho_value(agreement.get((graph, variant, metric))))
                         is not None
                     ),
                     default=None,
@@ -339,7 +345,7 @@ def build_agreement_table(agreement: Agreement) -> tuple[str, int, int]:
             row = [latex_name(graph)]
             for _, variant in copies:
                 for _, metric in AGREEMENT_METRICS:
-                    cell = tau_cell(
+                    cell = rho_cell(
                         agreement.get((graph, variant, metric)), best[metric]
                     )
                     row.append(cell)
@@ -351,15 +357,17 @@ def build_agreement_table(agreement: Agreement) -> tuple[str, int, int]:
     return "\n".join(lines) + "\n", filled, total
 
 
-def mean_distance(
-    metrics: Metrics, graph: str, variant: str, key: str, relative: bool = False
+# Decimals of the MSE: squared differences of scores in [0, 1] are small.
+MSE_DECIMALS = 4
+
+
+def metric_mse(
+    metrics: Metrics, graph: str, variant: str, key: str
 ) -> tuple[float, int] | None:
-    """The mean absolute difference of a metric between the original graph and
-    a variant's copy, over the models trained on both, and how many models that
-    is. With `relative`, the difference is divided by the original's mean score
-    over the same models, sum |copy - original| / sum original: a copy on which
-    every model scores 0 gets 1. None when no model was trained on both, or,
-    with `relative`, when every original score is 0."""
+    """The mean squared error of a metric between the original graph and a
+    variant's copy, over the models trained on both (scikit-learn's
+    `mean_squared_error`), and how many models that is; None when no model was
+    trained on both."""
     pairs = [
         (float(original[key]), float(copy[key]))
         for model in MODELS
@@ -368,45 +376,14 @@ def mean_distance(
     ]
     if not pairs:
         return None
-    difference = sum(abs(c - o) for o, c in pairs)
-    if relative:
-        scale = sum(o for o, _ in pairs)
-        return (difference / scale, len(pairs)) if scale else None
-    return difference / len(pairs), len(pairs)
+    originals, copies = zip(*pairs, strict=True)
+    return float(mean_squared_error(originals, copies)), len(pairs)
 
 
-# Caption and label of the distance tables, absolute (False) and relative (True).
-DISTANCE_CAPTIONS = {
-    False: (
-        "\\caption{Mean absolute difference of Hits@1 and MRR between each "
-        "original graph and the synthetic copy of each generator, over the models "
-        f"trained on both (all {len(MODELS)} unless marked $^\\dagger$). 0 means "
-        "the copy gives every model the score it has on the original graph. The "
-        "smallest difference of each row is in bold, separately for Hits@1 and "
-        "MRR.}",
-        "\\label{tab:metric_distance}",
-    ),
-    True: (
-        "\\caption{Relative difference of Hits@1 and MRR between each original "
-        "graph and the synthetic copy of each generator: the sum over the models "
-        "trained on both (all "
-        f"{len(MODELS)} unless marked $^\\dagger$) of $|\\text{{copy}} - "
-        "\\text{original}|$, divided by the sum of the original scores. 0 means "
-        "the copy gives every model the score it has on the original graph; a "
-        "copy on which every model scores 0 gets 1. The smallest value of each "
-        "row is in bold, separately for Hits@1 and MRR.}",
-        "\\label{tab:metric_distance_relative}",
-    ),
-}
-
-
-def build_distance_table(
-    metrics: Metrics, relative: bool = False
-) -> tuple[str, int, int]:
-    """The table of the mean absolute difference of Hits@1 and MRR between each
-    original graph and the copy of each generator (with `relative`, divided by
-    the original's mean score, see `mean_distance`), with the number of cells
-    filled and in all."""
+def build_mse_table(metrics: Metrics) -> tuple[str, int, int]:
+    """The table of the mean squared error of each metric of AGREEMENT_METRICS
+    between each original graph and the copy of each generator (`metric_mse`),
+    with the number of cells filled and in all."""
     copies = [(name, variant) for name, variant in GENERATORS if variant != "original"]
     n = len(AGREEMENT_METRICS)
     groups = [
@@ -420,7 +397,12 @@ def build_distance_table(
         "\\centering",
         "\\setlength{\\tabcolsep}{3pt}",
         "\\renewcommand{\\arraystretch}{0.8}",
-        *DISTANCE_CAPTIONS[relative],
+        f"\\caption{{Mean squared error of {metric_list(AGREEMENT_METRICS)} between "
+        "each original graph and the synthetic copy of each generator, computed "
+        f"metric by metric over the models trained on both (all {len(MODELS)} unless "
+        "marked $^\\dagger$). 0 means the copy gives every model the score it has on "
+        "the original graph. The smallest error of each metric is in bold.}",
+        "\\label{tab:metric_mse}",
         "\\resizebox{\\columnwidth}{!}{%",
         f"\\begin{{tabular}}{{l||{columns}}}",
         "\\hline",
@@ -434,14 +416,14 @@ def build_distance_table(
     for graphs in AGREEMENT_GRAPHS:
         for graph in graphs:
             values = {
-                (variant, key): mean_distance(metrics, graph, variant, key, relative)
+                (variant, key): metric_mse(metrics, graph, variant, key)
                 for _, variant in copies
                 for _, key in AGREEMENT_METRICS
             }
             best = {
                 key: min(
                     (
-                        round(v[0], DECIMALS)
+                        round(v[0], MSE_DECIMALS)
                         for (_, k), v in values.items()
                         if k == key and v is not None
                     ),
@@ -458,9 +440,9 @@ def build_distance_table(
                         row.append(MISSING)
                         continue
                     filled += 1
-                    distance = round(value[0], DECIMALS)
-                    text = f"{distance:.{DECIMALS}f}"
-                    if distance == best[key]:
+                    mse = round(value[0], MSE_DECIMALS)
+                    text = f"{mse:.{MSE_DECIMALS}f}"
+                    if mse == best[key]:
                         text = f"\\textbf{{{text}}}"
                     if value[1] < len(MODELS):
                         text += "$^\\dagger$"
@@ -503,17 +485,12 @@ def main() -> None:
     source, filled, total = build_agreement_table(read_agreement(args.metrics.parent))
     path = args.output_dir / "ranking_agreement.tex"
     path.write_text(source, encoding="utf-8")
-    print(f"Wrote {path}: {filled} of {total} taus")
+    print(f"Wrote {path}: {filled} of {total} rhos")
 
-    source, filled, total = build_distance_table(metrics)
-    path = args.output_dir / "metric_distance.tex"
+    source, filled, total = build_mse_table(metrics)
+    path = args.output_dir / "metric_mse.tex"
     path.write_text(source, encoding="utf-8")
-    print(f"Wrote {path}: {filled} of {total} distances")
-
-    source, filled, total = build_distance_table(metrics, relative=True)
-    path = args.output_dir / "metric_distance_relative.tex"
-    path.write_text(source, encoding="utf-8")
-    print(f"Wrote {path}: {filled} of {total} distances")
+    print(f"Wrote {path}: {filled} of {total} errors")
 
 
 if __name__ == "__main__":
