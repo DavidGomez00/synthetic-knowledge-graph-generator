@@ -293,6 +293,7 @@ def check_triples_from_rule(
     chunk_size: int,
     undirected_preds: Collection[str] = (),
     skip_reflexivity: bool = False,
+    head_triples: list[int] | None = None,
 ) -> int:
     """Builds groundings of the rule's EDB atoms (`HornRule.get_edb_atoms`) up to its
     `grounding_target` and inserts them into the EDB.
@@ -316,6 +317,8 @@ def check_triples_from_rule(
         undirected_preds: Predicates whose triples are inserted in both directions.
         skip_reflexivity: Use the grounding logic before the self-loop fix (see
             `generator.sample_grounding_groups`).
+        head_triples: If given, its first element is increased by the head triples
+            a partial rule's groundings add.
 
     Returns:
         The number of successfully inserted triples.
@@ -376,6 +379,8 @@ def check_triples_from_rule(
                 fixed_bindings=fixed,
                 undirected=undirected_preds,
                 skip_reflexivity=skip_reflexivity,
+                # A partial rule's head is the last of `atoms` when it is grounded.
+                last_atom_triples=None if rule.is_complete else head_triples,
             )
             inserted += insert_triples_sparql(
                 client=client,
@@ -384,7 +389,6 @@ def check_triples_from_rule(
                 chunk_size=chunk_size,
             )
     return inserted
-
 
 
 # ---------------------------------------------------------------------------
@@ -919,6 +923,8 @@ def generate_extensional_predicates(
         logger.warning("Retrieved 0 extensional predicates, EDB will be empty.")
 
     checked_rules: set[str] = set()
+    # Head triples placed by the groundings of partial rules.
+    partial_heads = [0]
     step = 0
 
     def _end_edb() -> bool:
@@ -1010,6 +1016,7 @@ def generate_extensional_predicates(
                     chunk_size=chunk_size,
                     undirected_preds=undirected_preds,
                     skip_reflexivity=skip_reflexivity,
+                    head_triples=partial_heads,
                 )
                 checked_rules.add(r_id)
 
@@ -1075,6 +1082,11 @@ def generate_extensional_predicates(
     # Guarantee every buffered triple lands before this graph is considered
     # complete by callers (e.g. get_triple_count, complete_graph).
     buffer.flush(client=client, graph_uri=edb_uri, chunk_size=chunk_size)
+    if any(not r.is_complete for r in rules.values()):
+        logger.info(
+            "[Partial] Head triples placed by the groundings of partial rules: %d.",
+            partial_heads[0],
+        )
     for predicate, amount in (reserved or {}).items():
         profile = profiles[predicate]
         profile.frequency += amount
