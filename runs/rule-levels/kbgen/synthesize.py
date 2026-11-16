@@ -26,3 +26,10 @@ if __name__ == '__main__':
 
     dump_tsv(g,args.output.replace("."+rdf_format,".tsv"))
 
+    # Added for the rule-level copies: the model's counters, among them the facts
+    # added by a rule firing (M3), which kbgen otherwise only logs in debug mode.
+    import json
+    counts = {k: v for k, v in vars(model).items() if k.startswith("count_") and isinstance(v, int)}
+    with open(args.output.replace("."+rdf_format,".counts.json"), "w") as f:
+        json.dump(counts, f, indent=2, sort_keys=True)
+

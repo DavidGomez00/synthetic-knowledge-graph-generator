@@ -412,6 +412,8 @@ class Runner:
         with ds.rules_csv.open(encoding="utf-8", newline="") as f:
             rows = list(csv.DictReader(f))
         csv_rules = len(rows)
+        counts_file = ds.synth_nt.with_name(ds.synth_nt.name.replace(".nt", ".counts.json"))
+        counts = json.loads(counts_file.read_text()) if counts_file.is_file() else {}
 
         n_in, n_kept, n_syn = sum(inp.values()), sum(kept.values()), sum(syn.values())
         relations = sorted(set(inp) | set(kept) | set(syn))
@@ -440,6 +442,10 @@ class Runner:
             "synthetic_relations": len(syn),
             "csv_rules": csv_rules,
             "parsed_rules": len(model.rules.rules),
+            # Facts added by a rule firing during synthesis (synthesize.py's counts file);
+            # the other facts of the copy were sampled from the model's distributions.
+            "rule_facts": counts.get("count_rule_facts"),
+            "model_counts": counts,
             "relations_lost_in_load": sorted(r for r in inp if not kept[r]),
             "relations_lost_in_synthesis": sorted(r for r in kept if kept[r] and not syn[r]),
             "tvd_kept_vs_synthetic": round(tvd, 4) if tvd is not None else None,
@@ -476,7 +482,7 @@ def write_summary(work_root: Path, results_dir: Path, root: Path, levels: bool =
     columns = ["dataset", *level_columns, "input_triples", "kept_triples", "synthetic_triples", "dropped_share",
                "synthetic_vs_kept", "input_entities", "kept_entities", "model_entities", "synthetic_entities",
                "input_relations", "kept_relations", "synthetic_relations", "csv_rules", "parsed_rules",
-               "tvd_kept_vs_synthetic", "relations_lost_in_load", "relations_lost_in_synthesis",
+               "rule_facts", "tvd_kept_vs_synthetic", "relations_lost_in_load", "relations_lost_in_synthesis",
                "total_seconds", *[f"seconds_{k}" for k in STEP_KEYS], "finished"]
     with (results_dir / "summary.csv").open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=columns)
