@@ -6,7 +6,7 @@ kbgen is not seeded, so two runs of the same dataset and level give different co
 
 ## Who makes what
 
-84 copies in all: `r0`, `r25`, `r50` and `r75` of every dataset, except the SGKG datasets, which need only `r0` (their other levels keep every rule, so the existing `_kbgen` copy stands in for them). The time is an estimate of the CPU time of one kbgen process on the development laptop (Intel i5-11300H), summed over the levels, and the longest level bounds the wall time of a dataset whatever the number of processes. It scales each dataset's all-rules synthesis time of 10 November 2026 by the share of the PCA confidence of its rules that each level keeps, on top of about 1 ms per fact without rules; on french1_N it was within 1 s of the measured times. The cost without rules is a guess for the larger datasets, so the SGKG times in particular can be off: their all-rules copies took about 20 minutes with only 3 to 6 rules.
+84 copies in all: `r0`, `r25`, `r50` and `r75` of every dataset, except the SGKG datasets, which need only `r0` (their other levels keep every rule, so the existing `_kbgen` copy stands in for them). The time is an estimate of the CPU time of one kbgen process on the development laptop (Intel i5-11300H), summed over the levels, and the longest level bounds the wall time of a dataset whatever the number of processes. It scales each dataset's all-rules synthesis time of 10 November 2026 by the share of the PCA confidence of its rules that each level keeps, on top of about 1 ms per fact without rules; on french1_N it was within 1 s of the measured times. The cost without rules is a guess for the larger datasets, so the SGKG times in particular can be off: their all-rules copies took about 20 minutes with only 3 to 6 rules. The five french datasets, made on 16 November 2026 with 4 processes at once, took 58 minutes of synthesis against the 72 estimated (french 34 against 39, french1_1 17 against 23), and 17 minutes of wall time; `r0` took under 3 seconds each.
 
 | Dataset | Levels | Estimated time | Longest level | Machine |
 |---|---|---:|---:|---|
@@ -139,12 +139,12 @@ For each copy, the script checks that kbgen was given the `rules_kept` rules of 
 ```bash
 cd $REPO
 for level in r0 r25 r50 r75; do
-  python scripts/split_copies.py --root exp_datasets/rule-levels --sources exp_datasets --suffix -${level}_kbgen
+  python scripts/split_copies.py --root exp_datasets/rule-levels --sources exp_datasets --suffix=-${level}_kbgen
 done
 python scripts/check_kbgen_levels.py --summary $KBGEN/results/rule-levels/summary.csv --splits
 ```
 
-`split_copies.py` skips the copies that already have their splits, so it can run after each machine's batch, and a copy's splits are the same on every machine (seed 1235).
+Keep the `=` in `--suffix=-...`: with a space, argparse takes the suffix, which starts with a dash, for an option. `split_copies.py` skips the copies that already have their splits, so it can run after each machine's batch, and a copy's splits are the same on every machine (seed 1235).
 
 ## 8. Record the run and bring the copies back
 

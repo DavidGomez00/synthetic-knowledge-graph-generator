@@ -1,0 +1,17 @@
+machine: laptop (development laptop)
+recorded: 2026-11-16T12:24:28+01:00
+Model name: 11th Gen Intel(R) Core(TM) i5-11300H @ 3.10GHz
+cores: 8 threads, 4 physical
+               total        used        free      shared  buff/cache   available
+Mem:              15          11           0           1           4           3
+Python 3.10.12
+437fe4059b302040047bfc29cf4dda6324fc5a873a528ca3ab8d1eb8564991ad  baselines/kbgen.patch
+repository commit: db2496a5c2f76c430ac9b7bce0b9844c79b916be
+
+start 2026-11-16 12:06:19
+end 2026-11-16 12:23:26
+
+commands, run at once from ~/GitHub/kbgen under systemd-inhibit:
+python synthesize_exp_datasets.py --levels r75 r50 r25 r0 --datasets french --jobs 2
+python synthesize_exp_datasets.py --levels r75 r50 r25 r0 --datasets french1_1 french1_N frenchN_1 frenchN_M --jobs 2
+GraphDB, VS Code and a browser were running alongside.

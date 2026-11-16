@@ -86,14 +86,14 @@ kbgen's time grows with the rules per relation (see "Times" in [`benchmark-copie
 
 ## Splits and training
 
-`scripts/split_copies.py` finds a copy's source by removing the suffix, so a suffix that includes the level resolves `french-r50_ours` to `french` without a code change:
+`scripts/split_copies.py` finds a copy's source by removing the suffix, so a suffix that includes the level resolves `french-r50_ours` to `french` without a code change. The suffix starts with a dash, so it must be passed as `--suffix=-r50_ours`: with a space, argparse takes it for an option.
 
 ```bash
 for level in r0 r25 r50 r75 r100; do
-  python scripts/split_copies.py --root exp_datasets/rule-levels --sources exp_datasets --suffix -${level}_ours
+  python scripts/split_copies.py --root exp_datasets/rule-levels --sources exp_datasets --suffix=-${level}_ours
 done
 for level in r0 r25 r50 r75; do
-  python scripts/split_copies.py --root exp_datasets/rule-levels --sources exp_datasets --suffix -${level}_kbgen
+  python scripts/split_copies.py --root exp_datasets/rule-levels --sources exp_datasets --suffix=-${level}_kbgen
 done
 ```
 
