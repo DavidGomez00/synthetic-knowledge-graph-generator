@@ -114,15 +114,15 @@ python scripts/train_kge.py --set ours --workers 12
 
 A finished run leaves its trained model in `exp_results/<dataset>/<model>/` (`trained_model.pkl`, with `results.json`, the loss plot and `training_triples/`, which PyKEEN needs to load the model); its checkpoint is deleted. With `--upload`, `train_kge.py` pushes every finished run, with its log, to a results branch of the GitHub repository after each run, so the results of every machine end up in one place.
 
-The default branch, `kge-results`, holds runs trained on the earlier splits, and an upload skips every run the branch already has. Runs on the current splits must therefore go to a new branch, named with `--upload-branch`; each branch gets its own worktree, `.<branch>/`:
+An upload skips a run the branch already has only when the dataset's `settings.json`, its training settings and the checksums of its splits, is the same on the branch as locally. When it differs, as for the runs that `kge-results` holds from the earlier splits, the upload removes that dataset from the branch (its runs, splits and settings) and uploads the local runs in its place, logging the runs it replaced; the commit message names the replaced datasets, and git history keeps the old runs. `--upload-branch` sends the runs to another branch; each branch gets its own worktree, `.<branch>/`:
 
 ```bash
-python scripts/train_kge.py --set base --workers 12 --upload --upload-branch kge-results-80-20
+python scripts/train_kge.py --set base --workers 12 --upload
 ```
 
-The machine needs push access to the repository, the same SSH key that cloned it. `scripts/upload_results.py` does the work: it checks out the branch in its worktree, copies the runs the branch lacks with their status, log, settings and the dataset's splits, commits them with the machine's name and pushes. If another machine pushed first, it rebases and pushes again. A failed upload is logged and training goes on; the next upload, after the next run, sends what was missed, and `python scripts/upload_results.py --branch kge-results-80-20` uploads by hand.
+The machine needs push access to the repository, the same SSH key that cloned it. `scripts/upload_results.py` does the work: it checks out the branch in its worktree, copies the runs the branch lacks with their status, log, settings and the dataset's splits, commits them with the machine's name and pushes. If another machine pushed first, it rebases and pushes again. A failed upload is logged and training goes on; the next upload, after the next run, sends what was missed, and `python scripts/upload_results.py` uploads by hand.
 
-To gather everything on one machine, `python scripts/upload_results.py --download --branch kge-results-80-20` copies every run of the branch that the local `exp_results/` lacks and rebuilds `progress.csv`, after which `kge_eta.py` and `report_results.py` read them as local runs. A results branch shares no files with the code branches, but a clone fetches it too unless it uses `git clone --single-branch -b main`.
+To gather everything on one machine, `python scripts/upload_results.py --download` copies every run of the branch that the local `exp_results/` lacks, except the runs of a dataset whose `settings.json` differs from the local one, and rebuilds `progress.csv`, after which `kge_eta.py` and `report_results.py` read them as local runs. A results branch shares no files with the code branches, but a clone fetches it too unless it uses `git clone --single-branch -b main`.
 
 ## Run time
 

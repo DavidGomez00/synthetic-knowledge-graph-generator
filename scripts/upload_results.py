@@ -11,7 +11,11 @@ that train_kge.py wrote for it, and for each finished run `status/<model>.json` 
 `<model>/` folder (the trained model `trained_model.pkl`, `results.json`, the loss
 plot and PyKEEN's `training_triples/`). `progress.csv` is left out, as every machine
 rewrites it; `--download` rebuilds it. A run is uploaded once: one that the branch
-already has is skipped, even if another machine trained it.
+already has is skipped, even if another machine trained it, as long as its dataset's
+`settings.json` (the training settings and the checksums of the splits) is the same
+on the branch as locally. If it differs, the branch's runs of that dataset were trained
+another way, for instance on earlier splits: the upload removes that dataset from the
+branch and uploads the local runs in its place, and logs the runs it replaced.
 
 The branch is checked out in a git worktree, `.<branch>/` at the root of the repository
 (`.kge-results/`, WORKTREE, for the default branch), and is created on the remote by
@@ -28,6 +32,7 @@ Needs only the Python standard library and git with push access to the remote.
 
 import argparse
 import fcntl
+import json
 import logging
 import shutil
 import socket
@@ -118,6 +123,26 @@ def uploaded_runs(worktree: Path) -> set[tuple[str, str]]:
     """(dataset, model) of every run committed to the branch."""
     files = git("ls-files", f"{RESULTS_DIR}/*/*/results.json", cwd=worktree)
     return {(f.split("/")[1], f.split("/")[2]) for f in files.splitlines()}
+
+
+def dataset_settings(folder: Path) -> object | None:
+    """A dataset's recorded settings (parsed `settings.json`), or None without one."""
+    path = folder / "settings.json"
+    if not path.is_file():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def stale_datasets(results: Path, target: Path, datasets: set[str]) -> set[str]:
+    """The `datasets` that the branch has with other settings than the local ones:
+    their runs on the branch were trained another way and are to be replaced."""
+    stale = set()
+    for dataset in datasets:
+        local = dataset_settings(results / dataset)
+        remote = dataset_settings(target / dataset)
+        if local is not None and remote is not None and local != remote:
+            stale.add(dataset)
+    return stale
 
 
 def has_commits(worktree: Path) -> bool:
@@ -238,7 +263,19 @@ def upload(
         worktree = open_worktree(root, remote, branch)
         target = worktree / RESULTS_DIR
         done = uploaded_runs(worktree)
-        new = [run for run in finished_runs(results) if run not in done]
+        local = list(finished_runs(results))
+        stale = stale_datasets(results, target, {dataset for dataset, _ in local})
+        for dataset in sorted(stale):
+            replaced = sorted(m for d, m in done if d == dataset)
+            logger.warning(
+                "%s on %s/%s has other settings or splits than the local one: its "
+                "runs there (%s) are replaced by the local runs.",
+                dataset,
+                remote,
+                branch,
+                ", ".join(replaced) or "none finished",
+            )
+        new = [run for run in local if run not in done or run[0] in stale]
         if not new:
             if unpushed(worktree, remote, branch):
                 push(worktree, remote, branch)
@@ -249,8 +286,14 @@ def upload(
             push(worktree, remote, branch)
         groups = list(batches(results, new, batch_mb * 1024 * 1024))
         uploaded = 0
+        removed: set[str] = set()
         for number, batch in enumerate(groups, start=1):
             for dataset, model in batch:
+                if dataset in stale and dataset not in removed:
+                    # The whole dataset goes: its splits, settings and every run
+                    # trained with them, so no old run is left beside the new ones.
+                    shutil.rmtree(target / dataset)
+                    removed.add(dataset)
                 copy_run(results, target, dataset, model)
             names = ", ".join(f"{d}/{m}" for d, m in batch)
             # -f: the code branches' .gitignore lists exp_results.
@@ -260,7 +303,14 @@ def upload(
                 "commit",
                 "-q",
                 "-m",
-                f"Add {len(batch)} runs trained on {machine}\n\n{names}",
+                f"Add {len(batch)} runs trained on {machine}\n\n{names}"
+                + (
+                    "\n\nReplaces the runs of "
+                    + ", ".join(sorted({d for d, _ in batch} & stale))
+                    + ", trained with other settings or splits."
+                    if {d for d, _ in batch} & stale
+                    else ""
+                ),
                 cwd=worktree,
             )
             push(worktree, remote, branch)
