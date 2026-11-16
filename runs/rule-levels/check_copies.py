@@ -301,6 +301,39 @@ def link_shared(work: Path, d: str, level: str) -> None:
             link.symlink_to(Path("..", "..", d, target))
 
 
+def running_kbgen_levels() -> set[str]:
+    """The kbgen levels (`<d>-<L>`) whose M3 is being learned or synthesized now,
+    read from the command lines of the running processes, so that a second
+    reproduce.sh does not make the same level at the same time."""
+    running = set()
+    for cmdline in Path("/proc").glob("[0-9]*/cmdline"):
+        try:
+            args = [
+                a.decode(errors="replace") for a in cmdline.read_bytes().split(b"\0")
+            ]
+        except OSError:
+            continue
+        for name in args:
+            for suffix in ("-M3.pkl", "-AmieRules.txt"):
+                if name.endswith(suffix):
+                    running.add(name[: -len(suffix)])
+        # A running driver will also make the levels it has not started yet.
+        if any(a.endswith("synthesize_exp_datasets.py") for a in args):
+            options: dict[str, list[str]] = {}
+            key = ""
+            for a in args:
+                if a.startswith("--"):
+                    key = a
+                    options[key] = []
+                elif key:
+                    options[key].append(a)
+            if "--summary-only" not in options:
+                for d in options.get("--datasets", []):
+                    for level in options.get("--levels", []):
+                        running.add(f"{d}-{level}")
+    return running
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--root", type=Path, default=REPO / "exp_datasets")
@@ -338,6 +371,7 @@ def main() -> int:
     datasets = args.datasets or list(dict.fromkeys(d for d, _ in table))
     fc = load_format_change()
     times = read_times(args.times)
+    running = running_kbgen_levels()
 
     rows = []
     for d in datasets:
@@ -385,6 +419,8 @@ def main() -> int:
                     kbgen = (f"{kbgen[0]}; earlier run {legacy_status[8:]}", *kbgen[1:])
             if kbgen[0] == "valid":
                 link_shared(args.work, d, level)
+            elif f"{d}-{level}" in running:
+                kbgen = ("running", *kbgen[1:])
             out.update(dict(zip(OURS_COLUMNS, ours, strict=True)))
             out.update(dict(zip(KBGEN_COLUMNS, kbgen, strict=True)))
             rows.append(out)
@@ -398,7 +434,7 @@ def main() -> int:
                 for r in rows
                 if r["dataset"] == d
                 and r[args.plan] != "valid"
-                and not r[args.plan].startswith(("no-rules", "same-as"))
+                and not r[args.plan].startswith(("no-rules", "same-as", "running"))
             )
             if todo:
                 groups.setdefault(todo, []).append(d)
