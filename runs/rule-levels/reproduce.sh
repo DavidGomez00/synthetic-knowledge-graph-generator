@@ -99,6 +99,10 @@ step_kbgen() {
             --work-dir "$WORK" --results-dir "$RESULTS" \
             2>&1 | tee -a "$RESULTS/logs/kbgen_$(date '+%Y%m%d_%H%M%S')_${datasets%% *}.log"
     done
+    # The summary of every level in the work folder, imported ones included.
+    # shellcheck disable=SC2086
+    "$KBGEN_PYTHON" "$HERE/kbgen/synthesize_exp_datasets.py" --summary-only --levels $LEVELS \
+        --work-dir "$WORK" --results-dir "$RESULTS"
 }
 
 step_verify() {

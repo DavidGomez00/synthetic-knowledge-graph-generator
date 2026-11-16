@@ -236,7 +236,22 @@ def import_legacy(legacy: Path, work: Path, d: str, level: str) -> None:
     if not (work / d).exists():
         shutil.copytree(legacy / d, work / d, symlinks=True)
         logger.info("%s: imported kbgen's shared steps from %s", d, legacy / d)
+    link_shared(work, d, level)
     logger.info("%s %s: imported kbgen's record from %s", d, level, src)
+
+
+def link_shared(work: Path, d: str, level: str) -> None:
+    """Links the dataset's tensor and M2 into a level's folder, as the driver's
+    `link_base` does; its summary reads the level's tensor."""
+    folder = work / "rule-levels" / f"{d}-{level}"
+    for name, target in (
+        (f"{d}-{level}.npz", f"{d}.npz"),
+        (f"{d}-{level}-M2.pkl", f"{d}-M2.pkl"),
+    ):
+        link = folder / name
+        if not link.exists() and (work / d / target).is_file():
+            link.unlink(missing_ok=True)
+            link.symlink_to(Path("..", "..", d, target))
 
 
 def main() -> int:
@@ -319,6 +334,8 @@ def main() -> int:
                     kbgen = check_kbgen(args.root, d, level, expected, folder, texts)
                 elif kbgen[0] != "missing" and legacy_status.startswith("invalid:"):
                     kbgen = (f"{kbgen[0]}; earlier run {legacy_status[8:]}", *kbgen[1:])
+            if kbgen[0] == "valid":
+                link_shared(args.work, d, level)
             out.update(ours=ours[0], ours_triples=ours[1], ours_seconds=ours[2])
             out.update(dict(zip(KBGEN_COLUMNS, kbgen, strict=True)))
             rows.append(out)
