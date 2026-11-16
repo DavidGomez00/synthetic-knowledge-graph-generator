@@ -1,6 +1,6 @@
 # Rule-level copies: results
 
-Written by `make_report.py` on 2026-11-16 20:18 from `status.tsv`, `ours/times.tsv`, `kbgen-results/rule-levels/summary.csv` and `kbgen-work/<dataset>/timings.json`. README.md says how the copies were made.
+Written by `make_report.py` on 2026-11-16 21:29 from `status.tsv`, `ours/times.tsv`, `kbgen-results/rule-levels/summary.csv` and `kbgen-work/<dataset>/timings.json`. README.md says how the copies were made.
 
 ## Machine
 
@@ -23,56 +23,56 @@ kbgen: upstream e5d06bc + baselines/kbgen.patch, driver sha256 1a5f71dbbda1a74ef
 
 | Dataset | Level | Filter | Rules kept | Used | kbgen parsed | Source triples | Ours triples | Ours time | kbgen triples | kbgen time |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| family | std1 | std = 1 | 37 | 18 |  |  |  |  |  |  |
-| family | r25 | PCA ≥ 0.796 | 93 | 74 |  |  |  |  | 28,262 |  |
-| family | r50 | PCA ≥ 0.5059 | 185 | 166 |  |  |  |  |  |  |
-| family | r75 | PCA ≥ 0.412 | 278 | 259 |  |  |  |  | 28,265 |  |
-| family | r100 | PCA ≥ 0 | 370 | 351 |  |  |  |  |  |  |
+| family | std1 | std = 1 | 37 | 18 |  | 28,358 | 86,443 | 54 s |  |  |
+| family | r25 | PCA ≥ 0.796 | 93 | 74 |  | 28,358 | 91,369 | 1 min 52 s | 28,262 |  |
+| family | r50 | PCA ≥ 0.5059 | 185 | 166 |  | 28,358 | 98,362 | 2 min 16 s |  |  |
+| family | r75 | PCA ≥ 0.412 | 278 | 259 |  | 28,358 | 96,780 | 2 min 49 s | 28,265 |  |
+| family | r100 | PCA ≥ 0 | 370 | 351 |  | 28,358 | 101,956 | 6 min 21 s |  |  |
 | Family1_1 | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
-| Family1_1 | r25 | PCA ≥ 0.46 | 33 | 33 | 33 | 5,720 | 5,720 | 8 s | 5,361 | 1 min 44 s |
-| Family1_1 | r50 | PCA ≥ 0.273 | 63 | 63 | 63 | 5,720 | 5,720 | 10 s | 5,361 | 3 min 16 s |
-| Family1_1 | r75 | PCA ≥ 0.205 | 95 | 95 | 95 | 5,720 | 5,720 | 11 s | 5,361 | 5 min 8 s |
-| Family1_1 | r100 | PCA ≥ 0 | 126 | 126 |  | 5,720 | 5,720 | 13 s |  |  |
+| Family1_1 | r25 | PCA ≥ 0.46 | 33 | 33 | 33 | 5,720 | 5,720 | 8 s | 5,361 | 1 min 55 s |
+| Family1_1 | r50 | PCA ≥ 0.273 | 63 | 63 | 63 | 5,720 | 5,720 | 17 s | 5,361 | 3 min 25 s |
+| Family1_1 | r75 | PCA ≥ 0.205 | 95 | 95 | 95 | 5,720 | 5,720 | 1 min 14 s | 5,361 | 5 min 27 s |
+| Family1_1 | r100 | PCA ≥ 0 | 126 | 126 | 126 | 5,720 | 5,720 | 4 min 8 s | 5,361 | 6 min 16 s |
 | Family1_N | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
-| Family1_N | r25 | PCA ≥ 0.293 | 18 | 18 | 18 | 3,462 | 3,462 | 5 s | 3,068 | 30 s |
-| Family1_N | r50 | PCA ≥ 0.229 | 35 | 35 | 35 | 3,462 | 3,462 | 7 s | 3,068 | 41 s |
-| Family1_N | r75 | PCA ≥ 0.1897 | 53 | 53 | 53 | 3,462 | 3,461 | 8 s | 3,069 | 1 min 2 s |
-| Family1_N | r100 | PCA ≥ 0 | 70 | 70 |  | 3,462 | 3,462 | 9 s |  |  |
+| Family1_N | r25 | PCA ≥ 0.293 | 18 | 18 | 18 | 3,462 | 3,462 | 6 s | 3,068 | 30 s |
+| Family1_N | r50 | PCA ≥ 0.229 | 35 | 35 | 35 | 3,462 | 3,462 | 7 s | 3,068 | 46 s |
+| Family1_N | r75 | PCA ≥ 0.1897 | 53 | 53 | 53 | 3,462 | 3,462 | 8 s | 3,068 | 1 min 33 s |
+| Family1_N | r100 | PCA ≥ 0 | 70 | 70 | 70 | 3,462 | 3,462 | 10 s | 3,079 | 1 min 24 s |
 | FamilyM_N | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
-| FamilyM_N | r25 | PCA ≥ 0.29 | 23 | 23 | 23 | 5,963 | 5,963 | 7 s | 5,361 | 1 min 55 s |
-| FamilyM_N | r50 | PCA ≥ 0.2371 | 46 | 46 | 46 | 5,963 | 5,963 | 8 s | 5,361 | 3 min 30 s |
-| FamilyM_N | r75 | PCA ≥ 0.197 | 69 | 69 | 69 | 5,963 | 5,963 | 10 s | 5,361 | 4 min 42 s |
-| FamilyM_N | r100 | PCA ≥ 0 | 92 | 92 |  | 5,963 | 5,962 | 11 s |  |  |
+| FamilyM_N | r25 | PCA ≥ 0.29 | 23 | 23 | 23 | 5,963 | 5,963 | 11 s | 5,361 | 2 min 5 s |
+| FamilyM_N | r50 | PCA ≥ 0.2371 | 46 | 46 | 46 | 5,963 | 5,963 | 13 s | 5,361 | 3 min 53 s |
+| FamilyM_N | r75 | PCA ≥ 0.197 | 69 | 69 | 69 | 5,963 | 5,962 | 14 s | 5,361 | 5 min 12 s |
+| FamilyM_N | r100 | PCA ≥ 0 | 92 | 92 | 92 | 5,963 | 5,963 | 17 s | 5,384 | 7 min 12 s |
 | FamilyN_1 | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
-| FamilyN_1 | r25 | PCA ≥ 0.27 | 16 | 16 | 16 | 3,397 | 3,397 | 6 s | 2,783 | 29 s |
-| FamilyN_1 | r50 | PCA ≥ 0.21 | 31 | 31 | 31 | 3,397 | 3,395 | 6 s | 2,783 | 42 s |
-| FamilyN_1 | r75 | PCA ≥ 0.1506 | 46 | 46 | 46 | 3,397 | 3,396 | 8 s | 2,783 | 1 min 6 s |
-| FamilyN_1 | r100 | PCA ≥ 0 | 61 | 61 |  | 3,397 | 3,396 | 10 s |  |  |
-| french | std1 | std = 1 | 12 | 3 | 3 | 10,332 | 10,285 | 17 s | 6,572 | 7 s |
-| french | r25 | PCA ≥ 0.8882 | 60 | 51 | 46 | 10,332 | 10,331 | 24 s | 6,573 | 9 min 9 s |
-| french | r50 | PCA ≥ 0.553 | 120 | 111 | 94 | 10,332 | 10,332 | 33 s | 6,572 | 21 min 49 s |
-| french | r75 | PCA ≥ 0.409 | 180 | 171 | 145 | 10,332 | 10,331 | 40 s | 6,572 | 28 min 50 s |
-| french | r100 | PCA ≥ 0 | 240 | 231 | 204 | 10,332 | 10,329 | 46 s | 6,573 | 26 min 23 s |
+| FamilyN_1 | r25 | PCA ≥ 0.27 | 16 | 16 | 16 | 3,397 | 3,397 | 9 s | 2,784 | 30 s |
+| FamilyN_1 | r50 | PCA ≥ 0.21 | 31 | 31 | 31 | 3,397 | 3,397 | 13 s | 2,783 | 46 s |
+| FamilyN_1 | r75 | PCA ≥ 0.1506 | 46 | 46 | 46 | 3,397 | 3,396 | 1 min 37 s | 2,783 | 52 s |
+| FamilyN_1 | r100 | PCA ≥ 0 | 61 | 61 | 61 | 3,397 | 3,397 | 8 s | 2,858 | 55 s |
+| french | std1 | std = 1 | 12 | 3 | 3 | 10,332 | 10,285 | 17 s | 6,572 | 5 s |
+| french | r25 | PCA ≥ 0.8882 | 60 | 51 | 46 | 10,332 | 10,331 | 18 s | 6,572 | 5 min 2 s |
+| french | r50 | PCA ≥ 0.553 | 120 | 111 | 94 | 10,332 | 10,331 | 24 s | 6,572 | 11 min 2 s |
+| french | r75 | PCA ≥ 0.409 | 180 | 171 | 145 | 10,332 | 10,331 | 30 s | 6,572 | 18 min 1 s |
+| french | r100 | PCA ≥ 0 | 240 | 231 | 204 | 10,332 | 10,330 | 36 s | 6,572 | 17 min 49 s |
 | french1_1 | std1 | std = 1 | 6 | 0 | | | no rule: no copy | | | |
-| french1_1 | r25 | PCA ≥ 0.8148 | 56 | 50 | 41 | 7,957 | 7,957 | 10 s | 4,202 | 5 min 9 s |
-| french1_1 | r50 | PCA ≥ 0.504 | 112 | 106 | 83 | 7,957 | 7,957 | 13 s | 4,202 | 6 min 56 s |
-| french1_1 | r75 | PCA ≥ 0.34 | 168 | 162 | 135 | 7,957 | 7,957 | 16 s | 4,202 | 11 min 27 s |
-| french1_1 | r100 | PCA ≥ 0 | 223 | 217 | 190 | 7,957 | 7,957 | 20 s | 4,202 | 11 min 8 s |
+| french1_1 | r25 | PCA ≥ 0.8148 | 56 | 50 | 41 | 7,957 | 7,957 | 17 s | 4,202 | 4 min 38 s |
+| french1_1 | r50 | PCA ≥ 0.504 | 112 | 106 | 83 | 7,957 | 7,957 | 21 s | 4,202 | 7 min 4 s |
+| french1_1 | r75 | PCA ≥ 0.34 | 168 | 162 | 135 | 7,957 | 7,957 | 26 s | 4,202 | 10 min 40 s |
+| french1_1 | r100 | PCA ≥ 0 | 223 | 217 | 190 | 7,957 | 7,957 | 30 s | 4,203 | 10 min 48 s |
 | french1_N | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
-| french1_N | r25 | PCA ≥ 0.47 | 4 | 4 | 4 | 1,696 | 1,696 | 4 s | 881 | 4 s |
-| french1_N | r50 | PCA ≥ 0.28 | 8 | 8 | 8 | 1,696 | 1,696 | 4 s | 881 | 6 s |
-| french1_N | r75 | PCA ≥ 0.26 | 12 | 12 | 12 | 1,696 | 1,696 | 5 s | 881 | 8 s |
-| french1_N | r100 | PCA ≥ 0 | 15 | 15 | 15 | 1,696 | 1,696 | 5 s | 881 | 19 s |
+| french1_N | r25 | PCA ≥ 0.47 | 4 | 4 | 4 | 1,696 | 1,696 | 7 s | 881 | 4 s |
+| french1_N | r50 | PCA ≥ 0.28 | 8 | 8 | 8 | 1,696 | 1,696 | 7 s | 881 | 7 s |
+| french1_N | r75 | PCA ≥ 0.26 | 12 | 12 | 12 | 1,696 | 1,696 | 7 s | 881 | 9 s |
+| french1_N | r100 | PCA ≥ 0 | 15 | 15 | 15 | 1,696 | 1,696 | 8 s | 881 | 10 s |
 | frenchN_1 | std1 | std = 1 | 2 | 0 | | | no rule: no copy | | | |
-| frenchN_1 | r25 | PCA ≥ 0.61 | 33 | 31 | 21 | 5,171 | 5,170 | 7 s | 1,796 | 53 s |
-| frenchN_1 | r50 | PCA ≥ 0.48 | 66 | 64 | 43 | 5,171 | 5,171 | 9 s | 1,796 | 1 min 25 s |
-| frenchN_1 | r75 | PCA ≥ 0.33 | 102 | 100 | 76 | 5,171 | 5,171 | 11 s | 1,796 | 2 min 20 s |
-| frenchN_1 | r100 | PCA ≥ 0 | 132 | 130 | 106 | 5,171 | 5,171 | 12 s | 1,796 | 2 min 41 s |
+| frenchN_1 | r25 | PCA ≥ 0.61 | 33 | 31 | 21 | 5,171 | 5,171 | 11 s | 1,796 | 46 s |
+| frenchN_1 | r50 | PCA ≥ 0.48 | 66 | 64 | 43 | 5,171 | 5,171 | 14 s | 1,796 | 1 min 21 s |
+| frenchN_1 | r75 | PCA ≥ 0.33 | 102 | 100 | 76 | 5,171 | 5,170 | 17 s | 1,796 | 1 min 53 s |
+| frenchN_1 | r100 | PCA ≥ 0 | 132 | 130 | 106 | 5,171 | 5,171 | 19 s | 1,796 | 2 min 5 s |
 | frenchN_M | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
-| frenchN_M | r25 | PCA ≥ 0.5 | 14 | 14 |  | 3,375 | 3,375 | 6 s | 2,887 |  |
-| frenchN_M | r50 | PCA ≥ 0.36 | 27 | 27 |  | 3,375 | 3,374 | 6 s | 2,888 |  |
-| frenchN_M | r75 | PCA ≥ 0.27 | 41 | 41 |  | 3,375 | 3,375 | 7 s | 2,887 |  |
-| frenchN_M | r100 | PCA ≥ 0 | 54 | 54 | 54 | 3,375 | 3,375 | 8 s | 2,887 | 4 min 29 s |
+| frenchN_M | r25 | PCA ≥ 0.5 | 14 | 14 | 14 | 3,375 | 3,375 | 9 s | 2,887 | 1 min 0 s |
+| frenchN_M | r50 | PCA ≥ 0.36 | 27 | 27 | 27 | 3,375 | 3,375 | 10 s | 2,889 | 1 min 49 s |
+| frenchN_M | r75 | PCA ≥ 0.27 | 41 | 41 | 41 | 3,375 | 3,375 | 11 s | 2,888 | 2 min 48 s |
+| frenchN_M | r100 | PCA ≥ 0 | 54 | 54 | 54 | 3,375 | 3,375 | 12 s | 2,888 | 2 min 59 s |
 | SGKG1 | std1 | std = 1 | 4 | 2 | | | same rules as r100: no copy | | | |
 | SGKG1 | r25 | PCA ≥ 1 | 4 | 2 | | | same rules as r100: no copy | | | |
 | SGKG1 | r50 | PCA ≥ 1 | 4 | 2 | | | same rules as r100: no copy | | | |
@@ -93,26 +93,26 @@ kbgen: upstream e5d06bc + baselines/kbgen.patch, driver sha256 1a5f71dbbda1a74ef
 | SGKG4 | r50 | PCA ≥ 1 | 6 | 4 | | | same rules as r100: no copy | | | |
 | SGKG4 | r75 | PCA ≥ 1 | 6 | 4 | | | same rules as r100: no copy | | | |
 | SGKG4 | r100 | PCA ≥ 0 | 6 | 4 |  |  |  |  |  |  |
-| WN18RR | std1 | std = 1 | 2 | 2 |  |  |  |  |  |  |
+| WN18RR | std1 | std = 1 | 2 | 2 |  | 93,003 | 93,003 | 11 min 53 s |  |  |
 | WN18RR | r25 | PCA ≥ 0.8 | 6 | 6 | 6 | 93,003 |  |  | 92,550 | 19 min 23 s |
 | WN18RR | r50 | PCA ≥ 0.7 | 12 | 12 | 12 | 93,003 |  |  | 92,550 | 37 min 7 s |
 | WN18RR | r75 | PCA ≥ 0.3 | 21 | 21 | 21 | 93,003 |  |  | 92,550 | 1 h 1 min |
 | WN18RR | r100 | PCA ≥ 0 | 24 | 24 |  |  |  |  |  |  |
 | WN18RR1_1 | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
-| WN18RR1_1 | r25 | PCA ≥ 0.85 | 5 | 5 | 5 | 71,015 |  |  | 70,699 | 16 min 8 s |
-| WN18RR1_1 | r50 | PCA ≥ 0.7 | 9 | 9 | 9 | 71,015 |  |  | 70,699 | 29 min 29 s |
-| WN18RR1_1 | r75 | PCA ≥ 0.3 | 13 | 13 | 13 | 71,015 |  |  | 70,699 | 31 min 37 s |
-| WN18RR1_1 | r100 | PCA ≥ 0 | 17 | 17 |  |  |  |  |  |  |
+| WN18RR1_1 | r25 | PCA ≥ 0.85 | 5 | 5 | 5 | 71,015 | 71,015 | 10 min 35 s | 70,699 | 16 min 8 s |
+| WN18RR1_1 | r50 | PCA ≥ 0.7 | 9 | 9 | 9 | 71,015 | 71,015 | 10 min 28 s | 70,699 | 29 min 29 s |
+| WN18RR1_1 | r75 | PCA ≥ 0.3 | 13 | 13 | 13 | 71,015 | 71,015 | 8 min 4 s | 70,699 | 31 min 37 s |
+| WN18RR1_1 | r100 | PCA ≥ 0 | 17 | 17 |  | 71,015 | 71,015 | 9 min 4 s |  |  |
 | WN18RR1_N | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
-| WN18RR1_N | r25 | PCA ≥ 0.6 | 3 | 3 | 3 | 38,938 | 38,938 | 38 s | 21,809 | 15 s |
-| WN18RR1_N | r50 | PCA ≥ 0.2 | 5 | 5 | 5 | 38,938 | 38,938 | 36 s | 21,808 | 19 s |
-| WN18RR1_N | r75 | PCA ≥ 0.17 | 8 | 8 | 8 | 38,938 | 38,938 | 41 s | 21,808 | 25 s |
-| WN18RR1_N | r100 | PCA ≥ 0 | 10 | 10 |  | 38,938 | 38,938 | 40 s |  |  |
+| WN18RR1_N | r25 | PCA ≥ 0.6 | 3 | 3 | 3 | 38,938 | 38,938 | 1 min 10 s | 21,809 | 15 s |
+| WN18RR1_N | r50 | PCA ≥ 0.2 | 5 | 5 | 5 | 38,938 | 38,937 | 1 min 4 s | 21,809 | 23 s |
+| WN18RR1_N | r75 | PCA ≥ 0.17 | 8 | 8 | 8 | 38,938 | 38,938 | 51 s | 21,808 | 27 s |
+| WN18RR1_N | r100 | PCA ≥ 0 | 10 | 10 | 10 | 38,938 | 38,938 | 40 s | 21,808 | 29 s |
 | WN18RRN_1 | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
-| WN18RRN_1 | r25 | PCA ≥ 0.7 | 4 | 4 | 4 | 65,379 | 65,379 | 5 min 22 s | 63,745 | 11 min 41 s |
-| WN18RRN_1 | r50 | PCA ≥ 0.2 | 8 | 8 | 8 | 65,379 | 65,378 | 5 min 24 s | 63,745 | 20 min 4 s |
-| WN18RRN_1 | r75 | PCA ≥ 0.126 | 12 | 12 | 12 | 65,379 | 65,376 | 5 min 24 s | 63,745 | 18 min 26 s |
-| WN18RRN_1 | r100 | PCA ≥ 0 | 15 | 15 |  |  |  |  |  |  |
+| WN18RRN_1 | r25 | PCA ≥ 0.7 | 4 | 4 | 4 | 65,379 | 65,379 | 5 min 22 s | 63,745 | 7 min 53 s |
+| WN18RRN_1 | r50 | PCA ≥ 0.2 | 8 | 8 | 8 | 65,379 | 65,378 | 5 min 24 s | 63,745 | 12 min 21 s |
+| WN18RRN_1 | r75 | PCA ≥ 0.126 | 12 | 12 | 12 | 65,379 | 65,376 | 5 min 24 s | 63,745 | 12 min 28 s |
+| WN18RRN_1 | r100 | PCA ≥ 0 | 15 | 15 | 15 | 65,379 | 65,378 | 5 min 23 s | 63,745 | 12 min 28 s |
 | WN18RRN_M | std1 | std = 1 | 2 | 2 |  |  |  |  |  |  |
 | WN18RRN_M | r25 | PCA ≥ 0.8 | 6 | 6 | 6 | 93,003 |  |  | 92,550 | 18 min 50 s |
 | WN18RRN_M | r50 | PCA ≥ 0.7 | 12 | 12 | 12 | 93,003 |  |  | 92,550 | 37 min 34 s |
@@ -124,7 +124,7 @@ kbgen: upstream e5d06bc + baselines/kbgen.patch, driver sha256 1a5f71dbbda1a74ef
 | YAGO3-10 | r75 | PCA ≥ 0.19 | 112 | 109 |  |  |  |  | 530,841 |  |
 | YAGO3-10 | r100 | PCA ≥ 0 | 149 | 146 |  |  |  |  |  |  |
 | YAGO3-10_1_1 | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
-| YAGO3-10_1_1 | r25 | PCA ≥ 0.58 | 22 | 22 | 15 | 340,991 |  |  | 188,150 | 1 h 10 min |
+| YAGO3-10_1_1 | r25 | PCA ≥ 0.58 | 22 | 22 | 15 | 340,991 | 340,991 | 51 min 4 s | 188,150 | 1 h 10 min |
 | YAGO3-10_1_1 | r50 | PCA ≥ 0.397 | 44 | 44 | 33 | 340,991 |  |  | 188,150 | 1 h 22 min |
 | YAGO3-10_1_1 | r75 | PCA ≥ 0.25 | 66 | 66 | 54 | 340,991 |  |  | 188,150 | 1 h 37 min |
 | YAGO3-10_1_1 | r100 | PCA ≥ 0 | 88 | 88 |  |  |  |  |  |  |
@@ -139,10 +139,105 @@ kbgen: upstream e5d06bc + baselines/kbgen.patch, driver sha256 1a5f71dbbda1a74ef
 | YAGO3-10_N_1 | r75 | PCA ≥ 0.172 | 90 | 90 | 71 | 1,042,791 |  |  | 478,138 | 2 h 13 min |
 | YAGO3-10_N_1 | r100 | PCA ≥ 0 | 119 | 119 |  |  |  |  |  |  |
 | YAGO3-10_N_M | std1 | std = 1 | 3 | 0 | | | no rule: no copy | | | |
-| YAGO3-10_N_M | r25 | PCA ≥ 0.46 | 34 | 31 |  |  |  |  | 532,315 |  |
+| YAGO3-10_N_M | r25 | PCA ≥ 0.46 | 34 | 31 |  | 1,002,950 | 1,002,687 | 1 h 8 min | 532,315 |  |
 | YAGO3-10_N_M | r50 | PCA ≥ 0.308 | 67 | 64 |  |  |  |  | 532,316 |  |
 | YAGO3-10_N_M | r75 | PCA ≥ 0.177 | 100 | 97 |  |  |  |  | 532,315 |  |
 | YAGO3-10_N_M | r100 | PCA ≥ 0 | 133 | 130 |  |  |  |  |  |  |
+
+## Triples produced by rules
+
+Our generator: *derived* is what completion forward-chained from the complete rules (std confidence 1), and *partial heads* the head triples the partial rules placed in the EDB, each with its body, as one grounding (`[Partial] Head triples placed` in the copy's log). *By rules* is their sum, and *instantiated* the rest of the copy: random triples, the bodies of the rules' groundings and the undirected edges. kbgen: *by rules* is the facts added by a rule firing during synthesis, each with the rule's PCA confidence as probability (`count_rule_facts` of model M3), and *sampled* the rest. A cell is empty when the copy's run did not record the count.
+
+| Dataset | Level | Ours triples | Ours derived | Ours partial heads | Ours by rules | Ours instantiated | kbgen triples | kbgen by rules | kbgen sampled |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| family | std1 | 86,443 | 75,518 (87.4%) | 0 (0.0%) | 75,518 (87.4%) | 10,925 (12.6%) |  |  |  |
+| family | r25 | 91,369 | 80,035 (87.6%) | 1,426 (1.6%) | 81,461 (89.2%) | 9,908 (10.8%) | 28,262 |  |  |
+| family | r50 | 98,362 | 86,276 (87.7%) | 1,696 (1.7%) | 87,972 (89.4%) | 10,390 (10.6%) |  |  |  |
+| family | r75 | 96,780 | 84,630 (87.4%) | 1,732 (1.8%) | 86,362 (89.2%) | 10,418 (10.8%) | 28,265 |  |  |
+| family | r100 | 101,956 | 89,928 (88.2%) | 1,658 (1.6%) | 91,586 (89.8%) | 10,370 (10.2%) |  |  |  |
+| Family1_1 | r25 | 5,720 | 0 (0.0%) | 656 (11.5%) | 656 (11.5%) | 5,064 (88.5%) | 5,361 | 1,191 (22.2%) | 4,170 (77.8%) |
+| Family1_1 | r50 | 5,720 | 0 (0.0%) | 768 (13.4%) | 768 (13.4%) | 4,952 (86.6%) | 5,361 | 2,409 (44.9%) | 2,952 (55.1%) |
+| Family1_1 | r75 | 5,720 | 0 (0.0%) | 841 (14.7%) | 841 (14.7%) | 4,879 (85.3%) | 5,361 | 3,295 (61.5%) | 2,066 (38.5%) |
+| Family1_1 | r100 | 5,720 | 0 (0.0%) | 898 (15.7%) | 898 (15.7%) | 4,822 (84.3%) | 5,361 | 4,005 (74.7%) | 1,356 (25.3%) |
+| Family1_N | r25 | 3,462 | 0 (0.0%) | 70 (2.0%) | 70 (2.0%) | 3,392 (98.0%) | 3,068 | 630 (20.5%) | 2,438 (79.5%) |
+| Family1_N | r50 | 3,462 | 0 (0.0%) | 148 (4.3%) | 148 (4.3%) | 3,314 (95.7%) | 3,068 | 1,523 (49.6%) | 1,545 (50.4%) |
+| Family1_N | r75 | 3,462 | 0 (0.0%) | 201 (5.8%) | 201 (5.8%) | 3,261 (94.2%) | 3,068 | 2,430 (79.2%) | 638 (20.8%) |
+| Family1_N | r100 | 3,462 | 0 (0.0%) | 238 (6.9%) | 238 (6.9%) | 3,224 (93.1%) | 3,079 | 2,343 (76.1%) | 736 (23.9%) |
+| FamilyM_N | r25 | 5,963 | 0 (0.0%) | 441 (7.4%) | 441 (7.4%) | 5,522 (92.6%) | 5,361 | 3,535 (65.9%) | 1,826 (34.1%) |
+| FamilyM_N | r50 | 5,963 | 0 (0.0%) | 677 (11.4%) | 677 (11.4%) | 5,286 (88.6%) | 5,361 | 3,949 (73.7%) | 1,412 (26.3%) |
+| FamilyM_N | r75 | 5,962 | 0 (0.0%) | 790 (13.3%) | 790 (13.3%) | 5,172 (86.7%) | 5,361 | 4,045 (75.5%) | 1,316 (24.5%) |
+| FamilyM_N | r100 | 5,963 | 0 (0.0%) | 851 (14.3%) | 851 (14.3%) | 5,112 (85.7%) | 5,384 | 4,301 (79.9%) | 1,083 (20.1%) |
+| FamilyN_1 | r25 | 3,397 | 0 (0.0%) | 131 (3.9%) | 131 (3.9%) | 3,266 (96.1%) | 2,784 | 457 (16.4%) | 2,327 (83.6%) |
+| FamilyN_1 | r50 | 3,397 | 0 (0.0%) | 200 (5.9%) | 200 (5.9%) | 3,197 (94.1%) | 2,783 | 1,189 (42.7%) | 1,594 (57.3%) |
+| FamilyN_1 | r75 | 3,396 | 0 (0.0%) | 230 (6.8%) | 230 (6.8%) | 3,166 (93.2%) | 2,783 | 1,859 (66.8%) | 924 (33.2%) |
+| FamilyN_1 | r100 | 3,397 | 0 (0.0%) | 256 (7.5%) | 256 (7.5%) | 3,141 (92.5%) | 2,858 | 2,161 (75.6%) | 697 (24.4%) |
+| french | std1 | 10,285 | 1,663 (16.2%) | 0 (0.0%) | 1,663 (16.2%) | 8,622 (83.8%) | 6,572 | 1,158 (17.6%) | 5,414 (82.4%) |
+| french | r25 | 10,331 | 1,662 (16.1%) | 1,074 (10.4%) | 2,736 (26.5%) | 7,595 (73.5%) | 6,572 | 2,414 (36.7%) | 4,158 (63.3%) |
+| french | r50 | 10,331 | 1,662 (16.1%) | 1,555 (15.1%) | 3,217 (31.1%) | 7,114 (68.9%) | 6,572 | 4,251 (64.7%) | 2,321 (35.3%) |
+| french | r75 | 10,331 | 1,662 (16.1%) | 1,671 (16.2%) | 3,333 (32.3%) | 6,998 (67.7%) | 6,572 | 5,312 (80.8%) | 1,260 (19.2%) |
+| french | r100 | 10,330 | 1,661 (16.1%) | 1,721 (16.7%) | 3,382 (32.7%) | 6,948 (67.3%) | 6,572 | 5,338 (81.2%) | 1,234 (18.8%) |
+| french1_1 | r25 | 7,957 | 0 (0.0%) | 1,077 (13.5%) | 1,077 (13.5%) | 6,880 (86.5%) | 4,202 | 1,386 (33.0%) | 2,816 (67.0%) |
+| french1_1 | r50 | 7,957 | 0 (0.0%) | 1,661 (20.9%) | 1,661 (20.9%) | 6,296 (79.1%) | 4,202 | 2,463 (58.6%) | 1,739 (41.4%) |
+| french1_1 | r75 | 7,957 | 0 (0.0%) | 1,670 (21.0%) | 1,670 (21.0%) | 6,287 (79.0%) | 4,202 | 3,119 (74.2%) | 1,083 (25.8%) |
+| french1_1 | r100 | 7,957 | 0 (0.0%) | 1,679 (21.1%) | 1,679 (21.1%) | 6,278 (78.9%) | 4,203 | 3,113 (74.1%) | 1,090 (25.9%) |
+| french1_N | r25 | 1,696 | 0 (0.0%) | 121 (7.1%) | 121 (7.1%) | 1,575 (92.9%) | 881 | 259 (29.4%) | 622 (70.6%) |
+| french1_N | r50 | 1,696 | 0 (0.0%) | 136 (8.0%) | 136 (8.0%) | 1,560 (92.0%) | 881 | 361 (41.0%) | 520 (59.0%) |
+| french1_N | r75 | 1,696 | 0 (0.0%) | 150 (8.8%) | 150 (8.8%) | 1,546 (91.2%) | 881 | 412 (46.8%) | 469 (53.2%) |
+| french1_N | r100 | 1,696 | 0 (0.0%) | 155 (9.1%) | 155 (9.1%) | 1,541 (90.9%) | 881 | 420 (47.7%) | 461 (52.3%) |
+| frenchN_1 | r25 | 5,171 | 0 (0.0%) | 451 (8.7%) | 451 (8.7%) | 4,720 (91.3%) | 1,796 | 428 (23.8%) | 1,368 (76.2%) |
+| frenchN_1 | r50 | 5,171 | 0 (0.0%) | 575 (11.1%) | 575 (11.1%) | 4,596 (88.9%) | 1,796 | 983 (54.7%) | 813 (45.3%) |
+| frenchN_1 | r75 | 5,170 | 0 (0.0%) | 649 (12.6%) | 649 (12.6%) | 4,521 (87.4%) | 1,796 | 1,163 (64.8%) | 633 (35.2%) |
+| frenchN_1 | r100 | 5,171 | 0 (0.0%) | 651 (12.6%) | 651 (12.6%) | 4,520 (87.4%) | 1,796 | 1,178 (65.6%) | 618 (34.4%) |
+| frenchN_M | r25 | 3,375 | 0 (0.0%) | 823 (24.4%) | 823 (24.4%) | 2,552 (75.6%) | 2,887 | 1,351 (46.8%) | 1,536 (53.2%) |
+| frenchN_M | r50 | 3,375 | 0 (0.0%) | 791 (23.4%) | 791 (23.4%) | 2,584 (76.6%) | 2,889 | 2,082 (72.1%) | 807 (27.9%) |
+| frenchN_M | r75 | 3,375 | 0 (0.0%) | 744 (22.0%) | 744 (22.0%) | 2,631 (78.0%) | 2,888 | 2,183 (75.6%) | 705 (24.4%) |
+| frenchN_M | r100 | 3,375 | 0 (0.0%) | 766 (22.7%) | 766 (22.7%) | 2,609 (77.3%) | 2,888 | 2,242 (77.6%) | 646 (22.4%) |
+| SGKG1 | r100 |  |  |  |  |  |  |  |  |
+| SGKG2 | r100 |  |  |  |  |  |  |  |  |
+| SGKG3 | r100 |  |  |  |  |  |  |  |  |
+| SGKG4 | r100 |  |  |  |  |  |  |  |  |
+| WN18RR | std1 | 93,003 | 0 (0.0%) | 0 (0.0%) | 0 (0.0%) | 93,003 (100.0%) |  |  |  |
+| WN18RR | r25 |  |  |  |  |  | 92,550 |  |  |
+| WN18RR | r50 |  |  |  |  |  | 92,550 |  |  |
+| WN18RR | r75 |  |  |  |  |  | 92,550 |  |  |
+| WN18RR | r100 |  |  |  |  |  |  |  |  |
+| WN18RR1_1 | r25 | 71,015 |  |  |  |  | 70,699 |  |  |
+| WN18RR1_1 | r50 | 71,015 | 0 (0.0%) | 1,055 (1.5%) | 1,055 (1.5%) | 69,960 (98.5%) | 70,699 |  |  |
+| WN18RR1_1 | r75 | 71,015 | 0 (0.0%) | 8,781 (12.4%) | 8,781 (12.4%) | 62,234 (87.6%) | 70,699 |  |  |
+| WN18RR1_1 | r100 | 71,015 | 0 (0.0%) | 8,706 (12.3%) | 8,706 (12.3%) | 62,309 (87.7%) |  |  |  |
+| WN18RR1_N | r25 | 38,938 | 0 (0.0%) | 8,886 (22.8%) | 8,886 (22.8%) | 30,052 (77.2%) | 21,809 | 7,932 (36.4%) | 13,877 (63.6%) |
+| WN18RR1_N | r50 | 38,937 | 0 (0.0%) | 8,849 (22.7%) | 8,849 (22.7%) | 30,088 (77.3%) | 21,809 | 7,965 (36.5%) | 13,844 (63.5%) |
+| WN18RR1_N | r75 | 38,938 | 0 (0.0%) | 8,832 (22.7%) | 8,832 (22.7%) | 30,106 (77.3%) | 21,808 | 7,953 (36.5%) | 13,855 (63.5%) |
+| WN18RR1_N | r100 | 38,938 | 0 (0.0%) | 8,824 (22.7%) | 8,824 (22.7%) | 30,114 (77.3%) | 21,808 | 7,961 (36.5%) | 13,847 (63.5%) |
+| WN18RRN_1 | r25 | 65,379 |  |  |  |  | 63,745 | 11,884 (18.6%) | 51,861 (81.4%) |
+| WN18RRN_1 | r50 | 65,378 |  |  |  |  | 63,745 | 12,160 (19.1%) | 51,585 (80.9%) |
+| WN18RRN_1 | r75 | 65,376 |  |  |  |  | 63,745 | 12,259 (19.2%) | 51,486 (80.8%) |
+| WN18RRN_1 | r100 | 65,378 |  |  |  |  | 63,745 | 12,219 (19.2%) | 51,526 (80.8%) |
+| WN18RRN_M | std1 |  |  |  |  |  |  |  |  |
+| WN18RRN_M | r25 |  |  |  |  |  | 92,550 |  |  |
+| WN18RRN_M | r50 |  |  |  |  |  | 92,550 |  |  |
+| WN18RRN_M | r75 |  |  |  |  |  | 92,550 |  |  |
+| WN18RRN_M | r100 |  |  |  |  |  |  |  |  |
+| YAGO3-10 | r25 |  |  |  |  |  | 530,838 |  |  |
+| YAGO3-10 | r50 |  |  |  |  |  | 530,838 |  |  |
+| YAGO3-10 | r75 |  |  |  |  |  | 530,841 |  |  |
+| YAGO3-10 | r100 |  |  |  |  |  |  |  |  |
+| YAGO3-10_1_1 | r25 | 340,991 |  |  |  |  | 188,150 |  |  |
+| YAGO3-10_1_1 | r50 |  |  |  |  |  | 188,150 |  |  |
+| YAGO3-10_1_1 | r75 |  |  |  |  |  | 188,150 |  |  |
+| YAGO3-10_1_1 | r100 |  |  |  |  |  |  |  |  |
+| YAGO3-10_1_N | r25 |  |  |  |  |  | 192,150 |  |  |
+| YAGO3-10_1_N | r50 |  |  |  |  |  | 192,150 |  |  |
+| YAGO3-10_1_N | r75 |  |  |  |  |  | 192,151 |  |  |
+| YAGO3-10_1_N | r100 |  |  |  |  |  |  |  |  |
+| YAGO3-10_N_1 | r25 |  |  |  |  |  | 478,137 |  |  |
+| YAGO3-10_N_1 | r50 |  |  |  |  |  | 478,137 |  |  |
+| YAGO3-10_N_1 | r75 |  |  |  |  |  | 478,138 |  |  |
+| YAGO3-10_N_1 | r100 |  |  |  |  |  |  |  |  |
+| YAGO3-10_N_M | r25 | 1,002,687 |  |  |  |  | 532,315 |  |  |
+| YAGO3-10_N_M | r50 |  |  |  |  |  | 532,316 |  |  |
+| YAGO3-10_N_M | r75 |  |  |  |  |  | 532,315 |  |  |
+| YAGO3-10_N_M | r100 |  |  |  |  |  |  |  |  |
 
 ## Totals
 
@@ -150,8 +245,8 @@ Sum of the copies' times; levels of kbgen ran several at a time, so its sum is C
 
 | Method | Copies | Sum of times |
 |---|---:|---:|
-| ours | 44 | 26 min 7 s |
-| kbgen | 51 | 18 h 29 min |
+| ours | 50 | 1 h 12 min |
+| kbgen | 45 | 3 h 9 min |
 
 ## kbgen's shared steps
 
@@ -182,91 +277,91 @@ When each copy was finished, from which commit of this repository (ours; `+dirty
 
 | Dataset | Level | Ours finished | Ours commit | Ours check | kbgen finished | kbgen check |
 |---|---|---|---|---|---|---|
-| family | std1 |  |  | missing |  | missing |
-| family | r25 |  |  | missing |  | invalid:no run record |
-| family | r50 |  |  | missing |  | missing |
-| family | r75 |  |  | missing |  | invalid:no run record |
-| family | r100 |  |  | missing |  | missing |
-| Family1_1 | r25 | 2026-11-16 19:52 | da0f64cd | valid | 2026-11-16 13:23 | valid |
-| Family1_1 | r50 | 2026-11-16 19:52 | da0f64cd | valid | 2026-11-16 13:25 | valid |
-| Family1_1 | r75 | 2026-11-16 19:52 | da0f64cd | valid | 2026-11-16 13:27 | valid |
-| Family1_1 | r100 | 2026-11-16 19:52 | da0f64cd | valid |  | missing |
-| Family1_N | r25 | 2026-11-16 19:51 | da0f64cd | valid | 2026-11-16 13:22 | valid |
-| Family1_N | r50 | 2026-11-16 19:51 | da0f64cd | valid | 2026-11-16 13:22 | valid |
-| Family1_N | r75 | 2026-11-16 19:52 | da0f64cd | valid | 2026-11-16 13:22 | valid |
-| Family1_N | r100 | 2026-11-16 19:52 | da0f64cd | valid |  | missing |
-| FamilyM_N | r25 | 2026-11-16 19:53 | da0f64cd | valid | 2026-11-16 13:27 | valid |
-| FamilyM_N | r50 | 2026-11-16 19:53 | da0f64cd | valid | 2026-11-16 13:27 | valid |
-| FamilyM_N | r75 | 2026-11-16 19:53 | da0f64cd | valid | 2026-11-16 13:26 | valid |
-| FamilyM_N | r100 | 2026-11-16 19:53 | da0f64cd | valid |  | missing |
-| FamilyN_1 | r25 | 2026-11-16 19:51 | a5625d84 | valid | 2026-11-16 13:21 | valid |
-| FamilyN_1 | r50 | 2026-11-16 19:51 | a5625d84 | valid | 2026-11-16 13:21 | valid |
-| FamilyN_1 | r75 | 2026-11-16 19:51 | 0feeef55 | valid | 2026-11-16 13:22 | valid |
-| FamilyN_1 | r100 | 2026-11-16 19:51 | da0f64cd | valid |  | missing |
-| french | std1 | 2026-11-16 16:20 | 7a55aa9+dirty | valid | 2026-11-16 16:23 | valid |
-| french | r25 | 2026-11-16 16:20 | 7a55aa9+dirty | valid | 2026-11-16 16:32 | valid |
-| french | r50 | 2026-11-16 16:20 | 7a55aa9+dirty | valid | 2026-11-16 16:45 | valid |
-| french | r75 | 2026-11-16 16:21 | 7a55aa9+dirty | valid | 2026-11-16 16:52 | valid |
-| french | r100 | 2026-11-16 16:22 | 7a55aa9+dirty | valid | 2026-11-16 16:49 | valid |
-| french1_1 | r25 | 2026-11-16 19:54 | da0f64cd | valid | 2026-11-16 17:15 | valid |
-| french1_1 | r50 | 2026-11-16 19:55 | da0f64cd | valid | 2026-11-16 17:16 | valid |
-| french1_1 | r75 | 2026-11-16 19:55 | da0f64cd | valid | 2026-11-16 17:20 | valid |
-| french1_1 | r100 | 2026-11-16 19:55 | da0f64cd | valid | 2026-11-16 17:19 | valid |
-| french1_N | r25 | 2026-11-16 19:49 | 0aaa5235 | valid | 2026-11-16 19:50 | valid |
-| french1_N | r50 | 2026-11-16 19:49 | 0aaa5235 | valid | 2026-11-16 19:50 | valid |
-| french1_N | r75 | 2026-11-16 19:49 | 0aaa5235 | valid | 2026-11-16 19:50 | valid |
-| french1_N | r100 | 2026-11-16 19:49 | 0aaa5235 | valid | 2026-11-16 17:09 | valid |
-| frenchN_1 | r25 | 2026-11-16 19:54 | da0f64cd | valid | 2026-11-16 17:09 | valid |
-| frenchN_1 | r50 | 2026-11-16 19:54 | da0f64cd | valid | 2026-11-16 17:10 | valid |
-| frenchN_1 | r75 | 2026-11-16 19:54 | da0f64cd | valid | 2026-11-16 17:11 | valid |
-| frenchN_1 | r100 | 2026-11-16 19:54 | da0f64cd | valid | 2026-11-16 17:11 | valid |
-| frenchN_M | r25 | 2026-11-16 19:53 | da0f64cd | valid |  | invalid:no run record |
-| frenchN_M | r50 | 2026-11-16 19:53 | da0f64cd | valid |  | invalid:no run record |
-| frenchN_M | r75 | 2026-11-16 19:53 | da0f64cd | valid |  | invalid:no run record |
-| frenchN_M | r100 | 2026-11-16 19:54 | da0f64cd | valid | 2026-11-16 17:13 | valid |
+| family | std1 | 2026-11-16 20:58 | 986c4c8e | valid |  | missing |
+| family | r25 | 2026-11-16 21:00 | 986c4c8e | valid |  | invalid:no run record |
+| family | r50 | 2026-11-16 21:03 | 986c4c8e | valid |  | missing |
+| family | r75 | 2026-11-16 21:05 | 986c4c8e | valid |  | invalid:no run record |
+| family | r100 | 2026-11-16 21:12 | 986c4c8e | valid |  | missing |
+| Family1_1 | r25 | 2026-11-16 21:06 | 986c4c8e | valid | 2026-11-16 21:09 | valid |
+| Family1_1 | r50 | 2026-11-16 21:06 | 986c4c8e | valid | 2026-11-16 21:11 | valid |
+| Family1_1 | r75 | 2026-11-16 21:08 | 986c4c8e | valid | 2026-11-16 21:13 | valid |
+| Family1_1 | r100 | 2026-11-16 21:12 | 986c4c8e | valid | 2026-11-16 21:14 | valid |
+| Family1_N | r25 | 2026-11-16 21:06 | 986c4c8e | valid | 2026-11-16 21:07 | valid |
+| Family1_N | r50 | 2026-11-16 21:06 | 986c4c8e | valid | 2026-11-16 21:08 | valid |
+| Family1_N | r75 | 2026-11-16 21:06 | 986c4c8e | valid | 2026-11-16 21:08 | valid |
+| Family1_N | r100 | 2026-11-16 21:06 | 986c4c8e | valid | 2026-11-16 21:08 | valid |
+| FamilyM_N | r25 | 2026-11-16 21:12 | 986c4c8e | valid | 2026-11-16 21:10 | valid |
+| FamilyM_N | r50 | 2026-11-16 21:12 | 986c4c8e | valid | 2026-11-16 21:12 | valid |
+| FamilyM_N | r75 | 2026-11-16 21:12 | 986c4c8e | valid | 2026-11-16 21:14 | valid |
+| FamilyM_N | r100 | 2026-11-16 21:13 | 986c4c8e | valid | 2026-11-16 21:16 | valid |
+| FamilyN_1 | r25 | 2026-11-16 21:04 | 986c4c8e | valid | 2026-11-16 21:07 | valid |
+| FamilyN_1 | r50 | 2026-11-16 21:04 | 986c4c8e | valid | 2026-11-16 21:08 | valid |
+| FamilyN_1 | r75 | 2026-11-16 21:05 | 986c4c8e | valid | 2026-11-16 21:08 | valid |
+| FamilyN_1 | r100 | 2026-11-16 21:06 | 986c4c8e | valid | 2026-11-16 21:08 | valid |
+| french | std1 | 2026-11-16 16:20 | 7a55aa9+dirty | valid | 2026-11-16 20:49 | valid |
+| french | r25 | 2026-11-16 21:17 | 986c4c8e | valid | 2026-11-16 20:54 | valid |
+| french | r50 | 2026-11-16 21:17 | 986c4c8e | valid | 2026-11-16 21:00 | valid |
+| french | r75 | 2026-11-16 21:18 | 986c4c8e | valid | 2026-11-16 21:07 | valid |
+| french | r100 | 2026-11-16 21:18 | 986c4c8e | valid | 2026-11-16 21:07 | valid |
+| french1_1 | r25 | 2026-11-16 21:15 | 986c4c8e | valid | 2026-11-16 21:18 | valid |
+| french1_1 | r50 | 2026-11-16 21:16 | 986c4c8e | valid | 2026-11-16 21:21 | valid |
+| french1_1 | r75 | 2026-11-16 21:16 | 986c4c8e | valid | 2026-11-16 21:24 | valid |
+| french1_1 | r100 | 2026-11-16 21:16 | 986c4c8e | valid | 2026-11-16 21:25 | valid |
+| french1_N | r25 | 2026-11-16 21:13 | 986c4c8e | valid | 2026-11-16 21:09 | valid |
+| french1_N | r50 | 2026-11-16 21:13 | 986c4c8e | valid | 2026-11-16 21:10 | valid |
+| french1_N | r75 | 2026-11-16 21:13 | 986c4c8e | valid | 2026-11-16 21:10 | valid |
+| french1_N | r100 | 2026-11-16 21:13 | 986c4c8e | valid | 2026-11-16 21:10 | valid |
+| frenchN_1 | r25 | 2026-11-16 21:14 | 986c4c8e | valid | 2026-11-16 21:12 | valid |
+| frenchN_1 | r50 | 2026-11-16 21:14 | 986c4c8e | valid | 2026-11-16 21:13 | valid |
+| frenchN_1 | r75 | 2026-11-16 21:15 | 986c4c8e | valid | 2026-11-16 21:14 | valid |
+| frenchN_1 | r100 | 2026-11-16 21:15 | 986c4c8e | valid | 2026-11-16 21:15 | valid |
+| frenchN_M | r25 | 2026-11-16 21:13 | 986c4c8e | valid | 2026-11-16 21:11 | valid |
+| frenchN_M | r50 | 2026-11-16 21:13 | 986c4c8e | valid | 2026-11-16 21:12 | valid |
+| frenchN_M | r75 | 2026-11-16 21:14 | 986c4c8e | valid | 2026-11-16 21:14 | valid |
+| frenchN_M | r100 | 2026-11-16 21:14 | 986c4c8e | valid | 2026-11-16 21:14 | valid |
 | SGKG1 | r100 |  |  | missing |  | missing |
 | SGKG2 | r100 |  |  | missing |  | missing |
 | SGKG3 | r100 |  |  | missing |  | missing |
 | SGKG4 | r100 |  |  | missing |  | missing |
-| WN18RR | std1 |  |  | missing |  | missing |
-| WN18RR | r25 |  |  | missing | 2026-11-16 14:30 | valid |
-| WN18RR | r50 |  |  | missing | 2026-11-16 14:43 | valid |
-| WN18RR | r75 |  |  | missing | 2026-11-16 14:57 | valid |
+| WN18RR | std1 | 2026-11-16 21:24 | 986c4c8e | valid |  | missing |
+| WN18RR | r25 |  |  | missing | 2026-11-16 14:30 | invalid:no count of rule facts |
+| WN18RR | r50 |  |  | missing | 2026-11-16 14:43 | invalid:no count of rule facts |
+| WN18RR | r75 |  |  | missing | 2026-11-16 14:57 | invalid:no count of rule facts |
 | WN18RR | r100 |  |  | missing |  | missing |
-| WN18RR1_1 | r25 |  |  | missing | 2026-11-16 14:06 | valid |
-| WN18RR1_1 | r50 |  |  | missing | 2026-11-16 14:15 | valid |
-| WN18RR1_1 | r75 |  |  | missing | 2026-11-16 14:10 | valid |
-| WN18RR1_1 | r100 |  |  | missing |  | missing |
-| WN18RR1_N | r25 | 2026-11-16 19:56 | da0f64cd | valid | 2026-11-16 13:27 | valid |
-| WN18RR1_N | r50 | 2026-11-16 19:56 | da0f64cd | valid | 2026-11-16 13:27 | valid |
-| WN18RR1_N | r75 | 2026-11-16 19:57 | da0f64cd | valid | 2026-11-16 13:27 | valid |
-| WN18RR1_N | r100 | 2026-11-16 19:58 | da0f64cd | valid |  | missing |
-| WN18RRN_1 | r25 | 2026-11-16 20:03 | da0f64cd | valid | 2026-11-16 13:46 | valid |
-| WN18RRN_1 | r50 | 2026-11-16 20:09 | da0f64cd | valid | 2026-11-16 13:51 | valid |
-| WN18RRN_1 | r75 | 2026-11-16 20:14 | da0f64cd | valid | 2026-11-16 13:49 | valid |
-| WN18RRN_1 | r100 |  |  | missing |  | missing |
+| WN18RR1_1 | r25 | 2026-11-16 20:30 | 798ac8d1 | invalid:log lacks the partial head count | 2026-11-16 14:06 | invalid:no count of rule facts |
+| WN18RR1_1 | r50 | 2026-11-16 20:40 | ecce66e7 | valid | 2026-11-16 14:15 | invalid:no count of rule facts |
+| WN18RR1_1 | r75 | 2026-11-16 20:48 | ecce66e7 | valid | 2026-11-16 14:10 | invalid:no count of rule facts |
+| WN18RR1_1 | r100 | 2026-11-16 20:58 | 986c4c8e | valid |  | missing |
+| WN18RR1_N | r25 | 2026-11-16 21:19 | 986c4c8e | valid | 2026-11-16 21:14 | valid |
+| WN18RR1_N | r50 | 2026-11-16 21:20 | 986c4c8e | valid | 2026-11-16 21:15 | valid |
+| WN18RR1_N | r75 | 2026-11-16 21:21 | 986c4c8e | valid | 2026-11-16 21:15 | valid |
+| WN18RR1_N | r100 | 2026-11-16 21:22 | 986c4c8e | valid | 2026-11-16 21:15 | valid |
+| WN18RRN_1 | r25 | 2026-11-16 21:29 | 986c4c8e | invalid:log lacks the partial head count | 2026-11-16 21:23 | valid |
+| WN18RRN_1 | r50 | 2026-11-16 20:09 | da0f64cd | invalid:log lacks the partial head count | 2026-11-16 21:27 | valid |
+| WN18RRN_1 | r75 | 2026-11-16 20:14 | da0f64cd | invalid:log lacks the partial head count | 2026-11-16 21:28 | valid |
+| WN18RRN_1 | r100 | 2026-11-16 20:19 | 0b9da63b | invalid:log lacks the partial head count | 2026-11-16 21:28 | valid |
 | WN18RRN_M | std1 |  |  | missing |  | missing |
-| WN18RRN_M | r25 |  |  | missing | 2026-11-16 15:02 | valid |
-| WN18RRN_M | r50 |  |  | missing | 2026-11-16 15:07 | valid |
-| WN18RRN_M | r75 |  |  | missing | 2026-11-16 15:24 | valid |
+| WN18RRN_M | r25 |  |  | missing | 2026-11-16 15:02 | invalid:no count of rule facts |
+| WN18RRN_M | r50 |  |  | missing | 2026-11-16 15:07 | invalid:no count of rule facts |
+| WN18RRN_M | r75 |  |  | missing | 2026-11-16 15:24 | invalid:no count of rule facts |
 | WN18RRN_M | r100 |  |  | missing |  | missing |
 | YAGO3-10 | r25 |  |  | missing |  | invalid:no run record |
 | YAGO3-10 | r50 |  |  | missing |  | invalid:no run record |
 | YAGO3-10 | r75 |  |  | missing |  | invalid:no run record |
 | YAGO3-10 | r100 |  |  | missing |  | missing |
-| YAGO3-10_1_1 | r25 |  |  | missing | 2026-11-16 16:03 | valid |
-| YAGO3-10_1_1 | r50 |  |  | missing | 2026-11-16 14:53 | valid |
-| YAGO3-10_1_1 | r75 |  |  | missing | 2026-11-16 15:08 | valid |
+| YAGO3-10_1_1 | r25 | 2026-11-16 20:42 | ecce66e7 | invalid:log lacks the partial head count | 2026-11-16 16:03 | invalid:no count of rule facts |
+| YAGO3-10_1_1 | r50 |  |  | missing | 2026-11-16 14:53 | invalid:no count of rule facts |
+| YAGO3-10_1_1 | r75 |  |  | missing | 2026-11-16 15:08 | invalid:no count of rule facts |
 | YAGO3-10_1_1 | r100 |  |  | missing |  | missing |
 | YAGO3-10_1_N | r25 |  |  | missing |  | invalid:no run record |
 | YAGO3-10_1_N | r50 |  |  | missing |  | invalid:no run record |
 | YAGO3-10_1_N | r75 |  |  | missing |  | invalid:no run record |
 | YAGO3-10_1_N | r100 |  |  | missing |  | missing |
-| YAGO3-10_N_1 | r25 |  |  | missing | 2026-11-16 16:55 | valid |
-| YAGO3-10_N_1 | r50 |  |  | missing | 2026-11-16 15:32 | valid |
-| YAGO3-10_N_1 | r75 |  |  | missing | 2026-11-16 15:45 | valid |
+| YAGO3-10_N_1 | r25 |  |  | missing | 2026-11-16 16:55 | invalid:no count of rule facts |
+| YAGO3-10_N_1 | r50 |  |  | missing | 2026-11-16 15:32 | invalid:no count of rule facts |
+| YAGO3-10_N_1 | r75 |  |  | missing | 2026-11-16 15:45 | invalid:no count of rule facts |
 | YAGO3-10_N_1 | r100 |  |  | missing |  | missing |
-| YAGO3-10_N_M | r25 |  |  | missing |  | invalid:no run record |
+| YAGO3-10_N_M | r25 | 2026-11-16 20:59 | 986c4c8e | invalid:log lacks the partial head count |  | invalid:no run record |
 | YAGO3-10_N_M | r50 |  |  | missing |  | invalid:no run record |
 | YAGO3-10_N_M | r75 |  |  | missing |  | invalid:no run record |
 | YAGO3-10_N_M | r100 |  |  | missing |  | missing |
