@@ -37,6 +37,7 @@ import csv
 import importlib.util
 import json
 import logging
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -60,11 +61,14 @@ COLUMNS = [
     "ours",
     "ours_triples",
     "ours_seconds",
+    "ours_derived",
+    "ours_partial_heads",
     "kbgen",
     "kbgen_given",
     "kbgen_parsed",
     "kbgen_triples",
     "kbgen_seconds",
+    "kbgen_rule_facts",
 ]
 KBGEN_COLUMNS = [
     "kbgen",
@@ -72,7 +76,21 @@ KBGEN_COLUMNS = [
     "kbgen_parsed",
     "kbgen_triples",
     "kbgen_seconds",
+    "kbgen_rule_facts",
 ]
+OURS_COLUMNS = [
+    "ours",
+    "ours_triples",
+    "ours_seconds",
+    "ours_derived",
+    "ours_partial_heads",
+]
+# Lines of our generator's log: the triples each completion added, and the head
+# triples the partial rules placed in the EDB (logged since commit 226bb8c).
+COMPLETION_LINE = re.compile(r"\] \+(\d+) triples in \d+ passes")
+PARTIAL_HEADS_LINE = re.compile(
+    r"\[Partial\] Head triples placed by the groundings of partial rules: (\d+)\."
+)
 # kbgen's level steps, whose sum is a level's time (as total_seconds of its summary).
 KBGEN_STEPS = (
     "tsv_to_nt",
@@ -115,8 +133,12 @@ class RuleTexts:
     def __init__(self, rules_csv: Path, fc: ModuleType) -> None:
         mapping = fc.build_term_mapping(KBGEN_NAMESPACE)
         self.ids: dict[str, str] = {}
+        # Rules with std confidence below 1, which our generator uses as partial rules.
+        self.partial: set[str] = set()
         with rules_csv.open(encoding="utf-8", newline="") as f:
             for row in csv.DictReader(f):
+                if float(row["std_confidence"]) < 1:
+                    self.partial.add(row["rule_id"].strip())
                 tokens = [
                     tok
                     if tok.startswith("?") or tok == "=>"
@@ -152,49 +174,62 @@ def kbgen_seconds(stats: dict) -> float:
 
 
 def check_ours(
-    root: Path, d: str, level: str, expected: set[str], times: dict
-) -> tuple[str, str, str]:
+    root: Path, d: str, level: str, expected: set[str], times: dict, partial: bool
+) -> tuple[str, str, str, str, str]:
+    """Status, triples, seconds, triples derived by completion and head triples
+    placed by partial rules of our copy. `partial`: the level uses partial rules,
+    so the log must give their head triples."""
     copy = root / f"{d}_ours_{level}" / f"{d}_ours_{level}.tsv"
     used = copy.with_name(f"{copy.stem}_used.csv")
     if not copy.is_file():
-        return "missing", "", ""
+        return "missing", "", "", "", ""
     triples = str(count_lines(copy))
     if not used.is_file():
-        return "invalid:no _used.csv", triples, ""
+        return "invalid:no _used.csv", triples, "", "", ""
     ids = read_ids(used)
     if ids != expected:
-        return (
-            f"invalid:used rules differ ({len(ids)} vs {len(expected)} expected)",
-            triples,
-            "",
-        )
+        reason = f"used rules differ ({len(ids)} vs {len(expected)} expected)"
+        return f"invalid:{reason}", triples, "", "", ""
     row = times.get((d, level))
     if row is None:
-        return "invalid:no times row", triples, ""
+        return "invalid:no times row", triples, "", "", ""
     if row["triples"] != triples:
-        return f"invalid:times row has {row['triples']} triples", triples, ""
-    if not (REPO / row["log"]).is_file():
-        return f"invalid:no log {row['log']}", triples, row["seconds"]
-    return "valid", triples, row["seconds"]
+        return f"invalid:times row has {row['triples']} triples", triples, "", "", ""
+    log = REPO / row["log"]
+    if not log.is_file():
+        return f"invalid:no log {row['log']}", triples, row["seconds"], "", ""
+    text = log.read_text(encoding="utf-8", errors="replace")
+    derived = str(sum(int(n) for n in COMPLETION_LINE.findall(text)))
+    heads = PARTIAL_HEADS_LINE.findall(text)
+    if partial and not heads:
+        return (
+            "invalid:log lacks the partial head count",
+            triples,
+            row["seconds"],
+            derived,
+            "",
+        )
+    return "valid", triples, row["seconds"], derived, heads[-1] if heads else "0"
 
 
 def check_kbgen(
     root: Path, d: str, level: str, expected: set[str], folder: Path, texts: RuleTexts
 ) -> tuple[str, str, str, str, str]:
-    """Status, given rules, parsed rules, triples and seconds of a kbgen copy whose
-    record is in `folder` (`<work>/rule-levels/<d>-<L>`)."""
+    """Status, given rules, parsed rules, triples, seconds and facts added by rules
+    of a kbgen copy whose record is in `folder` (`<work>/rule-levels/<d>-<L>`)."""
     copy = root / f"{d}_kbgen_{level}" / f"{d}_kbgen_{level}.tsv"
     if not copy.is_file():
-        return "missing", "", "", "", ""
+        return "missing", "", "", "", "", ""
     triples = str(count_lines(copy))
     stats_file = folder / "stats.json"
     amie = folder / f"{d}-{level}-AmieRules.txt"
     if not stats_file.is_file() or not amie.is_file():
-        return "invalid:no run record", "", "", triples, ""
+        return "invalid:no run record", "", "", triples, "", ""
     stats = json.loads(stats_file.read_text())
     given = texts.given(amie)
     parsed = str(stats.get("parsed_rules", ""))
     seconds = str(kbgen_seconds(stats))
+    rule_facts = "" if stats.get("rule_facts") is None else str(stats["rule_facts"])
     if given != expected:
         return (
             f"invalid:given rules differ ({len(given)} vs {len(expected)} expected)",
@@ -202,6 +237,7 @@ def check_kbgen(
             parsed,
             triples,
             seconds,
+            rule_facts,
         )
     if "given_rule_ids" in stats and set(stats["given_rule_ids"]) != expected:
         return (
@@ -210,6 +246,7 @@ def check_kbgen(
             parsed,
             triples,
             seconds,
+            rule_facts,
         )
     if str(stats["synthetic_triples"]) != triples:
         return (
@@ -218,8 +255,18 @@ def check_kbgen(
             parsed,
             triples,
             seconds,
+            rule_facts,
         )
-    return "valid", str(len(given)), parsed, triples, seconds
+    if not rule_facts:
+        return (
+            "invalid:no count of rule facts",
+            str(len(given)),
+            parsed,
+            triples,
+            seconds,
+            "",
+        )
+    return "valid", str(len(given)), parsed, triples, seconds, rule_facts
 
 
 def import_legacy(legacy: Path, work: Path, d: str, level: str) -> None:
@@ -321,7 +368,9 @@ def main() -> int:
                 out.update(ours=stand_in, kbgen=stand_in)
                 rows.append(out)
                 continue
-            ours = check_ours(args.root, d, level, expected, times)
+            ours = check_ours(
+                args.root, d, level, expected, times, bool(expected & texts.partial)
+            )
             folder = args.work / "rule-levels" / f"{d}-{level}"
             kbgen = check_kbgen(args.root, d, level, expected, folder, texts)
             if kbgen[0] != "valid" and args.import_legacy is not None:
@@ -336,7 +385,7 @@ def main() -> int:
                     kbgen = (f"{kbgen[0]}; earlier run {legacy_status[8:]}", *kbgen[1:])
             if kbgen[0] == "valid":
                 link_shared(args.work, d, level)
-            out.update(ours=ours[0], ours_triples=ours[1], ours_seconds=ours[2])
+            out.update(dict(zip(OURS_COLUMNS, ours, strict=True)))
             out.update(dict(zip(KBGEN_COLUMNS, kbgen, strict=True)))
             rows.append(out)
             logger.info("%-13s %-5s ours: %-40s kbgen: %s", d, level, ours[0], kbgen[0])
