@@ -15,22 +15,22 @@ kbgen is not seeded, so two runs of the same dataset and level give different co
 | french1_N | r0-r75 | under 1 min | under 1 min | development laptop, 16 November 2026 |
 | frenchN_1 | r0-r75 | 4 min | 2 min | development laptop, 16 November 2026 |
 | frenchN_M | r0-r75 | 7 min | 3 min | development laptop, 16 November 2026 |
-| family | r0-r75 | 11.6 h | 5.2 h (r75) | |
-| Family1_1 | r0-r75 | 14 min | 6 min | |
-| Family1_N | r0-r75 | 4 min | 2 min | |
-| FamilyM_N | r0-r75 | 12 min | 5 min | |
-| FamilyN_1 | r0-r75 | 2 min | 1 min | |
-| SGKG1 to SGKG4 | r0 | 1 to 25 min each | | |
-| WN18RR | r0-r75 | 1.9 h | 52 min | |
-| WN18RR1_1 | r0-r75 | 1.3 h | 34 min | |
-| WN18RR1_N | r0-r75 | 2 min | 1 min | |
-| WN18RRN_1 | r0-r75 | 46 min | 18 min | |
-| WN18RRN_M | r0-r75 | 1.9 h | 52 min | |
-| YAGO3-10 | r0-r75 | 10.1 h | 4.2 h | |
-| YAGO3-10_1_1 | r0-r75 | 3.2 h | 1.4 h | |
-| YAGO3-10_1_N | r0-r75 | 2.2 h | 52 min | |
-| YAGO3-10_N_1 | r0-r75 | 5.7 h | 2.3 h | |
-| YAGO3-10_N_M | r0-r75 | 9.6 h | 3.9 h | |
+| family | r0-r75 | 11.6 h | 5.2 h (r75) | Hefesto (i9-7900X), 16 November 2026 |
+| Family1_1 | r0-r75 | 14 min | 6 min | Hefesto (i9-7900X), 16 November 2026 |
+| Family1_N | r0-r75 | 4 min | 2 min | Hefesto (i9-7900X), 16 November 2026 |
+| FamilyM_N | r0-r75 | 12 min | 5 min | Hefesto (i9-7900X), 16 November 2026 |
+| FamilyN_1 | r0-r75 | 2 min | 1 min | Hefesto (i9-7900X), 16 November 2026 |
+| SGKG1 to SGKG4 | r0 | 1 to 25 min each | | Hefesto (i9-7900X), 16 November 2026 |
+| WN18RR | r0-r75 | 1.9 h | 52 min | Hefesto (i9-7900X), 16 November 2026 |
+| WN18RR1_1 | r0-r75 | 1.3 h | 34 min | Hefesto (i9-7900X), 16 November 2026 |
+| WN18RR1_N | r0-r75 | 2 min | 1 min | Hefesto (i9-7900X), 16 November 2026 |
+| WN18RRN_1 | r0-r75 | 46 min | 18 min | Hefesto (i9-7900X), 16 November 2026 |
+| WN18RRN_M | r0-r75 | 1.9 h | 52 min | Hefesto (i9-7900X), 16 November 2026 |
+| YAGO3-10 | r0-r75 | 10.1 h | 4.2 h | Hefesto (i9-7900X), 16 November 2026 |
+| YAGO3-10_1_1 | r0-r75 | 3.2 h | 1.4 h | Hefesto (i9-7900X), 16 November 2026 |
+| YAGO3-10_1_N | r0-r75 | 2.2 h | 52 min | Hefesto (i9-7900X), 16 November 2026 |
+| YAGO3-10_N_1 | r0-r75 | 5.7 h | 2.3 h | Hefesto (i9-7900X), 16 November 2026 |
+| YAGO3-10_N_M | r0-r75 | 9.6 h | 3.9 h | Hefesto (i9-7900X), 16 November 2026 |
 
 Update the Machine column when the work is assigned, and commit it with the copies.
 
