@@ -7,6 +7,7 @@ EDB/synthetic graph generation. Rule cycles are handled in `core.cycles`.
 
 import csv
 import logging
+import math
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -132,6 +133,10 @@ class HornRule:
         head_coverage: Head coverage of the rule.
         functional_variable: The head variable AMIE computed the PCA confidence
             on (e.g. `?b`), or None if the rules CSV doesn't give it.
+        pca_body_size: The rule's PCA body size in the source (the denominator of
+            its PCA confidence), or None if the rules CSV doesn't give it.
+        partial_target: How the EDB targets a partial rule, one of
+            `PARTIAL_TARGETS` (see `grounding_target`); set per run.
     """
 
     signature: RuleSignature
@@ -140,8 +145,10 @@ class HornRule:
     std_confidence: float | None = None
     pca_confidence: float | None = None
     functional_variable: str | None = None
+    pca_body_size: float | None = None
     classification: str = "UNKNOWN"
     closed: bool = False
+    partial_target: str = "pca-body"
 
     @property
     def head(self) -> Atom:
@@ -186,6 +193,51 @@ class HornRule:
         """Returns whether the rule has the shape `p(x,y) => p(y,x)`."""
         return self.signature.is_symmetric()
 
+    @property
+    def is_complete(self) -> bool:
+        """Whether the rule holds for every body grounding of the source: std
+        confidence >= `DEFAULT_STD_THRESHOLD` (1). Completion forward-chains the
+        complete rules only; the others are partial rules, whose groundings the EDB
+        builds together with their heads (see `grounding_target`)."""
+        return (self.std_confidence or 0.0) >= DEFAULT_STD_THRESHOLD
+
+    @property
+    def grounding_target(self) -> int:
+        """The support the generator builds for the rule: the whole support for a
+        complete rule, and for a partial rule with `partial_target` "pca-body". With
+        "pca-support", a partial rule's target is PCA confidence x support, rounded
+        half up (support 300 at PCA confidence 0.5 gives 150)."""
+        if self.is_complete or self.partial_target == "pca-body":
+            return int(self.support)
+        return math.floor((self.pca_confidence or 0.0) * self.support + 0.5)
+
+    @property
+    def counterexample_ratio(self) -> float | None:
+        """The PCA counter-examples the EDB builds per supported grounding of a
+        partial rule with `partial_target` "pca-body": (PCA body size - support) /
+        support, so that support / PCA body size is the source's PCA confidence. A
+        counter-example is a body grounding without its head whose functional
+        variable has some value of the head relation. None, meaning none are built,
+        for any other rule or if the CSV lacks the functional variable or the PCA
+        body size."""
+        if (
+            self.is_complete
+            or self.partial_target != "pca-body"
+            or self.functional_variable is None
+            or not self.pca_body_size
+            or self.support <= 0
+        ):
+            return None
+        return max(self.pca_body_size - self.support, 0) / self.support
+
+    def get_edb_atoms(self, intensional_preds: set[str]) -> frozenset[Atom]:
+        """Returns the atoms the EDB grounds for the rule: the extensional body of a
+        complete rule, whose head completion derives later, or the whole body and the
+        head of a partial rule, which nothing derives later."""
+        if self.is_complete:
+            return self.get_extensional_body(intensional_preds)
+        return self.body | {self.head}
+
     def __len__(self) -> int:
         """Returns the number of atoms in the rule's body."""
         return len(self.body)
@@ -195,6 +247,10 @@ class HornRule:
 # Rule parsing.
 # ---------------------------------------------------------------------------
 ATOM_PATTERN = re.compile(r"(\?\w+)\s+(\S+)\s+(\S+)")
+# How the EDB targets a partial rule (`HornRule.partial_target`): its support plus
+# the PCA counter-examples of its source PCA body ("pca-body"), or PCA confidence x
+# support supported groundings ("pca-support").
+PARTIAL_TARGETS = ("pca-body", "pca-support")
 # Std confidence a rule needs to be kept when no PCA threshold is given.
 DEFAULT_STD_THRESHOLD = 1.0
 
@@ -262,8 +318,9 @@ def _parse_horn_rule(
         """Returns float or Python None for Pandas/Numpy NaNs securely."""
         return 0.0 if (pd.isna(value) or value is None) else float(value)
 
-    # Optional column: rules CSVs not written by run_amie.py may lack it.
+    # Optional columns: rules CSVs not written by run_amie.py may lack them.
     functional_variable = getattr(row, "functional_variable", None)
+    pca_body_size = getattr(row, "pca_body_size", None)
 
     rule = HornRule(
         signature=RuleSignature(
@@ -280,6 +337,7 @@ def _parse_horn_rule(
             if pd.isna(functional_variable)
             else str(functional_variable).strip() or None
         ),
+        pca_body_size=None if pd.isna(pca_body_size) else float(pca_body_size),
         classification=row.classification,
     )
 
@@ -444,48 +502,65 @@ def get_impacted_rules(
 
 
 def get_intensional_preds(rules: dict[str, HornRule]) -> set[str]:
-    """Returns the head predicates of the rules that are not symmetric. A symmetric
-    rule can't produce the first triple of its relation, so a relation that only
-    its symmetric rule derives is extensional."""
-    return {rule.head.predicate for rule in rules.values() if not rule.is_symmetric()}
+    """Returns the head predicates of the complete rules that are not symmetric,
+    the ones completion derives. A symmetric rule can't produce the first triple of
+    its relation, so a relation that only its symmetric rule derives is extensional,
+    and so is the head of a partial rule, whose heads the EDB places itself (see
+    `HornRule.is_complete`)."""
+    return {
+        rule.head.predicate
+        for rule in rules.values()
+        if rule.is_complete and not rule.is_symmetric()
+    }
+
+
+def get_undirected_preds(rules: dict[str, HornRule]) -> set[str]:
+    """Returns the head predicates of the complete symmetric rules, whose relations
+    are written as undirected edges. Only the symmetric rules that
+    `edb.get_undirected_rule_ids` exempts from cycle removal are left in a run's
+    rule set, so these are the relations it generates as undirected edges."""
+    return {
+        rule.head.predicate
+        for rule in rules.values()
+        if rule.is_complete and rule.is_symmetric()
+    }
 
 
 def get_extensional_dependencies(
     rules: dict[str, HornRule],
 ) -> dict[str, set[str]]:
     """Builds a dictionary that represents extensional predicate dependencies. A rule is
-    dependent of any other rule extensional-wise if they share an extensional predicate.
+    dependent of any other rule extensional-wise if they share a predicate of the
+    atoms the EDB grounds for them (`HornRule.get_edb_atoms`).
 
-    From all the rules that share an extensional predicate, the larger rules are more
-    restrictive.
+    From all the rules that share such a predicate, the rules with more atoms to
+    ground are more restrictive; ties go to the rule with the smaller grounding
+    target.
     """
 
     intensional_preds = get_intensional_preds(rules)
+    edb_atoms = {r_id: r.get_edb_atoms(intensional_preds) for r_id, r in rules.items()}
+    edb_preds = {r_id: {a.predicate for a in s} for r_id, s in edb_atoms.items()}
 
     rule_dependency: dict[str, set[str]] = {r_id: set() for r_id in rules}
 
-    # Sort from smallest to largest body counting only extensional preds
-    sorted_ids = sorted(
-        (rule_id for rule_id in rules.keys()),
-        key=lambda r_id: len(rules[r_id].get_extensional_body(intensional_preds)),
-    )
+    # Sort from fewest to most atoms to ground
+    sorted_ids = sorted(rules, key=lambda r_id: len(edb_atoms[r_id]))
 
     for i, current_id in enumerate(sorted_ids):
-        current_rule = rules[current_id]
-        current_ext_preds = current_rule.get_extensional_preds(intensional_preds)
+        current_preds = edb_preds[current_id]
 
-        if not current_ext_preds:
+        if not current_preds:
             continue
 
         for next_id in sorted_ids[i + 1 :]:
-            next_rule = rules[next_id]
-            next_ext_preds = next_rule.get_extensional_preds(intensional_preds)
+            if current_preds & edb_preds[next_id]:
+                c_length = len(edb_atoms[current_id])
+                n_length = len(edb_atoms[next_id])
+                c_target = rules[current_id].grounding_target
+                n_target = rules[next_id].grounding_target
 
-            if any(pred in next_ext_preds for pred in current_ext_preds):
-                c_length = len(current_rule.get_extensional_body(intensional_preds))
-                n_length = len(next_rule.get_extensional_body(intensional_preds))
-
-                if c_length == n_length and next_rule.support > current_rule.support:
+                if c_length == n_length and n_target > c_target:
                     rule_dependency[next_id].add(current_id)
                 else:
                     rule_dependency[current_id].add(next_id)

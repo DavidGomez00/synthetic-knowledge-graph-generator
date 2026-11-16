@@ -6,8 +6,8 @@ metrics and logical rules to produce a complete, synthetic N-Triples dataset.
 
 import logging
 import random
-from collections.abc import Collection, Iterator
-from itertools import islice
+from collections.abc import Collection, Iterator, Mapping
+from itertools import chain, islice
 
 from SPARQLWrapper import SPARQLWrapper
 
@@ -160,7 +160,8 @@ def get_closed_rules(
 
     A rule is considered 'closed' when the count of distinct bindings
     satisfying both its body and head in the graph meets or exceeds
-    its defined support threshold.
+    its `grounding_target`: its support for a complete rule, PCA confidence x
+    support for a partial one.
     """
     closed_rules: set[str] = set()
 
@@ -168,7 +169,7 @@ def get_closed_rules(
     for r_id, rule in rules.items():
         support = get_support(client, rule, graph_uri)
         if support:
-            if support >= rule.support:
+            if support >= rule.grounding_target:
                 closed_rules.add(r_id)
 
     return closed_rules
@@ -254,11 +255,14 @@ def sample_groundings(
     missing_heads: int,
     term_mapping: dict[str, str],
     chunk_size: int,
+    fixed_bindings: list[dict[str, str]] | None = None,
     undirected: Collection[str] = (),
     skip_reflexivity: bool = False,
+    allowed: Mapping[str, Collection[str]] | None = None,
+    headless: Atom | None = None,
 ) -> list[str]:
     """Returns the new triples of `sample_grounding_groups`'s groundings, as one
-    list. Takes the same arguments, without `fixed_bindings`."""
+    list. Takes the same arguments."""
     return [
         triple
         for group in sample_grounding_groups(
@@ -270,8 +274,11 @@ def sample_groundings(
             missing_heads,
             term_mapping,
             chunk_size,
+            fixed_bindings=fixed_bindings,
             undirected=undirected,
             skip_reflexivity=skip_reflexivity,
+            allowed=allowed,
+            headless=headless,
         )
         for triple in group
     ]
@@ -289,6 +296,8 @@ def sample_grounding_groups(
     fixed_bindings: list[dict[str, str]] | None = None,
     undirected: Collection[str] = (),
     skip_reflexivity: bool = False,
+    allowed: Mapping[str, Collection[str]] | None = None,
+    headless: Atom | None = None,
 ) -> list[list[str]]:
     """Constructs groundings of a rule body directly from predicate profiles.
 
@@ -327,13 +336,25 @@ def sample_grounding_groups(
             their triples and spends the budget of both.
         skip_reflexivity: Whether to use the logic before the self-loop fix (see
             above), which `cli/main.py --skip-reflexivity` selects.
+        allowed: Optional values each named variable may take, on top of its
+            profile positions; fixed rows with another value are left out.
+        headless: Optional atom over the variables of `atoms` (e.g. the rule's
+            head) whose triple a grounding must leave absent: a candidate is
+            rejected if that triple is in the graph, among the triples chosen so
+            far, or among its own. Used to build body groundings without their
+            head (`edb.check_triples_from_rule`).
 
     Returns:
         The new triples of each accepted grounding, in the order of `atoms`. Fewer
         groundings than needed if a variable runs out of candidate values.
     """
     body_vars = {t for a in atoms for t in (a.subject, a.obj) if t.startswith("?")}
-    usable_rows = _usable_fixed_rows(atoms, profiles, fixed_bindings)
+    allowed_values = {v: frozenset(values) for v, values in (allowed or {}).items()}
+    usable_rows = [
+        row
+        for row in _usable_fixed_rows(atoms, profiles, fixed_bindings)
+        if all(row[v] in vals for v, vals in allowed_values.items() if v in row)
+    ]
     fixed_vars = set(fixed_bindings[0]) if fixed_bindings else set()
     if fixed_bindings is not None and not usable_rows:
         logger.warning(
@@ -356,6 +377,9 @@ def sample_grounding_groups(
     while len(seen) < missing_heads and empty_batches < _MAX_EMPTY_BATCHES:
         ## ----- Create a list of candidate groundings -----
         pools = _variable_pools(atoms, profiles)
+        for var, vals in allowed_values.items():
+            if var in pools:
+                pools[var] = {v: c for v, c in pools[var].items() if v in vals}
         if exhausted := [var for var in var_order if not pools[var]]:
             # E.g. earlier rules used up the entities that `father` and `mother`
             # shared. Not an error: the remaining budget is left for the random
@@ -380,6 +404,8 @@ def sample_grounding_groups(
         # Each candidate is a list of (triple, predicate, subject, object).
         candidates: list[list[tuple[str, str, str, str]]] = []
         keys: list[tuple[str, ...]] = []
+        # The triple of `headless` in each candidate, which must stay absent.
+        absent: list[str | None] = []
         for i in range(batch_size):
             binding = {var: draws[var][i] for var in var_order}
             if usable_rows:
@@ -409,18 +435,31 @@ def sample_grounding_groups(
                     )
             candidates.append(grounded)
             keys.append(tuple(binding[v] for v in projection))
+            absent.append(
+                None
+                if headless is None
+                else format_triple(
+                    binding.get(headless.subject, headless.subject),
+                    headless.predicate,
+                    binding.get(headless.obj, headless.obj),
+                    term_mapping,
+                )
+            )
 
         ## ----- Filter candidates  -----
         existing = get_existing_triples(
             client=client,
             graph_uri=target_uri,
-            candidate_triples=(g[0] for cand in candidates for g in cand),
+            candidate_triples=chain(
+                (g[0] for cand in candidates for g in cand),
+                (h for h in absent if h is not None),
+            ),
             term_mapping=term_mapping,
             chunk_size=chunk_size,
         )
 
         accepted = 0
-        for grounded, key in zip(candidates, keys, strict=True):
+        for grounded, key, head in zip(candidates, keys, absent, strict=True):
             if len(seen) >= missing_heads:
                 break
             if key in seen:
@@ -432,6 +471,10 @@ def sample_grounding_groups(
             if not fresh:
                 # Fully present already: its projection is counted in the current
                 # support, so it would add nothing.
+                continue
+            if head is not None and (
+                head in existing or head in chosen or head in fresh
+            ):
                 continue
 
             undo: list[tuple[PredicateProfile, str, str, int, int]] = []

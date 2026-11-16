@@ -10,6 +10,10 @@ extensional predicate's target frequency is reached ("closed"):
   2. `check_triples_from_rule`: bindings satisfying a rule's extensional body,
      constructed directly from the profiles (`generator.sample_groundings`) so a
      chosen triple never violates another predicate's remaining domain/range budget.
+     A partial rule (`HornRule.is_complete` is False) is grounded with its head,
+     `HornRule.grounding_target` times, since completion doesn't apply it, and,
+     with `partial_target` "pca-body", gets body groundings without a head as
+     well, its PCA counter-examples (`_insert_counterexamples`).
   3. `insert_random_triples`: random assignment for whatever isn't pinned down
      by the first two steps, with subjects and objects drawn weighted by their
      remaining budget, still respecting the Gale-Ryser/Havel-Hakimi
@@ -24,6 +28,7 @@ left. If another rule also derives the relation, the EDB leaves it empty and
 
 import heapq
 import logging
+import math
 import random
 from collections import Counter
 from collections.abc import Collection, Iterator
@@ -36,7 +41,9 @@ from skgg.core.queries import (
     get_atom_bindings,
     get_domain,
     get_frequency,
+    get_headless_body_bindings,
     get_reflexivity,
+    get_support,
     initialize_graph,
     insert_triples_sparql,
 )
@@ -45,11 +52,13 @@ from skgg.core.rules import (
     HornRule,
     get_extensional_dependencies,
     get_intensional_preds,
+    get_undirected_preds,
 )
 from skgg.core.utils import format_triple, short_term
 from skgg.engine.generator import (
     decrement_counts,
     is_assignment_solvable,
+    sample_grounding_groups,
     sample_groundings,
     update_closed_preds,
 )
@@ -59,6 +68,9 @@ logger = logging.getLogger(__name__)
 
 # Draws of an object set that `insert_random_triples` tries before giving up.
 MAX_RANDOM_DRAWS = 1000
+# Existing bindings of a partial rule's closed atoms fetched per missing grounding,
+# for its new triples to join with (as `fill.ROWS_PER_HEAD`).
+ROWS_PER_GROUNDING = 20
 
 
 # ---------------------------------------------------------------------------
@@ -221,6 +233,60 @@ def check_direct_matches(
 # ---------------------------------------------------------------------------
 # Step 2: Extract ext. predicates from rule bodies
 # ---------------------------------------------------------------------------
+def produced_groundings(
+    client: SPARQLWrapper, rule: HornRule, intensional_preds: set[str], edb_uri: str
+) -> int:
+    """Returns how much of the rule's `grounding_target` the EDB already yields.
+
+    For a complete rule, the distinct heads its extensional body produces, which
+    completion derives later (`count_producible_heads`). For a partial rule, its
+    support in the EDB, since the EDB holds its heads too (`get_support`)."""
+    if rule.is_complete:
+        return count_producible_heads(
+            client, rule, rule.get_extensional_body(intensional_preds), edb_uri
+        )
+    return get_support(client, rule, edb_uri)
+
+
+def _vars(atoms: Collection[Atom]) -> set[str]:
+    """Returns the variables of `atoms`."""
+    return {t for a in atoms for t in (a.subject, a.obj) if t.startswith("?")}
+
+
+def _spent_preds(profiles: dict[str, PredicateProfile]) -> set[str]:
+    """Returns the predicates with no budget left: closed, or with no domain or
+    range left, which can't be grounded even if not flagged as closed yet."""
+    return {
+        p
+        for p, profile in profiles.items()
+        if profile.closed or not profile.domain or not profile.range
+    }
+
+
+def _join_rows(
+    client: SPARQLWrapper,
+    rule: HornRule,
+    atoms: list[Atom],
+    edb_uri: str,
+    limit: int,
+) -> list[dict[str, str]] | None:
+    """Returns the existing EDB bindings of the body atoms of a partial rule that
+    are not in `atoms` (their predicate has no budget left), for the new triples to
+    join with: up to `limit` rows over the variables they share with `atoms` and
+    the head. None if every body atom is in `atoms`; an empty list if those atoms
+    have no fact to join."""
+    spent = sorted(rule.body - set(atoms))
+    if not spent:
+        return None
+    return get_atom_bindings(
+        client,
+        spent,
+        _vars(spent) & (_vars(atoms) | rule.get_head_variables()),
+        edb_uri,
+        limit,
+    )
+
+
 def check_triples_from_rule(
     rule: HornRule,
     intensional_preds: set[str],
@@ -231,8 +297,22 @@ def check_triples_from_rule(
     chunk_size: int,
     undirected_preds: Collection[str] = (),
     skip_reflexivity: bool = False,
+    source_keys: dict[str, tuple[frozenset[str], frozenset[str]]] | None = None,
 ) -> int:
-    """Builds groundings of a rule's extensional body and inserts them into the EDB.
+    """Builds groundings of the rule's EDB atoms (`HornRule.get_edb_atoms`) up to its
+    `grounding_target` and inserts them into the EDB.
+
+    For a complete rule, these are the atoms of its extensional body whose
+    predicates are still open; completion derives the head later. For a partial
+    rule, they are its body and its head, so each grounding adds the head with its
+    body. A partial rule whose head predicate has no budget left gets no such
+    grounding. Its body atoms whose predicate has no budget left are not generated:
+    the new triples join existing EDB facts of those atoms instead
+    (`fixed_bindings`), and if there are none the rule gets nothing.
+
+    A partial rule with a `counterexample_ratio` then gets its PCA counter-examples
+    (`_insert_counterexamples`), so its support over its PCA body matches its
+    source PCA confidence.
 
     Args:
         rule: The HornRule being evaluated.
@@ -245,60 +325,192 @@ def check_triples_from_rule(
         undirected_preds: Predicates whose triples are inserted in both directions.
         skip_reflexivity: Use the grounding logic before the self-loop fix (see
             `generator.sample_grounding_groups`).
+        source_keys: Each predicate's source domain and range keys, before any
+            budget was spent; needed for the counter-examples.
 
     Returns:
         The number of successfully inserted triples.
     """
-
-    closed_preds = {p for p, profile in profiles.items() if profile.closed}
-    excluded_preds = intensional_preds | closed_preds
-    # A predicate with no domain or range left can't be grounded, even if it has not
-    # been flagged as closed yet.
-    exhausted_preds = {
-        p for p, profile in profiles.items() if not profile.domain or not profile.range
-    }
-    candidate_atoms = [
-        a for a in rule.body if a.predicate not in excluded_preds | exhausted_preds
-    ]
-    if unprofiled := {a.predicate for a in candidate_atoms} - profiles.keys():
+    spent_preds = _spent_preds(profiles)
+    edb_atoms = rule.get_edb_atoms(intensional_preds)
+    if unprofiled := {a.predicate for a in edb_atoms} - profiles.keys():
         logger.warning(
             "Checking triples from rule %s: No profile for %s (absent from the source "
             "graph or a predicate format mismatch); ignoring those atoms.",
             rule.rule_id,
             sorted(unprofiled),
         )
-    body_atoms = [a for a in candidate_atoms if a.predicate in profiles]
-    if not body_atoms:
+    # Body atoms first, in the order of the body, then the head of a partial rule.
+    atoms = [
+        a
+        for a in (*rule.body, rule.head)
+        if a in edb_atoms and a.predicate in profiles and a.predicate not in spent_preds
+    ]
+    if not atoms:
         return 0
 
+    inserted = 0
+    if not rule.is_complete and rule.head not in atoms:
+        logger.debug(
+            "Partial rule %s: no budget left for its head; leaving its support to "
+            "chance.",
+            rule.rule_id,
+        )
     # Existing triples (also those of closed predicates, e.g. created for another
-    # rule) may already yield some of the heads this rule needs.
-    producible_heads = count_producible_heads(
-        client, rule, rule.get_extensional_body(intensional_preds), edb_uri
+    # rule) may already yield some of the groundings this rule needs.
+    elif (
+        missing_heads := rule.grounding_target
+        - produced_groundings(client, rule, intensional_preds, edb_uri)
+    ) > 0:
+        fixed = None
+        if not rule.is_complete:
+            fixed = _join_rows(
+                client, rule, atoms, edb_uri, ROWS_PER_GROUNDING * missing_heads
+            )
+        if fixed is not None and not fixed:
+            logger.debug(
+                "Partial rule %s: no EDB facts to join with; leaving its support to "
+                "chance.",
+                rule.rule_id,
+            )
+        else:
+            logger.debug("Generating predicates from rule %s: %s", rule.rule_id, atoms)
+            triples = sample_groundings(
+                client=client,
+                target_uri=edb_uri,
+                atoms=atoms,
+                head_vars=rule.get_head_variables(),
+                profiles=profiles,
+                missing_heads=missing_heads,
+                term_mapping=term_mapping,
+                chunk_size=chunk_size,
+                fixed_bindings=fixed,
+                undirected=undirected_preds,
+                skip_reflexivity=skip_reflexivity,
+            )
+            inserted += insert_triples_sparql(
+                client=client,
+                graph_uri=edb_uri,
+                triple_stream=iter(triples),
+                chunk_size=chunk_size,
+            )
+
+    if rule.counterexample_ratio is not None and source_keys is not None:
+        inserted += _insert_counterexamples(
+            rule=rule,
+            profiles=profiles,
+            client=client,
+            term_mapping=term_mapping,
+            edb_uri=edb_uri,
+            chunk_size=chunk_size,
+            undirected_preds=undirected_preds,
+            skip_reflexivity=skip_reflexivity,
+            source_keys=source_keys,
+        )
+    return inserted
+
+
+def _insert_counterexamples(
+    rule: HornRule,
+    profiles: dict[str, PredicateProfile],
+    client: SPARQLWrapper,
+    term_mapping: dict[str, str],
+    edb_uri: str,
+    chunk_size: int,
+    undirected_preds: Collection[str],
+    skip_reflexivity: bool,
+    source_keys: dict[str, tuple[frozenset[str], frozenset[str]]],
+) -> int:
+    """Builds the PCA counter-examples of a partial rule and inserts them into the
+    EDB: groundings of its body whose head triple is absent and whose functional
+    variable takes an entity of the head relation's source domain (or range, if the
+    variable is the head's object). The head relation is generated to its profile,
+    so that entity ends with a head fact and the grounding counts in the rule's PCA
+    body without adding support.
+
+    The rule needs `round(support in the EDB x counterexample_ratio)` of them, so
+    its support over its PCA body is the source's PCA confidence even when it fell
+    short of its support. Counter-examples already in the EDB count. Body atoms
+    whose predicate has no budget left join existing facts, as in
+    `check_triples_from_rule`.
+
+    Returns:
+        The number of triples inserted.
+    """
+    ratio, variable, head = (
+        rule.counterexample_ratio,
+        rule.functional_variable,
+        rule.head,
     )
-    missing_heads = int(rule.support - producible_heads)
-    if missing_heads <= 0:
+    if ratio is None or variable is None or head.predicate not in source_keys:
+        return 0
+    if variable not in (head.subject, head.obj):
+        logger.warning(
+            "Functional variable %s of rule %s is not in its head; no "
+            "counter-examples.",
+            variable,
+            rule.rule_id,
+        )
+        return 0
+    domain_keys, range_keys = source_keys[head.predicate]
+    entities = domain_keys if variable == head.subject else range_keys
+
+    support = get_support(client, rule, edb_uri)
+    target = math.floor(support * ratio + 0.5)
+    existing = sum(
+        1
+        for row in get_headless_body_bindings(client, rule, edb_uri)
+        if row.get(variable) in entities
+    )
+    if (missing := target - existing) <= 0:
         return 0
 
-    logger.debug("Generating predicates from rule %s: %s", rule.rule_id, body_atoms)
+    spent_preds = _spent_preds(profiles)
+    atoms = [
+        a
+        for a in rule.body
+        if a.predicate in profiles and a.predicate not in spent_preds
+    ]
+    fixed = (
+        _join_rows(client, rule, atoms, edb_uri, ROWS_PER_GROUNDING * missing)
+        if atoms
+        else []
+    )
+    if fixed is not None and not fixed:
+        logger.debug(
+            "Partial rule %s: no budget or EDB facts left for its %d counter-examples.",
+            rule.rule_id,
+            missing,
+        )
+        return 0
 
-    triples = sample_groundings(
+    groups = sample_grounding_groups(
         client=client,
         target_uri=edb_uri,
-        atoms=body_atoms,
+        atoms=atoms,
         head_vars=rule.get_head_variables(),
         profiles=profiles,
-        missing_heads=missing_heads,
+        missing_heads=missing,
         term_mapping=term_mapping,
         chunk_size=chunk_size,
+        fixed_bindings=fixed,
         undirected=undirected_preds,
         skip_reflexivity=skip_reflexivity,
+        allowed={variable: entities},
+        headless=head,
     )
-
+    logger.debug(
+        "Partial rule %s: %d of %d missing counter-examples (support %d, target %d).",
+        rule.rule_id,
+        len(groups),
+        missing,
+        support,
+        target,
+    )
     return insert_triples_sparql(
         client=client,
         graph_uri=edb_uri,
-        triple_stream=iter(triples),
+        triple_stream=(triple for group in groups for triple in group),
         chunk_size=chunk_size,
     )
 
@@ -484,12 +696,15 @@ def insert_random_triples(
 def get_undirected_rule_ids(
     rules: dict[str, HornRule], profiles: dict[str, PredicateProfile]
 ) -> set[str]:
-    """Returns the IDs of the symmetric rules whose relation can be generated as
-    undirected edges: every entity has the same domain and range count."""
+    """Returns the IDs of the complete symmetric rules whose relation can be generated
+    as undirected edges: every entity has the same domain and range count. A partial
+    symmetric rule is grounded like any other partial rule instead, a pair of
+    triples per grounding."""
     return {
         r_id
         for r_id, rule in rules.items()
-        if rule.is_symmetric()
+        if rule.is_complete
+        and rule.is_symmetric()
         and profiles[rule.head.predicate].domain == profiles[rule.head.predicate].range
     }
 
@@ -662,9 +877,8 @@ def sample_derived_undirected_relations(
     Returns:
         The number of triples inserted.
     """
-    symmetric_preds = {r.head.predicate for r in rules.values() if r.is_symmetric()}
     inserted = 0
-    for predicate in sorted(symmetric_preds & get_intensional_preds(rules)):
+    for predicate in sorted(get_undirected_preds(rules) & get_intensional_preds(rules)):
         profile = profiles[predicate]
         if profile.closed:
             continue
@@ -754,8 +968,13 @@ def generate_extensional_predicates(
     # Target frequency per predicate, copied before the steps below spend
     # `PredicateProfile.frequency` as a remaining budget.
     targets = {p: pr.frequency for p, pr in profiles.items()}
+    # Source domain and range keys per predicate, before any budget is spent: the
+    # entities that end with a fact of the relation (see `_insert_counterexamples`).
+    source_keys = {
+        p: (frozenset(pr.domain), frozenset(pr.range)) for p, pr in profiles.items()
+    }
     intensional_preds = get_intensional_preds(rules)
-    symmetric_preds = {r.head.predicate for r in rules.values() if r.is_symmetric()}
+    symmetric_preds = get_undirected_preds(rules)
     # Relations that only their symmetric rule derives.
     undirected_preds = symmetric_preds - intensional_preds
     # A direct match would write only one direction of a symmetric relation.
@@ -814,7 +1033,18 @@ def generate_extensional_predicates(
     else:
         logger.info("[Warm-up] No direct matches.")
 
-    extensional_dependency = get_extensional_dependencies(rules)
+    # Complete rules are grounded before any partial rule, so they get the budget
+    # first; each group is ordered on its own (a complete rule never waits for a
+    # partial one).
+    complete_ids = {r_id for r_id, r in rules.items() if r.is_complete}
+    extensional_dependency = get_extensional_dependencies(
+        {r_id: r for r_id, r in rules.items() if r_id in complete_ids}
+    ) | get_extensional_dependencies(
+        {r_id: r for r_id, r in rules.items() if r_id not in complete_ids}
+    )
+    # Budget of intensional relations held back from the partial rules for what the
+    # complete rules derive in completion (`_reserve_derived_budget`).
+    reserved: dict[str, int] | None = None
     extensional_profiles = {
         pred: profiles[pred] for pred in (profiles.keys() - intensional_preds)
     }
@@ -883,24 +1113,28 @@ def generate_extensional_predicates(
                 if (
                     r_id in checked_rules
                     or extensional_dependency[r_id] - checked_rules
+                    or (not r.is_complete and complete_ids - checked_rules)
                 ):
                     continue
+                if not r.is_complete and reserved is None:
+                    reserved = _reserve_derived_budget(rules, profiles)
 
-                producible_heads = count_producible_heads(
-                    client, r, r.get_extensional_body(intensional_preds), edb_uri
-                )
-                if producible_heads >= r.support:
-                    checked_rules.add(r_id)
+                produced = produced_groundings(client, r, intensional_preds, edb_uri)
+                if produced >= r.grounding_target:
                     r.closed = True
-                    continue
+                    # A rule with counter-examples still needs them.
+                    if r.counterexample_ratio is None:
+                        checked_rules.add(r_id)
+                        continue
 
-                if len(r.get_extensional_body(intensional_preds)) <= 1:
+                if len(r.get_edb_atoms(intensional_preds)) <= 1:
                     # We can just use random assignments
                     checked_rules.add(r_id)
                     continue
 
-                # Open rule with 2 or more ext. predicates and no ext. dependencies. get
-                # triples by sampling groundings.
+                # Open rule with 2 or more atoms to ground (a partial rule's head
+                # included) and no dependencies left. Get triples by sampling
+                # groundings.
                 r_count = check_triples_from_rule(
                     rule=r,
                     intensional_preds=intensional_preds,
@@ -911,6 +1145,7 @@ def generate_extensional_predicates(
                     chunk_size=chunk_size,
                     undirected_preds=undirected_preds,
                     skip_reflexivity=skip_reflexivity,
+                    source_keys=source_keys,
                 )
                 checked_rules.add(r_id)
 
@@ -976,3 +1211,43 @@ def generate_extensional_predicates(
     # Guarantee every buffered triple lands before this graph is considered
     # complete by callers (e.g. get_triple_count, complete_graph).
     buffer.flush(client=client, graph_uri=edb_uri, chunk_size=chunk_size)
+    for predicate, amount in (reserved or {}).items():
+        profile = profiles[predicate]
+        profile.frequency += amount
+        if profile.frequency > 0:
+            profile.closed = False
+
+
+def _reserve_derived_budget(
+    rules: dict[str, HornRule], profiles: dict[str, PredicateProfile]
+) -> dict[str, int]:
+    """Holds back, from each intensional relation's remaining frequency, the triples
+    the complete rules deriving it will add in completion: the sum of their
+    supports, at most what remains. Partial rules then add only the facts the
+    complete rules leave, so that relation doesn't pass its frequency. Only the
+    frequency is held back, not the counts of each entity.
+
+    Returns:
+        The amount held back per relation, to give back once the EDB is done.
+    """
+    derived: dict[str, float] = {}
+    for rule in rules.values():
+        if rule.is_complete and not rule.is_symmetric():
+            pred = rule.head.predicate
+            derived[pred] = derived.get(pred, 0) + rule.support
+    reserved = {}
+    for predicate, amount in derived.items():
+        if (profile := profiles.get(predicate)) is None or profile.closed:
+            continue
+        reserved[predicate] = min(max(profile.frequency, 0), int(amount))
+        profile.frequency -= reserved[predicate]
+    if reserved:
+        logger.info(
+            "[Partial] Grounding the partial rules; held back for the complete "
+            "rules (held/remaining before): %s",
+            ", ".join(
+                f"{short_term(p)} {n}/{profiles[p].frequency + n}"
+                for p, n in sorted(reserved.items(), key=lambda i: short_term(i[0]))
+            ),
+        )
+    return reserved

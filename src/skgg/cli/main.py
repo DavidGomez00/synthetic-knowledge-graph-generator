@@ -25,6 +25,7 @@ from skgg.core.queries import (
 )
 from skgg.core.rules import (
     DEFAULT_STD_THRESHOLD,
+    PARTIAL_TARGETS,
     Atom,
     HornRule,
     get_impacted_rules,
@@ -239,7 +240,8 @@ def _format_summary_block(
     PredicateProfile.closed / HornRule.closed, the authoritative closure
     state maintained throughout generation -- not re-derived here). Each rule
     row also shows the rule's std and PCA confidence original -> synthetic
-    (delta), from `og_confidences` and `syn_confidences`. Rules removed by
+    (delta), from `og_confidences` and `syn_confidences`, and whether the rule is
+    `[COMPLETE]` or `[PARTIAL <grounding target>]`. Rules removed by
     `remove_minimal_cyclic_rules` follow in their own section, without a
     status."""
     triple_delta = syn_triple_count - og_triple_count
@@ -328,8 +330,10 @@ def _format_summary_block(
         "original -> synthetic:",
     ]
     for rid in rule_ids:
-        status = "CLOSED" if rules[rid].closed else "OPEN"
-        lines.append(f"{rule_row(rid)}  [{status}]")
+        rule = rules[rid]
+        status = "CLOSED" if rule.closed else "OPEN"
+        kind = "COMPLETE" if rule.is_complete else f"PARTIAL {rule.grounding_target}"
+        lines.append(f"{rule_row(rid)}  {f'[{status}]':<8}  [{kind}]")
 
     if removed_rules:
         lines += [
@@ -424,6 +428,7 @@ def run_synthetic_graph_experiment(
     base_uri: str | None = None,
     namespace: str | None = None,
     skip_reflexivity: bool = False,
+    partial_target: str = "pca-body",
 ) -> None:
     """Runs a Synthetic Graph generation experiment.
 
@@ -436,6 +441,17 @@ def run_synthetic_graph_experiment(
     `pca_threshold`, if given, overrides `config.rules.pca_threshold` for
     this run's rule filtering only. If neither is set, the rules with std
     confidence >= `DEFAULT_STD_THRESHOLD` (1) are kept instead.
+
+    The kept rules with std confidence 1 are complete (`HornRule.is_complete`):
+    the EDB builds the groundings of their extensional body up to their support and
+    completion forward-chains them. The others are partial: the EDB builds
+    round(PCA confidence x support) groundings of their body together with their
+    head (`HornRule.grounding_target`), completion doesn't apply them, and their
+    head relation stays extensional, so random triples fill the rest of it.
+    `partial_target` (one of `PARTIAL_TARGETS`) sets their target: "pca-body"
+    builds their whole support plus body groundings without a head, their PCA
+    counter-examples, in the source's ratio (`HornRule.counterexample_ratio`), and
+    "pca-support" builds round(PCA confidence x support) supported groundings.
 
     The run's graphs are named after its rule filter (`rule_filter_label`, e.g.
     `pca=0.9`), so runs at different thresholds keep separate graphs: the EDB plus
@@ -456,10 +472,12 @@ def run_synthetic_graph_experiment(
     the IDB step reuses whatever triples already sit at the EDB graph of this
     run (e.g. from a previous run) instead of regenerating them.
 
-    After the confidence filter, the fewest rules that leave the relation graph
-    with no cycle are removed (`remove_minimal_cyclic_rules`), so completion can
-    derive every intensional predicate from the EDB. A symmetric rule stays if its
-    relation can be generated as undirected edges (`get_undirected_rule_ids`).
+    After the confidence filter, the fewest complete rules that leave their
+    relation graph with no cycle are removed (`remove_minimal_cyclic_rules`), so
+    completion can derive every intensional predicate from the EDB. A symmetric
+    rule stays if its relation can be generated as undirected edges
+    (`get_undirected_rule_ids`). Partial rules are all kept, since they place their
+    own heads.
 
     Raises:
         ValueError: If one of the run's graphs is the base graph, or a rule
@@ -532,16 +550,57 @@ def run_synthetic_graph_experiment(
             "--namespace) matches the base graph's IRIs, or upload the base graph "
             "again."
         )
-    # Drawn before the cyclic rules are removed, so the PNG shows their cycles.
+    # Completion forward-chains the complete rules only. The EDB grounds each
+    # partial rule with its head, `grounding_target` times.
+    if partial_target not in PARTIAL_TARGETS:
+        raise ValueError(
+            f"Unknown partial target {partial_target!r}: use one of {PARTIAL_TARGETS}."
+        )
+    for rule in rules.values():
+        rule.partial_target = partial_target
+    complete_rules = {r_id: r for r_id, r in rules.items() if r.is_complete}
+    partial_rules = {r_id: r for r_id, r in rules.items() if not r.is_complete}
+    logger.info(
+        "%d rules: %d complete (std confidence 1, forward-chained), %d partial "
+        "(target %s: %s).",
+        len(rules),
+        len(complete_rules),
+        len(partial_rules),
+        partial_target,
+        "their support plus their PCA counter-examples"
+        if partial_target == "pca-body"
+        else "round(PCA confidence x support) supported groundings",
+    )
+    if partial_rules:
+
+        def target(rule: HornRule) -> str:
+            text = f"{rule.grounding_target}"
+            if (ratio := rule.counterexample_ratio) is not None:
+                text += f" + {round(rule.grounding_target * ratio)} counter-examples"
+            return text
+
+        logger.debug(
+            "Partial rules (target, of support): %s",
+            ", ".join(
+                f"{r_id} {target(r)} of {int(r.support)}"
+                for r_id, r in partial_rules.items()
+            ),
+        )
+    # Only the complete rules can leave a cycle stale, since a partial rule places
+    # its own heads. Drawn before the cyclic rules are removed, so the PNG shows
+    # their cycles.
     plot_relation_graph(
-        get_relation_graph(rules),
+        get_relation_graph(complete_rules),
         Path("logs") / f"relation_graph_{config.graph.name}.png",
         title=f"{config.graph.name} — relation graph",
     )
     # Before EDB generation, so a removed rule's head predicate is extensional.
     removed_rules = remove_minimal_cyclic_rules(
-        rules, exempt=get_undirected_rule_ids(rules, graph_metrics.profiles)
+        complete_rules,
+        exempt=get_undirected_rule_ids(complete_rules, graph_metrics.profiles),
     )
+    for r_id in removed_rules:
+        del rules[r_id]
 
     # A predicate is intensional iff a remaining rule other than its symmetric one
     # derives it.
@@ -609,22 +668,26 @@ def run_synthetic_graph_experiment(
             edb_uri,
             get_triple_count(client, edb_uri),
         )
+        # The EDB holds the partial rules' heads, so their support is final there
+        # unless completion adds to it.
+        for rule_id in get_closed_rules(client, edb_uri, partial_rules):
+            rules[rule_id].closed = True
 
     _log_phase(3, "Completing graph")
     progress.log("EDB", edb_uri)
     logger.info(
-        "Applying %d rules (%d open): %s",
-        len(rules),
-        sum(1 for r in rules.values() if not r.closed),
+        "Applying the %d complete rules (%d open): %s",
+        len(complete_rules),
+        sum(1 for r in complete_rules.values() if not r.closed),
         ", ".join(
-            f"{rid} ({'closed' if rules[rid].closed else 'open'})"
-            for rid in sorted(rules, key=rule_sort_key)
+            f"{rid} ({'closed' if complete_rules[rid].closed else 'open'})"
+            for rid in sorted(complete_rules, key=rule_sort_key)
         )
         or "none",
     )
     complete_graph(
         client=client,
-        rules=rules,
+        rules=complete_rules,
         term_mapping=term_mapping,
         source=edb_uri,
         target_uri=synthetic_uri,
@@ -634,7 +697,7 @@ def run_synthetic_graph_experiment(
     )
     if sample_derived_undirected_relations(
         client=client,
-        rules=rules,
+        rules=complete_rules,
         profiles=graph_metrics.profiles,
         graph_uri=synthetic_uri,
         term_mapping=term_mapping,
@@ -643,7 +706,7 @@ def run_synthetic_graph_experiment(
         # The sampled triples can fire the rules with those relations in their body.
         complete_graph(
             client=client,
-            rules=rules,
+            rules=complete_rules,
             term_mapping=term_mapping,
             source=synthetic_uri,
             target_uri=synthetic_uri,
@@ -651,6 +714,9 @@ def run_synthetic_graph_experiment(
             profiles=graph_metrics.profiles,
             label="symmetric",
         )
+    # Derived heads can complete groundings of partial rules too.
+    for rule_id in get_closed_rules(client, synthetic_uri, partial_rules):
+        rules[rule_id].closed = True
     progress.log("initial", synthetic_uri)
 
     _log_phase(4, "Filling open relations")
@@ -664,9 +730,11 @@ def run_synthetic_graph_experiment(
             final_uri,
             get_triple_count(client, final_uri),
         )
+        # Fill keeps every body grounding with its head, which partial rules break
+        # on purpose, so it only checks the complete rules.
         _fill_open_relations(
             client,
-            rules,
+            complete_rules,
             progress,
             base_uri,
             final_uri,
@@ -717,8 +785,11 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Keep the rules with at least this PCA confidence, overriding the "
         "config file's rules.pca_threshold for this run only. Without either, the "
-        "rules with std confidence 1 are kept. The rule filter names the run's "
-        "graphs, e.g. http://FrenchRoyalty.org/skgg/pca=0.9 or .../skgg/std=1.",
+        "rules with std confidence 1 are kept. A kept rule with std confidence "
+        "below 1 is partial: the EDB builds round(PCA confidence x support) of its "
+        "groundings with their head, and completion doesn't apply it. The rule "
+        "filter names the run's graphs, e.g. http://FrenchRoyalty.org/skgg/pca=0.9 "
+        "or .../skgg/std=1.",
     )
     parser.add_argument(
         "--synthetic-uri",
@@ -749,6 +820,16 @@ def _parse_args() -> argparse.Namespace:
         "self-loops by chance. By default each relation gets exactly the source's "
         "self-loops.",
     )
+    parser.add_argument(
+        "--partial-target",
+        choices=PARTIAL_TARGETS,
+        default="pca-body",
+        help="How the EDB targets a partial rule (std confidence below 1, kept by "
+        "--pca-conf): pca-body (default) builds its whole support plus body "
+        "groundings without a head, its PCA counter-examples, so support / PCA "
+        "body is its source PCA confidence; pca-support builds round(PCA "
+        "confidence x support) supported groundings.",
+    )
     return parser.parse_args()
 
 
@@ -764,4 +845,5 @@ if __name__ == "__main__":
         base_uri=args.base_uri,
         namespace=args.namespace,
         skip_reflexivity=args.skip_reflexivity,
+        partial_target=args.partial_target,
     )

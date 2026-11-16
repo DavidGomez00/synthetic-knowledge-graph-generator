@@ -145,8 +145,11 @@ class RulesConfig:
             `core.rules.DEFAULT_STD_THRESHOLD` (1) instead.
             `core.rules.parse_rule_set` drops every rule below the threshold
             or missing the confidence it filters on, so only the remaining
-            rules flow into EDB generation and completion. Overridable per run
-            with `--pca-conf` on the CLI.
+            rules flow into EDB generation and completion. A kept rule with
+            std confidence below 1 is partial (`HornRule.is_complete`): the EDB
+            builds its groundings with their head, to the target that
+            `--partial-target` picks, and completion doesn't apply it.
+            Overridable per run with `--pca-conf` on the CLI.
     """
 
     rules_file: str
