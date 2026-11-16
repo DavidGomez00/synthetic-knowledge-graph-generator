@@ -287,10 +287,15 @@ def dataset_family(dataset: str) -> tuple[str, str]:
     The family and variant of a dataset folder of `exp_results`: a copy's folder
     is its source's name with the copy set as suffix, e.g. `french_kbgen` is
     (`french`, `kbgen`), and a source dataset is its own family's `original`.
+    A copy made another way has a tag after the suffix, which stays in the
+    variant: `french_ours_std1` is (`french`, `ours_std1`).
     """
     for variant in COPY_SETS:
         if dataset.endswith(f"_{variant}"):
             return dataset[: -len(variant) - 1], variant
+        family, separator, tag = dataset.rpartition(f"_{variant}_")
+        if separator and family and tag and "_" not in tag:
+            return family, f"{variant}_{tag}"
     return dataset, REFERENCE_VARIANT
 
 
@@ -576,7 +581,12 @@ def read_cached_ranks(path: Path) -> pd.DataFrame | None:
 
 
 def read_split(path: Path) -> np.ndarray:
-    """Read a split train_kge.py saved: one tab-separated labeled triple per line."""
+    """Read a split train_kge.py saved: one tab-separated labeled triple per line.
+
+    An empty split, the `valid` of a VANILLA 80/20 split, gives a 0 x 3 array.
+    """
+    if path.stat().st_size == 0:
+        return np.empty((0, 3), dtype=object)
     return (
         pd.read_csv(path, sep="\t", header=None, dtype=str, keep_default_na=False)
         .to_numpy()
@@ -606,8 +616,9 @@ def rank_predictions(
     prints a warning) if a file is missing or a label isn't in the model's
     vocabulary.
     """
+    # `valid` is optional: VANILLA's 80/20 split has only `train` and `test`.
     needed = [
-        *(dataset_dir / split for split in HELD_OUT_SPLITS),
+        dataset_dir / "test",
         model_dir / "trained_model.pkl",
         model_dir / "training_triples",
     ]
@@ -616,9 +627,13 @@ def rank_predictions(
         print(f"warning: cannot rank {model_dir} (missing {', '.join(missing)})")
         return None
 
-    splits = {split: read_split(dataset_dir / split) for split in HELD_OUT_SPLITS}
+    splits = {
+        split: read_split(dataset_dir / split)
+        for split in HELD_OUT_SPLITS
+        if (dataset_dir / split).is_file()
+    }
     held_out = np.concatenate(list(splits.values()))
-    split_names = np.repeat(HELD_OUT_SPLITS, [len(splits[s]) for s in HELD_OUT_SPLITS])
+    split_names = np.repeat(list(splits), [len(t) for t in splits.values()])
     training = TriplesFactory.from_path_binary(model_dir / "training_triples")
     # PyKEEN reloads a column of all-numeric labels as integers; split labels are strings.
     entity_to_id = {str(label): i for label, i in training.entity_to_id.items()}

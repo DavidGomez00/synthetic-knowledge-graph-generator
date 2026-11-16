@@ -13,9 +13,10 @@ plot and PyKEEN's `training_triples/`). `progress.csv` is left out, as every mac
 rewrites it; `--download` rebuilds it. A run is uploaded once: one that the branch
 already has is skipped, even if another machine trained it.
 
-The branch is checked out in a git worktree, `.kge-results/` (WORKTREE) at the root of
-the repository, and is created on the remote by the first upload. A lock on the
-worktree keeps the processes of one machine from using it at once. When the push is
+The branch is checked out in a git worktree, `.<branch>/` at the root of the repository
+(`.kge-results/`, WORKTREE, for the default branch), and is created on the remote by
+the first upload. A lock on the worktree keeps the processes of one machine from using
+it at once. When the push is
 refused because another machine pushed first, the commit is rebased on theirs and
 pushed again; machines train different datasets, so their files don't collide.
 
@@ -48,6 +49,8 @@ PUSH_ATTEMPTS = 5
 # is short; GitHub refuses any push over 2 GB.
 BATCH_MB = 200
 DATASET_FILES = ("settings.json", "train", "valid", "test")
+# Each run's own log, `<dataset>/logs/<model>.log` (train_kge.RUN_LOG_DIR).
+RUN_LOG_DIR = "logs"
 
 
 def git(*args: str, cwd: Path) -> str:
@@ -64,9 +67,14 @@ def repository_root() -> Path:
     return Path(git("rev-parse", "--show-toplevel", cwd=Path(__file__).parent))
 
 
+def worktree_name(branch: str) -> str:
+    """The worktree folder of a branch, so each branch has its own."""
+    return WORKTREE if branch == BRANCH else f".{branch}"
+
+
 @contextmanager
-def worktree_lock(root: Path) -> Iterator[None]:
-    with (root / f"{WORKTREE}.lock").open("a") as f:
+def worktree_lock(root: Path, branch: str = BRANCH) -> Iterator[None]:
+    with (root / f"{worktree_name(branch)}.lock").open("a") as f:
         fcntl.flock(f, fcntl.LOCK_EX)
         yield
 
@@ -77,7 +85,7 @@ def remote_has_branch(root: Path, remote: str, branch: str) -> bool:
 
 def open_worktree(root: Path, remote: str, branch: str) -> Path:
     """Returns the worktree of the branch, creating it, and brings it up to date."""
-    worktree = root / WORKTREE
+    worktree = root / worktree_name(branch)
     exists = remote_has_branch(root, remote, branch)
     if not (worktree / ".git").exists():
         if exists:
@@ -161,6 +169,10 @@ def copy_run(results: Path, target: Path, dataset: str, model: str) -> None:
     if status.is_file():
         (destination / "status").mkdir(exist_ok=True)
         shutil.copy2(status, destination / "status" / status.name)
+    log = source / RUN_LOG_DIR / f"{model}.log"
+    if log.is_file():
+        (destination / RUN_LOG_DIR).mkdir(exist_ok=True)
+        shutil.copy2(log, destination / RUN_LOG_DIR / log.name)
     shutil.copytree(source / model, destination / model, dirs_exist_ok=True)
 
 
@@ -183,6 +195,7 @@ def run_bytes(results: Path, dataset: str, model: str) -> int:
     """The size of a run's files: its model folder and its status file."""
     files = [p for p in (results / dataset / model).rglob("*") if p.is_file()]
     files.append(results / dataset / "status" / f"{model}.json")
+    files.append(results / dataset / RUN_LOG_DIR / f"{model}.log")
     return sum(p.stat().st_size for p in files if p.is_file())
 
 
@@ -221,7 +234,7 @@ def upload(
     machine = machine or socket.gethostname()
     results = results.resolve()
     root = repository_root()
-    with worktree_lock(root):
+    with worktree_lock(root, branch):
         worktree = open_worktree(root, remote, branch)
         target = worktree / RESULTS_DIR
         done = uploaded_runs(worktree)
@@ -271,7 +284,7 @@ def download(
 ) -> int:
     """Copies the runs of the branch that `results` lacks; returns how many."""
     root = repository_root()
-    with worktree_lock(root):
+    with worktree_lock(root, branch):
         if not remote_has_branch(root, remote, branch):
             raise RuntimeError(
                 f"{remote} has no branch {branch}: nothing uploaded yet."

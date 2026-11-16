@@ -1,26 +1,28 @@
 # Training the KGE benchmark
 
-`scripts/train_kge.py` trains six models of the KGC-Benchmark project (TransE, TransH, TransD, RotatE, ComplEx, TuckER) on every dataset under `exp_datasets/`. CompGCN, the seventh, is left out with `--skip-models CompGCN`: at batch size 32 it takes about 106 days on the base set, 104 of them on the five YAGO3-10 datasets. The benchmark is trained three times with the same settings: on the base datasets, then on the datasets whose names end in `_kbgen`, then on those ending in `_ours`.
+`scripts/train_kge.py` trains the seven models of the KGC-Benchmark project (TransE, TransH, TransD, RotatE, ComplEx, TuckER, CompGCN) on the datasets under `exp_datasets/`: the 24 original graphs, called the base set or baseline, and their synthetic copies, made by this project's generator (`ours`), kbgen and PyGraft.
 
-Since 2026-11-11 hyperparameter tuning is not part of the benchmark. Every model trains with the fixed settings of KGC-Benchmark's `input.json`, which `train_kge.py` uses by default, so the three sets can be compared run by run. [`kge_tuning.md`](kge_tuning.md) describes the search that was stopped.
+The project has no hyperparameter search. Every model trains with fixed settings, VANILLA's, so the sets can be compared run by run; CompGCN has its own batch size and learning rate and is compared across datasets only. The two searches tried before (`tune_kge.py` and the speed search `tune_speed.py`) were removed on 2026-11-16 as out of scope, with their records.
+
+[`training-protocol.md`](training-protocol.md) lists every training and evaluation setting, the differences from VANILLA's `KGC.py` and a test run on French Royalty.
 
 ## Settings
 
 | Setting | Value |
 |---|---|
-| Training loop | PyKEEN's sLCWA, inverse triples, filtered negative sampling |
+| Training loop | PyKEEN's sLCWA, inverse triples, filtered negative sampling, margin ranking loss |
 | Epochs | 100, no early stopping |
-| Batch size | 32 |
+| Batch size | 32; CompGCN 131,072, capped at the training instances |
+| Learning rate | Adam, 0.001 (PyKEEN's default); CompGCN 0.03 |
 | Embedding dimension | 50 |
-| Optimizer | PyKEEN's default, Adam with learning rate 0.001 |
 | Seed | 1235 |
-| Splits | the dataset's `train`, `valid` and `test` files; models train on `train` and are evaluated on `test`, and `valid` only adds known answers to the ranking filter |
+| Splits | VANILLA's 80/20 split of each dataset: models train on `train` and are evaluated on `test`; there is no `valid` |
 
-`train_kge.py` writes these settings and checksums of the split files to `exp_results/<dataset>/settings.json`, and refuses a dataset whose recorded settings differ from the command's. Results with other settings need another `--output`.
+The settings are the `Settings` class of `train_kge.py`. It writes them, with checksums of the split files, to `exp_results/<dataset>/settings.json`, and refuses a dataset whose recorded settings or splits differ from the command's. Results with other settings need another `--output`.
 
 ## Why batch size 32
 
-A larger batch would be faster, but it changes which models come out ahead. Six models were trained at batch size 512, with the other settings unchanged, on four datasets of different sizes, and compared with their batch-32 results (test MRR, one run each):
+A larger batch would be faster, but it changes which models come out ahead. Six models were trained at batch size 512, with the other settings unchanged, on four datasets of different sizes, and compared with their batch-32 results (test MRR, one run each, on an RTX 3090 and on the earlier 80/10/10 splits):
 
 | Dataset | Training triples | ComplEx | RotatE | TransD | TransE | TransH | TuckER |
 |---|---|---|---|---|---|---|---|
@@ -33,21 +35,47 @@ Batch size 512 trained these 24 runs in 31 minutes instead of 304. At learning r
 
 TODO: It's not that larget batch sizes lead to worse results, but that it requires looking for the best lr., and we don't want to spend time looking for hyperparameters.
 
-## Running in parallel
+CompGCN is the exception. It encodes the whole graph at every step, so at batch size 32 it would take about 60 days per YAGO3-10 dataset on the training machine; it trains with batch size 131,072 and learning rate 0.03 instead, and its results are compared across datasets, not with the other models ([`training-protocol.md`](training-protocol.md), section 3).
 
-At batch size 32 one run keeps one CPU core busy and uses about 17% of an RTX 3090. `--workers N` trains N runs at once, one model on one dataset each, starting with the largest datasets. With 4 workers the GPU is fully busy and each epoch takes 1.4 to 1.8 times as long as the same model alone (TransE 27.3 s against 14.8 s per epoch, TransH 44.1 s against 31.8 s, on WN18RR-sized datasets), so 4 workers train about 2.6 times as fast as one. More workers would share the same full GPU.
+## Order and parallel runs
 
-Each run keeps its seed and settings, so parallel training gives the same results: 9 runs on three small datasets, trained by 3 workers, interrupted and resumed, gave the same losses and MRR as a single process.
+Datasets are trained smallest `train` file first, so the fast graphs finish early and the slowest, the YAGO3-10 datasets, come last. `--largest-first` reverses the order: with several workers it starts the longest runs at once instead of leaving them alone at the end, which can shorten the whole command.
 
-Locks keep the runs apart. Each run has `exp_checkpoints/<dataset>/<model>.lock`, and the workers training a dataset share its `.lock`, so two commands with overlapping datasets never train the same run twice, and a single-process run that holds a dataset keeps it to itself.
+At batch size 32 a run is CPU-bound: it keeps one CPU core busy and uses only part of a GPU. `--workers N` trains N runs at once, one model on one dataset each, in its own process, and `--threads` (default 4) caps the CPU threads of each. Worker i gets device i of `--devices`, in turn; by default every MIG instance and GPU that `nvidia-smi -L` lists, because a CUDA process sees only one MIG instance.
+
+On the training machine (12 MIG 1g.24gb slices on 6 RTX PRO 6000 Blackwell GPUs, 81.6 CPUs for the container), 12 workers, one per slice, is the setting to use. 24 workers, two per slice, slow each other down, and two CompGCN runs on a YAGO3-10 dataset could run out of a slice's 24 GB together. On an RTX 3090, 4 workers filled the GPU and trained about 2.6 times as fast as one process.
+
+Each run keeps its seed and settings, so parallel training gives the same results as one process: 9 runs on three small datasets, trained by 3 workers, interrupted and resumed, gave the same losses and MRR as a single process. Locks keep the runs apart: each run has `exp_checkpoints/<dataset>/<model>.lock`, and the workers training a dataset share its `.lock`, so two commands with overlapping datasets never train the same run twice.
 
 ```bash
-python scripts/train_kge.py --skip-models CompGCN --workers 4                                # every dataset
-python scripts/train_kge.py --skip-models CompGCN --workers 4 --datasets WN18RR WN18RRN_M    # some datasets
-python scripts/train_kge.py --skip-models CompGCN --workers 4 --skip-datasets YAGO3-10        # every dataset but YAGO3-10
+python scripts/train_kge.py --set base --workers 12                          # the baseline
+python scripts/train_kge.py --workers 12 --datasets WN18RR WN18RRN_M          # some datasets
+python scripts/train_kge.py --set base --workers 12 --skip-models CompGCN     # every model but CompGCN
 ```
 
 Run the command inside `tmux` so it outlives the terminal: `tmux new -s train`, then `Ctrl+B` `D` to leave it running and `tmux attach -t train` to come back.
+
+## Training the baseline
+
+The baseline is every model on every original graph: `--set base` selects the 24 base datasets and none of the copies, so 168 runs.
+
+```bash
+tmux new -s baseline
+python scripts/train_kge.py --set base --workers 12 --threads 4
+```
+
+The French and Family graphs come first, then SGKG and WN18RR, then the five YAGO3-10 datasets, YAGO3-10 itself last. Scaled linearly from the French Royalty test run, the six models other than CompGCN take about 256 run-hours, 86% of them on the YAGO3-10 datasets (3.5 million of the 4.1 million training triples). The 19 other datasets take about 37 run-hours, a few hours with 12 workers. The longest single runs are TransH on YAGO3-10, YAGO3-10_N_1 and YAGO3-10_N_M, about 13 to 14 hours each, and CompGCN takes about 25 minutes per YAGO3-10 dataset. With 12 workers the whole baseline should take a little over a day.
+
+These figures are a lower bound: the YAGO3-10 datasets have about 123,000 entities against French Royalty's 2,644, which slows evaluation and some models more than linearly. Check the pace once the first YAGO3-10 epochs are logged (`python scripts/kge_eta.py --workers 12`). When the baseline is done:
+
+```bash
+python kgc_benchmark/report_results.py
+python scripts/results_table.py
+```
+
+## Splits
+
+Each model is trained once per dataset, on the dataset's own `train`, and tested on its `test`. Since 2026-11-16 every dataset has VANILLA's 80/20 split (`scripts/split_vanilla.py`), with no `valid`; `train_kge.py` needs only `train` and `test` and reads a missing `valid` as empty. [`training-protocol.md`](training-protocol.md), section 1, describes the split and its checks. Each run keeps its trained model, and its complete log is `exp_results/<dataset>/logs/<model>.log`.
 
 ## Stopping and resuming
 
@@ -55,9 +83,9 @@ Run the command inside `tmux` so it outlives the terminal: `tmux new -s train`, 
 
 ## Following the training
 
-`python scripts/kge_eta.py --workers 4` prints the runs in progress with their time left, the runs finished, stopped partway and pending, the training time left per dataset and the expected finish time. `watch -n 300 python scripts/kge_eta.py --workers 4` refreshes it every 5 minutes.
+`python scripts/kge_eta.py --workers 12` prints the runs in progress with their time left, the runs finished, stopped partway and pending, the training time left per dataset and the expected finish time. `watch -n 300 python scripts/kge_eta.py --workers 12` refreshes it every 5 minutes.
 
-A pending run is estimated from the finished runs of the same model on at least 20,000 training triples: their median seconds per epoch per 1,000 training triples, times the run's training triples. Since parallel runs are slower than the finished runs predict, these estimates are scaled by the median slowdown of the runs in progress. The time left is the training time divided by the number of workers, but never less than the longest single run. The YAGO3-10 datasets have 4 to 15 times the training triples of any other dataset, so their estimates are extrapolated and the least reliable.
+A pending run is estimated from the finished runs of the same model on at least 20,000 training triples: their median seconds per epoch per 1,000 training triples, times the run's training triples. Since parallel runs are slower than the finished runs predict, these estimates are scaled by the median slowdown of the runs in progress. The time left is the training time divided by the number of workers, but never less than the longest single run. The YAGO3-10 datasets have many times the training triples of any other dataset, so their estimates are extrapolated and the least reliable.
 
 The other outputs:
 
@@ -66,55 +94,38 @@ The other outputs:
 | `exp_results/progress.csv` | one row per model and dataset: status (`pending`, `training`, `evaluating`, `finished`, `failed`), epoch, last loss, training and evaluation time, MRR, mean rank, Hits@1/3/5/10; rewritten after every epoch |
 | `exp_results/<dataset>/status/<model>.json` | the same fields and the loss of every epoch |
 | `exp_results/<dataset>/<model>/` | the trained model, `results.json` and the loss plot, written when the run finishes |
+| `exp_results/<dataset>/logs/<model>.log` | the run's own log: command, versions, device, settings, PyKEEN arguments, split checksums, every epoch, metrics, errors |
 | `logs/train_kge.log` | every message of every run, with the worker that wrote it |
 
 With workers the terminal shows one line every 10 epochs per run and one line when a run finishes. With one process it shows PyKEEN's progress bars.
 
 ## Training the copies
 
-The synthetic copies live next to the base datasets, one folder per copy: `exp_datasets/<dataset>_ours/<dataset>_ours.tsv` (this generator, 24 copies), `<dataset>_kbgen/` (kbgen, 24) and `<dataset>_pygraft/` (PyGraft, 19). A copy is one triples file, and its entities keep the names of the source dataset's entities.
+The synthetic copies live next to the base datasets, one folder per copy, each with its `.tsv` and VANILLA's 80/20 split of it. `--set` picks them by the end of the folder name: `ours` (50 datasets), `kbgen` (66) or `pygraft` (19). A copy is named `<dataset>_<set>` for the full copies of the main benchmark, and `<dataset>_<set>_<tag>` for the copies made at one rule threshold (`std1`, and the rule levels `r0` to `r100`, described in `docs/rule-levels.md` on the branch `pca-partial-rules`, where the copies are made); both kinds belong to the set of their generator, and a copy uses the settings of its base dataset. `--set all` trains every dataset. Results of every set go to the same `exp_results/`, one folder per dataset.
 
-Each copy is trained and tested on itself, so the benchmark shows whether the models rank the same on a copy as on its source. `scripts/split_copies.py` writes the copy's `train`, `valid` and `test` files:
-
-- the copy's triples, each kept once, are shuffled with seed 1235;
-- `test` and `valid` get the same share of the triples as in the source dataset's splits, and `train` the rest;
-- a valid or test triple with a head, tail or relation that `train` lacks is moved to `train`, since no model has an embedding for it. On the `_ours` copies this moved 7 (`family_ours`) to 4,280 (`WN18RRN_1_ours`) triples.
-
-The split is reproducible, two runs writing identical files, and git tracks the splits of every copy, so a clone has them. `train_kge.py` records the checksums of the splits in each dataset's `settings.json`, and refuses to resume a dataset whose splits changed.
-
-`--set` picks the datasets `train_kge.py` trains when `--datasets` is not given: `base` (the default), `ours`, `kbgen` or `pygraft`. Results of every set go to the same `exp_results/`, one folder per dataset. `kge_eta.py --set ours` estimates one set; its speeds come from every finished run, and on a machine with no finished run yet, from the runs in progress.
-
-On a new machine, with the environment of `requirements.txt` installed and the branch with the copies checked out, the splits are already there:
+Each copy is trained and tested on itself, so the benchmark shows whether the models rank the same on a copy as on its source. Before 2026-11-16 the copies had the splits of `scripts/split_copies.py`, now unused, which shuffled the copy's triples with seed 1235, gave `test` and `valid` the shares of the source dataset's splits, and moved to `train` every held-out triple with a term `train` lacked.
 
 ```bash
 tmux new -s train
-python scripts/train_kge.py --skip-models CompGCN --set ours --workers 4
+python scripts/train_kge.py --set ours --workers 12
 ```
-
-`--workers 4` was measured on an RTX 3090; on another GPU, start with 4 and compare the seconds per epoch that `kge_eta.py` reports with 2 or 3 workers. The `_ours` copies have 0.70 (`frenchN_1_ours`) to 3.06 (`family_ours`) times the triples of their source datasets, and 1.01 times in total (5,140,873 against 5,089,314), so the set takes about as long as the base set.
 
 ## Collecting the results of several machines
 
-A finished run leaves its trained model in `exp_results/<dataset>/<model>/` (`trained_model.pkl`, 8 to 16 MB on WN18RR, with `results.json`, the loss plot and `training_triples/`, which PyKEEN needs to load the model); its checkpoint is deleted. With `--upload`, `train_kge.py` pushes every finished run to the branch `kge-results` of the GitHub repository after each run, so the results of every machine end up in one place:
+A finished run leaves its trained model in `exp_results/<dataset>/<model>/` (`trained_model.pkl`, with `results.json`, the loss plot and `training_triples/`, which PyKEEN needs to load the model); its checkpoint is deleted. With `--upload`, `train_kge.py` pushes every finished run, with its log, to a results branch of the GitHub repository after each run, so the results of every machine end up in one place.
+
+The default branch, `kge-results`, holds runs trained on the earlier splits, and an upload skips every run the branch already has. Runs on the current splits must therefore go to a new branch, named with `--upload-branch`; each branch gets its own worktree, `.<branch>/`:
 
 ```bash
-python scripts/train_kge.py --skip-models CompGCN --set ours --workers 4 --upload
+python scripts/train_kge.py --set base --workers 12 --upload --upload-branch kge-results-80-20
 ```
 
-The machine needs push access to the repository, the same SSH key that cloned it. `scripts/upload_results.py` does the work: it checks out `kge-results` in `.kge-results/`, copies the runs the branch lacks with their status, settings and the dataset's splits, commits them with the machine's name and pushes. If another machine pushed first, it rebases and pushes again. A failed upload is logged and training goes on; the next upload, after the next run, sends what was missed, and `python scripts/upload_results.py` uploads by hand.
+The machine needs push access to the repository, the same SSH key that cloned it. `scripts/upload_results.py` does the work: it checks out the branch in its worktree, copies the runs the branch lacks with their status, log, settings and the dataset's splits, commits them with the machine's name and pushes. If another machine pushed first, it rebases and pushes again. A failed upload is logged and training goes on; the next upload, after the next run, sends what was missed, and `python scripts/upload_results.py --branch kge-results-80-20` uploads by hand.
 
-To gather everything on one machine, `python scripts/upload_results.py --download` copies every run of the branch that the local `exp_results/` lacks and rebuilds `progress.csv`, after which `kge_eta.py` and KGC-Benchmark's `report_results.py --root exp_results` read them as local runs.
-
-The branch shares no files with the code branches, but a clone fetches it too unless it uses `git clone --single-branch -b main`. With the models it grows by about 1.7 GB per set of datasets.
+To gather everything on one machine, `python scripts/upload_results.py --download --branch kge-results-80-20` copies every run of the branch that the local `exp_results/` lacks and rebuilds `progress.csv`, after which `kge_eta.py` and `report_results.py` read them as local runs. A results branch shares no files with the code branches, but a clone fetches it too unless it uses `git clone --single-branch -b main`.
 
 ## Run time
 
-Measured on an RTX 3090 for the base set, without CompGCN:
+On the training machine, the seven models trained on `french` (8,265 training triples), 7 at once on separate MIG slices, in 147 s (TransE), 177 s (RotatE), 322 s (ComplEx), 325 s (TuckER), 413 s (TransD), 487 s (TransH) and 19 s (CompGCN). Scaled linearly to all 159 datasets (11.7 million training triples), the six models other than CompGCN take about 740 run-hours, about 2 to 2.6 days with 12 to 24 workers; the baseline alone takes about 256 run-hours. These are lower bounds, for the reason given in "Training the baseline".
 
-| | One process | 4 workers |
-|---|---|---|
-| The 19 datasets other than YAGO3-10 | about 29 h | about 11 h |
-| The five YAGO3-10 datasets | about 8.3 days | about 3.2 days |
-| All 24 datasets | about 9.7 days | about 3.7 days |
-
-The 4-worker figures divide the one-process times by 2.6. The `_kbgen` and `_ours` sets take about as long if their datasets have about as many training triples as the base ones.
+Measured earlier on an RTX 3090 for the base set on the earlier splits, without CompGCN: about 29 hours for the 19 datasets other than YAGO3-10 and 9.7 days in all with one process, and about 11 hours and 3.7 days with 4 workers.
