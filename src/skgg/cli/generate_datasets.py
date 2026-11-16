@@ -19,11 +19,24 @@ every dataset is done.
 `--skip-reflexivity` runs `cli/main.py` with the same flag, generating as before the
 self-loop fix. Its copies go to the same `<folder>_ours/<folder>_ours.tsv`, so
 existing copies are only replaced with `--force`.
+
+With `--levels`, the copies are made at rule levels of `<root>/rule_levels.tsv`
+(`--rule-levels`, written by `cli/rule_levels.py`) instead: for each dataset and
+level L, `cli/main.py` keeps the rules with PCA confidence >= the row's
+`pca_threshold` (`--pca-conf`; none at all for r0, through a rules file with no
+rule), and the copy goes to `<root>/<folder>_ours_L/<folder>_ours_L.tsv`, with the
+rules the run used next to it as `<folder>_ours_L_used.csv`. A row with
+`ours_same_as` is skipped. See docs/rule-levels.md.
+
+    python -m skgg.cli.generate_datasets --levels r0 r25 r50 r75 r100 \
+        --datasets french french1_1 french1_N frenchN_1 frenchN_M
 """
 
 import argparse
+import csv
 import json
 import logging
+import re
 import shutil
 import subprocess
 import sys
@@ -41,6 +54,9 @@ from skgg.core.utils import setup_logging
 logger = logging.getLogger(__name__)
 
 OUTPUT_SUFFIX = "_ours"
+# Copies of a dataset D, which are not datasets themselves: D_ours, D_kbgen,
+# D_pygraft and the rule-level copies such as D_ours_r25.
+COPY_NAME = re.compile(r"_(ours|kbgen|pygraft)(_r\d+)?$")
 REPOSITORY_PREFIX = "skgg_ours_"
 CHUNK_SIZE = 5000
 
@@ -114,8 +130,31 @@ def rules_file(folder: Path) -> Path:
     return folder / f"{folder.name}.csv"
 
 
-def output_file(folder: Path) -> Path:
-    name = f"{folder.name}{OUTPUT_SUFFIX}"
+@dataclass(frozen=True)
+class RuleLevel:
+    """A rule level of `rule_levels.tsv` for one dataset: its name (e.g. `r25`),
+    the PCA threshold its rules need (None: no rule at all), and the level whose
+    copy stands in for it (`ours_same_as`), if any."""
+
+    name: str
+    threshold: str | None
+    same_as: str
+
+
+def read_levels(path: Path) -> dict[str, dict[str, RuleLevel]]:
+    """Reads `rule_levels.tsv` into {dataset: {level: RuleLevel}}."""
+    levels: dict[str, dict[str, RuleLevel]] = {}
+    with path.open(encoding="utf-8", newline="") as f:
+        for row in csv.DictReader(f, delimiter="\t"):
+            threshold = row["pca_threshold"] if row["rules_kept"] != "0" else None
+            levels.setdefault(row["dataset"], {})[row["level"]] = RuleLevel(
+                row["level"], threshold or None, row["ours_same_as"]
+            )
+    return levels
+
+
+def output_file(folder: Path, level: RuleLevel | None = None) -> Path:
+    name = f"{folder.name}{OUTPUT_SUFFIX}" + (f"_{level.name}" if level else "")
     return folder.parent / name / f"{name}.tsv"
 
 
@@ -136,7 +175,7 @@ def find_datasets(root: Path, names: list[str] | None) -> list[Path]:
     """
     datasets = {}
     for folder in sorted(path for path in root.iterdir() if path.is_dir()):
-        if folder.name.endswith(OUTPUT_SUFFIX):
+        if COPY_NAME.search(folder.name):
             continue
         if triple_file(folder).is_file() and rules_file(folder).is_file():
             datasets[folder.name] = folder
@@ -164,8 +203,10 @@ def _write_config(
     store: GraphDBStore,
     repository: str,
     log_level: str,
+    rules: Path | None = None,
 ) -> None:
-    """Writes the run config that the pipeline's scripts read."""
+    """Writes the run config that the pipeline's scripts read. `rules` replaces
+    the dataset's rules file."""
     config = {
         "data": {
             "input_dir": str(folder.resolve()),
@@ -179,7 +220,7 @@ def _write_config(
             "chunk_size": CHUNK_SIZE,
         },
         "graph": asdict(graph),
-        "rules": {"rules_file": rules_file(folder).name},
+        "rules": {"rules_file": str(rules) if rules else rules_file(folder).name},
         "logging": {"level": log_level},
     }
     path.write_text(json.dumps(config, indent=2), encoding="utf-8")
@@ -191,9 +232,13 @@ def generate_dataset(
     store: GraphDBStore,
     log_level: str,
     skip_reflexivity: bool = False,
+    level: RuleLevel | None = None,
 ) -> None:
     """Runs upload, pipeline and download for one dataset, each as its own process,
     so a dataset's memory is freed and its failure stays its own.
+
+    With a `level`, the pipeline keeps the rules of that level (see the module
+    docstring), and the rules it used are saved next to the copy.
 
     The .tsv file only appears in its final place once every step has succeeded.
 
@@ -206,7 +251,10 @@ def generate_dataset(
         triple_file=triple_file(folder).name,
         namespace=f"http://skgg.org/{folder.name}/",
     )
-    synthetic_uri = graph.synthetic_uri(rule_filter_label(None))
+    threshold = None if level is None else level.threshold
+    synthetic_uri = graph.synthetic_uri(
+        rule_filter_label(None if threshold is None else float(threshold))
+    )
     repository = f"{REPOSITORY_PREFIX}{folder.name}"
 
     store.create_repository(repository)
@@ -216,7 +264,15 @@ def generate_dataset(
             log_path.open("w", encoding="utf-8") as log,
         ):
             config = Path(tmp) / "config.json"
-            _write_config(config, folder, graph, store, repository, log_level)
+            # A rules file with the header only: no rule at all.
+            no_rules = None
+            if level is not None and threshold is None:
+                no_rules = Path(tmp) / "no_rules.csv"
+                with rules_file(folder).open(encoding="utf-8") as f:
+                    no_rules.write_text(f.readline(), encoding="utf-8")
+            _write_config(
+                config, folder, graph, store, repository, log_level, no_rules
+            )
             download_stem = Path(tmp) / "graph"
             for step in (
                 ["skgg.cli.graph", "upload", "-f", str(config)],
@@ -225,6 +281,7 @@ def generate_dataset(
                     "-f",
                     str(config),
                     *(["--skip-reflexivity"] if skip_reflexivity else []),
+                    *(["--pca-conf", threshold] if threshold is not None else []),
                 ],
                 [
                     "skgg.cli.graph",
@@ -243,9 +300,13 @@ def generate_dataset(
                     stderr=subprocess.STDOUT,
                     check=True,
                 )
-            output = output_file(folder)
+            output = output_file(folder, level)
             output.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(download_stem.with_suffix(".tsv"), output)
+            # cli/main.py writes the rules it used next to the rules file.
+            used = rules_file(folder).with_name(f"{folder.name}_used.csv")
+            if level is not None and threshold is not None and used.is_file():
+                shutil.copy(used, output.with_name(f"{output.stem}_used.csv"))
     finally:
         store.delete_repository(repository)
 
@@ -258,53 +319,80 @@ def generate_all(
     store: GraphDBStore,
     log_level: str = "INFO",
     skip_reflexivity: bool = False,
+    levels: list[str] | None = None,
+    levels_file: Path | None = None,
 ) -> list[str]:
-    """Generates the datasets under `root`.
+    """Generates the datasets under `root`, or with `levels`, their copies at those
+    rule levels of `levels_file` (default `<root>/rule_levels.tsv`).
 
     Returns:
-        The names of the datasets that failed.
+        The names of the datasets (or `<dataset> <level>`) that failed.
+
+    Raises:
+        ValueError: If a dataset has no row in `levels_file` for a level.
     """
     datasets = find_datasets(root, names)
+    jobs: list[tuple[Path, RuleLevel | None]] = [(folder, None) for folder in datasets]
+    if levels is not None:
+        table = read_levels(levels_file or root / "rule_levels.tsv")
+        jobs = []
+        for folder in datasets:
+            for name in levels:
+                if name not in table.get(folder.name, {}):
+                    raise ValueError(f"No level {name} for {folder.name}.")
+                jobs.append((folder, table[folder.name][name]))
     store.check()
     log_dir.mkdir(parents=True, exist_ok=True)
 
     failed = []
-    for number, folder in enumerate(datasets, start=1):
-        output = output_file(folder)
+    for number, (folder, level) in enumerate(jobs, start=1):
+        label = folder.name if level is None else f"{folder.name} {level.name}"
+        output = output_file(folder, level)
+        if level is not None and level.same_as:
+            logger.info(
+                "[%d/%d] %s: same rules as %s (ours_same_as), skipping.",
+                number,
+                len(jobs),
+                label,
+                level.same_as,
+            )
+            continue
         if output.exists() and not force:
             logger.info(
                 "[%d/%d] %s: %s exists, skipping.",
                 number,
-                len(datasets),
-                folder.name,
+                len(jobs),
+                label,
                 output.name,
             )
             continue
 
-        logger.info("[%d/%d] %s: generating.", number, len(datasets), folder.name)
-        log_path = log_dir / f"{folder.name}.log"
+        logger.info("[%d/%d] %s: generating.", number, len(jobs), label)
+        log_path = log_dir / f"{output.stem}.log"
         start = time.monotonic()
         try:
-            generate_dataset(folder, log_path, store, log_level, skip_reflexivity)
+            generate_dataset(
+                folder, log_path, store, log_level, skip_reflexivity, level
+            )
         except (subprocess.CalledProcessError, requests.RequestException) as error:
             logger.error(
                 "%s: failed after %.0f s (%s). See %s.",
-                folder.name,
+                label,
                 time.monotonic() - start,
                 error,
                 log_path,
             )
-            failed.append(folder.name)
+            failed.append(label)
             continue
         logger.info(
             "%s: %d triples (source %d) in %.0f s.",
-            folder.name,
+            label,
             _count_lines(output),
             _count_lines(triple_file(folder)),
             time.monotonic() - start,
         )
 
-    logger.info("%d of %d datasets ok.", len(datasets) - len(failed), len(datasets))
+    logger.info("%d of %d copies ok.", len(jobs) - len(failed), len(jobs))
     if failed:
         logger.error("Failed datasets: %s", ", ".join(failed))
     return failed
@@ -364,6 +452,21 @@ def _parse_args() -> argparse.Namespace:
         help="Pass --skip-reflexivity to cli/main.py: generate as before the "
         "self-loop fix.",
     )
+    parser.add_argument(
+        "--levels",
+        nargs="+",
+        default=None,
+        help="Make the copies at these rule levels, e.g. r0 r25 r50 r75 r100, "
+        "into <folder>_ours_<level>/ (default: the copies with the default rule "
+        "filter, <folder>_ours/).",
+    )
+    parser.add_argument(
+        "--rule-levels",
+        type=Path,
+        default=None,
+        help="Rule levels file of cli/rule_levels.py (default: "
+        "<root>/rule_levels.tsv).",
+    )
     return parser.parse_args()
 
 
@@ -378,5 +481,7 @@ if __name__ == "__main__":
         GraphDBStore(args.database_url, args.user, args.password),
         args.log_level,
         args.skip_reflexivity,
+        args.levels,
+        args.rule_levels,
     )
     sys.exit(1 if failures else 0)

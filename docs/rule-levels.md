@@ -75,7 +75,27 @@ The scripts that tell copies from datasets by their folder name handle the level
 
 ## Making the copies
 
-This generator: `cli/generate_datasets.py` does not take a level yet. It needs to pass each dataset's `pca_threshold` from `rule_levels.tsv` to `cli/main.py --pca-conf` (and no rule at all for `r0`), write to the layout above, skip a row with `ours_same_as`, and keep each copy's used rules: `core/rules.write_used_rules` writes `<dataset>/<dataset>_used.csv`, which every level overwrites, so it should be copied next to the level's copy.
+This generator: `cli/generate_datasets.py --levels` passes each dataset's `pca_threshold` from `rule_levels.tsv` to `cli/main.py --pca-conf` (0 for `r100`), and for `r0` gives the pipeline a rules file with no rule. It writes each copy to `exp_datasets/<dataset>_ours_<level>/`, copies the rules the run used next to it as `<dataset>_ours_<level>_used.csv` (ignored by git, like every `*_used.csv`), and skips a row with `ours_same_as`. The rules a level keeps are used as section 3.2.4 of `algorithm.md` describes: the rules with std confidence 1 are complete and forward-chained, after cycle removal; every other kept rule is partial, grounded round(PCA confidence × support) times after the complete rules and never forward-chained. `rules_ours` and `ours_same_as` in `rule_levels.tsv` still count the rules as if every kept rule went through cycle removal (see `BACKLOG.md`). The five french datasets:
+
+```bash
+python -m skgg.cli.generate_datasets --levels r0 r25 r50 r75 r100 --log-dir logs/ours-levels \
+  --datasets french french1_1 french1_N frenchN_1 frenchN_M
+python scripts/check_outputs.py --suffix _ours_r25 --datasets french french1_1 french1_N frenchN_1 frenchN_M
+```
+
+The copies of the five french datasets were made on 16 November 2026 on the development laptop, at all five levels, in 1 to 22 s each (logs in `logs/ours-levels/`, ignored by git), and split with `split_copies.py --suffix _ours_<level>`. `check_outputs.py` finds them well formed, with the source's triple count, entities, relations and self-loops. Every relation keeps its source frequency and degrees except `parent`, which the complete rules derive in completion: french ends 1 to 6 `parent` triples short at r25, r75 and r100, with the right count but other degrees at r50, and frenchN_1 one `predecessor` triple short at r25.
+
+Partial rules within 0.05 of their source PCA confidence, of the partial rules of each copy, and the median absolute difference:
+
+| Dataset | r25 | r50 | r75 | r100 |
+|---|---|---|---|---|
+| french | 26 of 48 (0.016) | 37 of 108 (0.158) | 48 of 168 (0.250) | 57 of 228 (0.227) |
+| french1_1 | 23 of 50 (0.068) | 30 of 106 (0.237) | 33 of 162 (0.260) | 43 of 217 (0.243) |
+| french1_N | 0 of 4 (0.210) | 1 of 8 (0.214) | 1 of 12 (0.204) | 1 of 15 (0.196) |
+| frenchN_1 | 4 of 31 (0.252) | 2 of 64 (0.255) | 6 of 100 (0.237) | 4 of 130 (0.215) |
+| frenchN_M | 0 of 14 (0.214) | 5 of 27 (0.218) | 2 of 41 (0.214) | 1 of 54 (0.194) |
+
+The rules of french1_N, frenchN_1 and frenchN_M have lower PCA confidences (their r25 thresholds are 0.47, 0.61 and 0.5), so even their r25 rules lose about 0.2 (section 8 of `algorithm.md`, item 11).
 
 kbgen: the driver in `~/GitHub/kbgen` (local branch `exp-datasets`) takes `--levels`. For each dataset it makes the N-Triples file, tensor, M1 and M2 once in `work/<dataset>/`, which already holds them from the `_kbgen` copies, and links the tensor and M2 into `work/rule-levels/<dataset>-<level>/`. There it learns M3 from the rules of the level only and synthesizes the copy, so every level uses the M2 of the existing copy. It skips a row with `kbgen_same_as` and a level that keeps every rule, checks each level's rule count against `rules_kept`, writes each copy to `exp_datasets/<dataset>_kbgen_<level>/` (`--level-root` picks another folder), and writes its summary to `results/rule-levels/`, where a copy's row is named `<dataset>-<level>`. A test on french1_N gave the expected rule counts (0, 4, 8 and 12 parsed) and 881 facts at each level, as many as kbgen keeps from the dataset. `baselines/kbgen.patch` rebuilds that code from the authors' repository, and [`generate-kbgen-levels.md`](generate-kbgen-levels.md) gives the steps to make the copies on another machine, which datasets each machine makes, and `scripts/check_kbgen_levels.py`, which checks the copies against `rule_levels.tsv`. The 19 datasets other than YAGO3-10, on the development laptop:
 

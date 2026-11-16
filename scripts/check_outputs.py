@@ -19,6 +19,10 @@ aren't a triple, after checking every dataset.
 
     python scripts/check_outputs.py                       # every dataset under exp_datasets/
     python scripts/check_outputs.py --datasets french WN18RR
+    python scripts/check_outputs.py --suffix _ours_r25 --datasets french   # a rule-level copy
+
+`--suffix` picks another copy, `<folder><suffix>/<folder><suffix>.tsv`, such as the
+rule-level copies of `cli/generate_datasets.py --levels`.
 """
 
 import argparse
@@ -62,13 +66,15 @@ def relation_profiles(
     return frequency, subjects, objects, loops
 
 
-def check_dataset(root: Path, name: str) -> tuple[bool, bool]:
+def check_dataset(
+    root: Path, name: str, suffix: str = OUTPUT_SUFFIX
+) -> tuple[bool, bool]:
     """Prints the comparison of one dataset.
 
     Returns:
         Whether the copy is well formed, and whether every relation matches.
     """
-    output = root / f"{name}{OUTPUT_SUFFIX}" / f"{name}{OUTPUT_SUFFIX}.tsv"
+    output = root / f"{name}{suffix}" / f"{name}{suffix}.tsv"
     if not output.is_file():
         print(f"{name} | missing {output}")
         return False, False
@@ -127,6 +133,11 @@ def main() -> int:
     parser.add_argument(
         "--datasets", nargs="+", help="Only check these dataset folders."
     )
+    parser.add_argument(
+        "--suffix",
+        default=OUTPUT_SUFFIX,
+        help="Suffix of the copies' folders, e.g. _ours_r25 (default: %(default)s).",
+    )
     args = parser.parse_args()
 
     names = args.datasets or sorted(
@@ -142,7 +153,7 @@ def main() -> int:
     failed = []
     matching = 0
     for name in names:
-        well_formed, matches = check_dataset(args.root, name)
+        well_formed, matches = check_dataset(args.root, name, args.suffix)
         if not well_formed:
             failed.append(name)
         matching += matches
