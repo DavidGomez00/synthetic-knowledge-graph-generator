@@ -154,7 +154,7 @@ python -m skgg.cli.generate_datasets --datasets french WN18RR --force
 python scripts/check_outputs.py                                         # compare each copy with its source
 ```
 
-`scripts/check_outputs.py` compares each copy with its source: triple counts, new entities, and, per relation, the frequency, the degrees and the number of self-loops. [`docs/generate-benchmarks.md`](docs/generate-benchmarks.md) lists the steps to run the batch on another machine, from the clone to bringing the copies back. The copies of every dataset are tracked in git, with those of kbgen (`<folder>_kbgen/`) and PyGraft (`<folder>_pygraft/`), and [`docs/generation-times.md`](docs/generation-times.md) compares how long each method took.
+`scripts/check_outputs.py` compares each copy with its source: triple counts, new entities, and, per relation, the frequency, the degrees and the number of self-loops. [`docs/generate-benchmarks.md`](docs/generate-benchmarks.md) lists the steps to run the batch on another machine, from the clone to bringing the copies back. The copies of every dataset are tracked in git, with those of kbgen (`<folder>_kbgen/`) and PyGraft (`<folder>_pygraft/`). [`docs/benchmark-copies.md`](docs/benchmark-copies.md) describes how each set was made, and [`docs/generation-times.md`](docs/generation-times.md) compares how long each method took.
 
 ## Project layout
 
@@ -169,6 +169,7 @@ logs/              # per-run logs (gitignored)
 
 - [`docs/getting-started.md`](docs/getting-started.md): full setup + first experiment walkthrough.
 - [`docs/generate-benchmarks.md`](docs/generate-benchmarks.md): generating the benchmark copies on another machine.
+- [`docs/benchmark-copies.md`](docs/benchmark-copies.md): how the benchmark copies of this generator, kbgen and PyGraft were made: code, settings, commands and checks.
 - [`docs/generation-times.md`](docs/generation-times.md): time to make each benchmark copy with this generator, kbgen and PyGraft.
 - [`docs/architecture.md`](docs/architecture.md): components and data flow, with diagrams.
 - [`docs/concepts.md`](docs/concepts.md): glossary of domain terms (EDB/IDB, Horn rules, closure, ...).

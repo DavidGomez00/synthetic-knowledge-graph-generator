@@ -1,6 +1,6 @@
 # Generation times of the benchmark copies
 
-This page gives the wall-clock time it took to make each synthetic copy of the 24 benchmark datasets in `exp_datasets/`, with this project's generator (`<dataset>_ours`) and with the two baselines, kbgen (`<dataset>_kbgen`) and PyGraft (`<dataset>_pygraft`). All three ran on the development machine, a laptop with an Intel i5-11300H (4 cores, 8 threads) and 15 GB of RAM. PyGraft has no copy of the five YAGO3-10 datasets yet.
+This page gives the wall-clock time it took to make each synthetic copy of the 24 benchmark datasets in `exp_datasets/`, with this project's generator (`<dataset>_ours`) and with the two baselines, kbgen (`<dataset>_kbgen`) and PyGraft (`<dataset>_pygraft`). All three ran on the development machine, a laptop with an Intel i5-11300H (4 cores, 8 threads) and 15 GB of RAM. PyGraft has no copy of the five YAGO3-10 datasets yet. [`benchmark-copies.md`](benchmark-copies.md) describes how each set was made.
 
 ## What each time covers
 
