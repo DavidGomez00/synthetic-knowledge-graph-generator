@@ -1,6 +1,6 @@
 # Rule-level copies: results
 
-Written by `make_report.py` on 2026-11-16 21:59 from `status.tsv`, `ours/times.tsv`, `kbgen-results/rule-levels/summary.csv` and `kbgen-work/<dataset>/timings.json`. README.md says how the copies were made.
+Written by `make_report.py` on 2026-11-16 22:26 from `status.tsv`, `ours/times.tsv`, `kbgen-results/rule-levels/summary.csv` and `kbgen-work/<dataset>/timings.json`. README.md says how the copies were made.
 
 ## Machine
 
@@ -24,7 +24,7 @@ kbgen: upstream e5d06bc + baselines/kbgen.patch, driver sha256 1a5f71dbbda1a74ef
 | Dataset | Level | Filter | Rules kept | Used | kbgen parsed | Source triples | Ours triples | Ours time | kbgen triples | kbgen time |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
 | family | std1 | std = 1 | 37 | 18 | 18 | 28,358 | 86,443 | 54 s | 28,262 | 11 min 50 s |
-| family | r25 | PCA ≥ 0.796 | 93 | 74 |  | 28,358 | 91,369 | 1 min 52 s | 28,262 |  |
+| family | r25 | PCA ≥ 0.796 | 93 | 74 | 74 | 28,358 | 91,369 | 1 min 52 s | 28,262 | 32 min 10 s |
 | family | r50 | PCA ≥ 0.5059 | 185 | 166 |  | 28,358 | 98,362 | 2 min 16 s |  |  |
 | family | r75 | PCA ≥ 0.412 | 278 | 259 |  | 28,358 | 96,780 | 2 min 49 s | 28,265 |  |
 | family | r100 | PCA ≥ 0 | 370 | 351 |  | 28,358 | 101,956 | 6 min 21 s |  |  |
@@ -93,16 +93,16 @@ kbgen: upstream e5d06bc + baselines/kbgen.patch, driver sha256 1a5f71dbbda1a74ef
 | SGKG4 | r50 | PCA ≥ 1 | 6 | 4 | | | same rules as r100: no copy | | | |
 | SGKG4 | r75 | PCA ≥ 1 | 6 | 4 | | | same rules as r100: no copy | | | |
 | SGKG4 | r100 | PCA ≥ 0 | 6 | 4 |  |  |  |  |  |  |
-| WN18RR | std1 | std = 1 | 2 | 2 |  | 93,003 | 93,003 | 11 min 53 s |  |  |
-| WN18RR | r25 | PCA ≥ 0.8 | 6 | 6 | 6 | 93,003 | 93,001 | 9 min 1 s | 92,550 | 19 min 23 s |
+| WN18RR | std1 | std = 1 | 2 | 2 | 2 | 93,003 | 93,003 | 11 min 53 s | 92,550 | 4 min 11 s |
+| WN18RR | r25 | PCA ≥ 0.8 | 6 | 6 | 6 | 93,003 | 93,001 | 9 min 1 s | 92,550 | 12 min 28 s |
 | WN18RR | r50 | PCA ≥ 0.7 | 12 | 12 | 12 | 93,003 | 93,002 | 8 min 56 s | 92,550 | 37 min 7 s |
 | WN18RR | r75 | PCA ≥ 0.3 | 21 | 21 | 21 | 93,003 | 93,000 | 9 min 5 s | 92,550 | 1 h 1 min |
-| WN18RR | r100 | PCA ≥ 0 | 24 | 24 |  |  |  |  |  |  |
+| WN18RR | r100 | PCA ≥ 0 | 24 | 24 |  | 93,003 | 93,001 | 9 min 16 s |  |  |
 | WN18RR1_1 | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
-| WN18RR1_1 | r25 | PCA ≥ 0.85 | 5 | 5 | 5 | 71,015 | 71,015 | 11 min 55 s | 70,699 | 16 min 8 s |
-| WN18RR1_1 | r50 | PCA ≥ 0.7 | 9 | 9 | 9 | 71,015 | 71,015 | 10 min 28 s | 70,699 | 29 min 29 s |
-| WN18RR1_1 | r75 | PCA ≥ 0.3 | 13 | 13 | 13 | 71,015 | 71,015 | 8 min 4 s | 70,699 | 31 min 37 s |
-| WN18RR1_1 | r100 | PCA ≥ 0 | 17 | 17 |  | 71,015 | 71,015 | 9 min 4 s |  |  |
+| WN18RR1_1 | r25 | PCA ≥ 0.85 | 5 | 5 | 5 | 71,015 | 71,015 | 11 min 55 s | 70,699 | 11 min 1 s |
+| WN18RR1_1 | r50 | PCA ≥ 0.7 | 9 | 9 | 9 | 71,015 | 71,015 | 10 min 28 s | 70,699 | 20 min 50 s |
+| WN18RR1_1 | r75 | PCA ≥ 0.3 | 13 | 13 | 13 | 71,015 | 71,015 | 8 min 4 s | 70,699 | 22 min 37 s |
+| WN18RR1_1 | r100 | PCA ≥ 0 | 17 | 17 | 17 | 71,015 | 71,015 | 9 min 4 s | 70,699 | 25 min 50 s |
 | WN18RR1_N | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
 | WN18RR1_N | r25 | PCA ≥ 0.6 | 3 | 3 | 3 | 38,938 | 38,938 | 1 min 10 s | 21,809 | 15 s |
 | WN18RR1_N | r50 | PCA ≥ 0.2 | 5 | 5 | 5 | 38,938 | 38,937 | 1 min 4 s | 21,809 | 23 s |
@@ -113,7 +113,7 @@ kbgen: upstream e5d06bc + baselines/kbgen.patch, driver sha256 1a5f71dbbda1a74ef
 | WN18RRN_1 | r50 | PCA ≥ 0.2 | 8 | 8 | 8 | 65,379 | 65,377 | 5 min 50 s | 63,745 | 12 min 21 s |
 | WN18RRN_1 | r75 | PCA ≥ 0.126 | 12 | 12 | 12 | 65,379 | 65,377 | 6 min 10 s | 63,745 | 12 min 28 s |
 | WN18RRN_1 | r100 | PCA ≥ 0 | 15 | 15 | 15 | 65,379 | 65,379 | 6 min 18 s | 63,745 | 12 min 28 s |
-| WN18RRN_M | std1 | std = 1 | 2 | 2 |  |  |  |  |  |  |
+| WN18RRN_M | std1 | std = 1 | 2 | 2 |  | 93,003 | 93,003 | 13 min 7 s |  |  |
 | WN18RRN_M | r25 | PCA ≥ 0.8 | 6 | 6 | 6 | 93,003 |  |  | 92,550 | 18 min 50 s |
 | WN18RRN_M | r50 | PCA ≥ 0.7 | 12 | 12 | 12 | 93,003 |  |  | 92,550 | 37 min 34 s |
 | WN18RRN_M | r75 | PCA ≥ 0.3 | 21 | 21 | 21 | 93,003 |  |  | 92,550 | 1 h 1 min |
@@ -140,7 +140,7 @@ kbgen: upstream e5d06bc + baselines/kbgen.patch, driver sha256 1a5f71dbbda1a74ef
 | YAGO3-10_N_1 | r100 | PCA ≥ 0 | 119 | 119 |  |  |  |  |  |  |
 | YAGO3-10_N_M | std1 | std = 1 | 3 | 0 | | | no rule: no copy | | | |
 | YAGO3-10_N_M | r25 | PCA ≥ 0.46 | 34 | 31 |  | 1,002,950 | 1,002,687 | 1 h 8 min | 532,315 |  |
-| YAGO3-10_N_M | r50 | PCA ≥ 0.308 | 67 | 64 |  |  |  |  | 532,316 |  |
+| YAGO3-10_N_M | r50 | PCA ≥ 0.308 | 67 | 64 |  | 1,002,950 | 1,002,548 | 1 h 22 min | 532,316 |  |
 | YAGO3-10_N_M | r75 | PCA ≥ 0.177 | 100 | 97 |  |  |  |  | 532,315 |  |
 | YAGO3-10_N_M | r100 | PCA ≥ 0 | 133 | 130 |  |  |  |  |  |  |
 
@@ -151,7 +151,7 @@ Our generator: *derived* is what completion forward-chained from the complete ru
 | Dataset | Level | Ours triples | Ours derived | Ours partial heads | Ours by rules | Ours instantiated | kbgen triples | kbgen by rules | kbgen sampled |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
 | family | std1 | 86,443 | 75,518 (87.4%) | 0 (0.0%) | 75,518 (87.4%) | 10,925 (12.6%) | 28,262 | 10,148 (35.9%) | 18,114 (64.1%) |
-| family | r25 | 91,369 | 80,035 (87.6%) | 1,426 (1.6%) | 81,461 (89.2%) | 9,908 (10.8%) | 28,262 |  |  |
+| family | r25 | 91,369 | 80,035 (87.6%) | 1,426 (1.6%) | 81,461 (89.2%) | 9,908 (10.8%) | 28,262 | 20,468 (72.4%) | 7,794 (27.6%) |
 | family | r50 | 98,362 | 86,276 (87.7%) | 1,696 (1.7%) | 87,972 (89.4%) | 10,390 (10.6%) |  |  |  |
 | family | r75 | 96,780 | 84,630 (87.4%) | 1,732 (1.8%) | 86,362 (89.2%) | 10,418 (10.8%) | 28,265 |  |  |
 | family | r100 | 101,956 | 89,928 (88.2%) | 1,658 (1.6%) | 91,586 (89.8%) | 10,370 (10.2%) |  |  |  |
@@ -196,15 +196,15 @@ Our generator: *derived* is what completion forward-chained from the complete ru
 | SGKG2 | r100 |  |  |  |  |  |  |  |  |
 | SGKG3 | r100 |  |  |  |  |  |  |  |  |
 | SGKG4 | r100 |  |  |  |  |  |  |  |  |
-| WN18RR | std1 | 93,003 | 0 (0.0%) | 0 (0.0%) | 0 (0.0%) | 93,003 (100.0%) |  |  |  |
-| WN18RR | r25 | 93,001 | 0 (0.0%) | 1,119 (1.2%) | 1,119 (1.2%) | 91,882 (98.8%) | 92,550 |  |  |
+| WN18RR | std1 | 93,003 | 0 (0.0%) | 0 (0.0%) | 0 (0.0%) | 93,003 (100.0%) | 92,550 | 18,198 (19.7%) | 74,352 (80.3%) |
+| WN18RR | r25 | 93,001 | 0 (0.0%) | 1,119 (1.2%) | 1,119 (1.2%) | 91,882 (98.8%) | 92,550 | 19,588 (21.2%) | 72,962 (78.8%) |
 | WN18RR | r50 | 93,002 | 0 (0.0%) | 1,173 (1.3%) | 1,173 (1.3%) | 91,829 (98.7%) | 92,550 |  |  |
 | WN18RR | r75 | 93,000 | 0 (0.0%) | 1,725 (1.9%) | 1,725 (1.9%) | 91,275 (98.1%) | 92,550 |  |  |
-| WN18RR | r100 |  |  |  |  |  |  |  |  |
-| WN18RR1_1 | r25 | 71,015 | 0 (0.0%) | 552 (0.8%) | 552 (0.8%) | 70,463 (99.2%) | 70,699 |  |  |
-| WN18RR1_1 | r50 | 71,015 | 0 (0.0%) | 1,055 (1.5%) | 1,055 (1.5%) | 69,960 (98.5%) | 70,699 |  |  |
-| WN18RR1_1 | r75 | 71,015 | 0 (0.0%) | 8,781 (12.4%) | 8,781 (12.4%) | 62,234 (87.6%) | 70,699 |  |  |
-| WN18RR1_1 | r100 | 71,015 | 0 (0.0%) | 8,706 (12.3%) | 8,706 (12.3%) | 62,309 (87.7%) |  |  |  |
+| WN18RR | r100 | 93,001 | 0 (0.0%) | 1,678 (1.8%) | 1,678 (1.8%) | 91,323 (98.2%) |  |  |  |
+| WN18RR1_1 | r25 | 71,015 | 0 (0.0%) | 552 (0.8%) | 552 (0.8%) | 70,463 (99.2%) | 70,699 | 1,168 (1.7%) | 69,531 (98.3%) |
+| WN18RR1_1 | r50 | 71,015 | 0 (0.0%) | 1,055 (1.5%) | 1,055 (1.5%) | 69,960 (98.5%) | 70,699 | 1,496 (2.1%) | 69,203 (97.9%) |
+| WN18RR1_1 | r75 | 71,015 | 0 (0.0%) | 8,781 (12.4%) | 8,781 (12.4%) | 62,234 (87.6%) | 70,699 | 10,912 (15.4%) | 59,787 (84.6%) |
+| WN18RR1_1 | r100 | 71,015 | 0 (0.0%) | 8,706 (12.3%) | 8,706 (12.3%) | 62,309 (87.7%) | 70,699 | 11,236 (15.9%) | 59,463 (84.1%) |
 | WN18RR1_N | r25 | 38,938 | 0 (0.0%) | 8,886 (22.8%) | 8,886 (22.8%) | 30,052 (77.2%) | 21,809 | 7,932 (36.4%) | 13,877 (63.6%) |
 | WN18RR1_N | r50 | 38,937 | 0 (0.0%) | 8,849 (22.7%) | 8,849 (22.7%) | 30,088 (77.3%) | 21,809 | 7,965 (36.5%) | 13,844 (63.5%) |
 | WN18RR1_N | r75 | 38,938 | 0 (0.0%) | 8,832 (22.7%) | 8,832 (22.7%) | 30,106 (77.3%) | 21,808 | 7,953 (36.5%) | 13,855 (63.5%) |
@@ -213,7 +213,7 @@ Our generator: *derived* is what completion forward-chained from the complete ru
 | WN18RRN_1 | r50 | 65,377 | 0 (0.0%) | 9,197 (14.1%) | 9,197 (14.1%) | 56,180 (85.9%) | 63,745 | 12,160 (19.1%) | 51,585 (80.9%) |
 | WN18RRN_1 | r75 | 65,377 | 0 (0.0%) | 9,207 (14.1%) | 9,207 (14.1%) | 56,170 (85.9%) | 63,745 | 12,259 (19.2%) | 51,486 (80.8%) |
 | WN18RRN_1 | r100 | 65,379 | 0 (0.0%) | 9,207 (14.1%) | 9,207 (14.1%) | 56,172 (85.9%) | 63,745 | 12,219 (19.2%) | 51,526 (80.8%) |
-| WN18RRN_M | std1 |  |  |  |  |  |  |  |  |
+| WN18RRN_M | std1 | 93,003 | 0 (0.0%) | 0 (0.0%) | 0 (0.0%) | 93,003 (100.0%) |  |  |  |
 | WN18RRN_M | r25 |  |  |  |  |  | 92,550 |  |  |
 | WN18RRN_M | r50 |  |  |  |  |  | 92,550 |  |  |
 | WN18RRN_M | r75 |  |  |  |  |  | 92,550 |  |  |
@@ -235,7 +235,7 @@ Our generator: *derived* is what completion forward-chained from the complete ru
 | YAGO3-10_N_1 | r75 |  |  |  |  |  | 478,138 |  |  |
 | YAGO3-10_N_1 | r100 |  |  |  |  |  |  |  |  |
 | YAGO3-10_N_M | r25 | 1,002,687 |  |  |  |  | 532,315 |  |  |
-| YAGO3-10_N_M | r50 |  |  |  |  |  | 532,316 |  |  |
+| YAGO3-10_N_M | r50 | 1,002,548 | 0 (0.0%) | 293,343 (29.3%) | 293,343 (29.3%) | 709,205 (70.7%) | 532,316 |  |  |
 | YAGO3-10_N_M | r75 |  |  |  |  |  | 532,315 |  |  |
 | YAGO3-10_N_M | r100 |  |  |  |  |  |  |  |  |
 
@@ -245,8 +245,8 @@ Sum of the copies' times; levels of kbgen ran several at a time, so its sum is C
 
 | Method | Copies | Sum of times |
 |---|---:|---:|
-| ours | 59 | 3 h 13 min |
-| kbgen | 46 | 3 h 21 min |
+| ours | 62 | 4 h 58 min |
+| kbgen | 53 | 5 h 30 min |
 
 ## kbgen's shared steps
 
@@ -279,7 +279,7 @@ When each copy was finished, from which commit of this repository (ours; `+dirty
 | Dataset | Level | Ours finished | Ours commit | Ours check | kbgen finished | kbgen check |
 |---|---|---|---|---|---|---|
 | family | std1 | 2026-11-16 20:58 | 986c4c8e | valid | 2026-11-16 21:49 | valid |
-| family | r25 | 2026-11-16 21:00 | 986c4c8e | valid |  | running |
+| family | r25 | 2026-11-16 21:00 | 986c4c8e | valid | 2026-11-16 22:09 | valid |
 | family | r50 | 2026-11-16 21:03 | 986c4c8e | valid |  | running |
 | family | r75 | 2026-11-16 21:05 | 986c4c8e | valid |  | running |
 | family | r100 | 2026-11-16 21:12 | 986c4c8e | valid |  | running |
@@ -324,15 +324,15 @@ When each copy was finished, from which commit of this repository (ours; `+dirty
 | SGKG2 | r100 |  |  | missing |  | missing |
 | SGKG3 | r100 |  |  | missing |  | missing |
 | SGKG4 | r100 |  |  | missing |  | missing |
-| WN18RR | std1 | 2026-11-16 21:24 | 986c4c8e | valid |  | missing |
-| WN18RR | r25 | 2026-11-16 21:33 | bd509c53 | valid | 2026-11-16 14:30 | invalid:no count of rule facts |
-| WN18RR | r50 | 2026-11-16 21:42 | bd509c53 | valid | 2026-11-16 14:43 | invalid:no count of rule facts |
-| WN18RR | r75 | 2026-11-16 21:51 | bd509c53 | valid | 2026-11-16 14:57 | invalid:no count of rule facts |
-| WN18RR | r100 |  |  | missing |  | missing |
-| WN18RR1_1 | r25 | 2026-11-16 21:59 | bd509c53 | valid | 2026-11-16 14:06 | running |
-| WN18RR1_1 | r50 | 2026-11-16 20:40 | ecce66e7 | valid | 2026-11-16 14:15 | running |
-| WN18RR1_1 | r75 | 2026-11-16 20:48 | ecce66e7 | valid | 2026-11-16 14:10 | running |
-| WN18RR1_1 | r100 | 2026-11-16 20:58 | 986c4c8e | valid |  | running |
+| WN18RR | std1 | 2026-11-16 21:24 | 986c4c8e | valid | 2026-11-16 22:15 | valid |
+| WN18RR | r25 | 2026-11-16 21:33 | bd509c53 | valid | 2026-11-16 22:24 | valid |
+| WN18RR | r50 | 2026-11-16 21:42 | bd509c53 | valid | 2026-11-16 14:43 | running |
+| WN18RR | r75 | 2026-11-16 21:51 | bd509c53 | valid | 2026-11-16 14:57 | running |
+| WN18RR | r100 | 2026-11-16 22:00 | ca52c2de | valid |  | running |
+| WN18RR1_1 | r25 | 2026-11-16 21:59 | bd509c53 | valid | 2026-11-16 22:10 | valid |
+| WN18RR1_1 | r50 | 2026-11-16 20:40 | ecce66e7 | valid | 2026-11-16 22:20 | valid |
+| WN18RR1_1 | r75 | 2026-11-16 20:48 | ecce66e7 | valid | 2026-11-16 22:22 | valid |
+| WN18RR1_1 | r100 | 2026-11-16 20:58 | 986c4c8e | valid | 2026-11-16 22:25 | valid |
 | WN18RR1_N | r25 | 2026-11-16 21:19 | 986c4c8e | valid | 2026-11-16 21:14 | valid |
 | WN18RR1_N | r50 | 2026-11-16 21:20 | 986c4c8e | valid | 2026-11-16 21:15 | valid |
 | WN18RR1_N | r75 | 2026-11-16 21:21 | 986c4c8e | valid | 2026-11-16 21:15 | valid |
@@ -341,7 +341,7 @@ When each copy was finished, from which commit of this repository (ours; `+dirty
 | WN18RRN_1 | r50 | 2026-11-16 21:34 | bd509c53 | valid | 2026-11-16 21:27 | valid |
 | WN18RRN_1 | r75 | 2026-11-16 21:41 | bd509c53 | valid | 2026-11-16 21:28 | valid |
 | WN18RRN_1 | r100 | 2026-11-16 21:47 | bd509c53 | valid | 2026-11-16 21:28 | valid |
-| WN18RRN_M | std1 |  |  | missing |  | missing |
+| WN18RRN_M | std1 | 2026-11-16 22:13 | ca52c2de | valid |  | missing |
 | WN18RRN_M | r25 |  |  | missing | 2026-11-16 15:02 | invalid:no count of rule facts |
 | WN18RRN_M | r50 |  |  | missing | 2026-11-16 15:07 | invalid:no count of rule facts |
 | WN18RRN_M | r75 |  |  | missing | 2026-11-16 15:24 | invalid:no count of rule facts |
@@ -363,6 +363,6 @@ When each copy was finished, from which commit of this repository (ours; `+dirty
 | YAGO3-10_N_1 | r75 |  |  | missing | 2026-11-16 15:45 | invalid:no count of rule facts |
 | YAGO3-10_N_1 | r100 |  |  | missing |  | missing |
 | YAGO3-10_N_M | r25 | 2026-11-16 20:59 | 986c4c8e | invalid:log lacks the partial head count |  | invalid:no run record |
-| YAGO3-10_N_M | r50 |  |  | missing |  | invalid:no run record |
+| YAGO3-10_N_M | r50 | 2026-11-16 22:22 | ca52c2de | valid |  | invalid:no run record |
 | YAGO3-10_N_M | r75 |  |  | missing |  | invalid:no run record |
 | YAGO3-10_N_M | r100 |  |  | missing |  | missing |
