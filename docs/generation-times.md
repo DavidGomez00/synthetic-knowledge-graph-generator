@@ -1,6 +1,6 @@
 # Generation times of the benchmark copies
 
-This page gives the wall-clock time it took to make each synthetic copy of the 24 benchmark datasets in `exp_datasets/`, with this project's generator (`<dataset>_ours`) and with the two baselines, kbgen (`<dataset>_kbgen`) and PyGraft (`<dataset>_pygraft`). All three ran on the development machine, a laptop with an Intel i5-11300H (4 cores, 8 threads) and 15 GB of RAM. PyGraft has no copy of the five YAGO3-10 datasets yet. [`benchmark-copies.md`](benchmark-copies.md) describes how each set was made.
+This page gives the wall-clock time it took to make each synthetic copy of the 24 benchmark datasets in `exp_datasets/`, with this project's generator (`<dataset>_ours`) and with the two baselines, kbgen (`<dataset>_kbgen`) and PyGraft (`<dataset>_pygraft`). All three ran on the development machine, a laptop with an Intel i5-11300H (4 cores, 8 threads) and 15 GB of RAM. PyGraft has no copy of the five YAGO3-10 datasets yet. [`benchmark-copies.md`](benchmark-copies.md) describes how each set was made. The last section gives the times of kbgen's rule-level copies, made on the laptop and on a second machine.
 
 ## What each time covers
 
@@ -125,3 +125,50 @@ Two more things affect the times of 11 November:
 - The laptop suspended itself from 08:52 to about 08:59, during WN18RR. The batch measures times with `time.monotonic`, which stops during a suspension, so WN18RR's 6 min 24 s leaves it out.
 
 `scripts/check_outputs.py` finds that 22 of the 24 new copies match their source on every relation, including the number of self-loops. french and family differ as `docs/generate-benchmarks.md` describes: french's `parent` is 47 triples short, and family has more triples than its source and 104 self-loops that its source doesn't have.
+
+## kbgen's rule-level copies
+
+The rule-level experiment ([`rule-levels.md`](rule-levels.md)) copies every dataset with kbgen at the levels `r0`, `r25`, `r50` and `r75`, each with part of the dataset's mined rules; `r100` is the copy of the tables above. The SGKG datasets need only `r0`. The copies were made on two machines, with kbgen at `e5d06bc` plus `baselines/kbgen.patch` and its driver `synthesize_exp_datasets.py --levels`:
+
+| Machine | CPU | RAM | Datasets | When |
+|---|---|---|---|---|
+| laptop | Intel i5-11300H, 4 cores, 8 threads | 15 GB | the five french datasets | 16 November 2026, 12:06 to 12:23 |
+| Hefesto | Intel i9-7900X, 10 cores, 20 threads | 62 GB | the other 19 | 16 November 2026, from 13:10 |
+
+The driver makes the tensor and the models M1 and M2 once per dataset (*Shared steps*), then model M3 and the copy once per level. A level's time is that of M3, `synthesize.py` and writing the copy, read from the column `total_seconds` of the driver's `summary.csv`; M3 takes 1 to 3 s and the rest is the synthesis. The number in brackets is the rules kbgen was given. The shared steps of the french datasets were made on 10 November for the full copies and reused. The other shared steps come from the driver's logs, `levels_*.log` in `baselines/kbgen-runs/<machine>/`.
+
+Both machines ran several levels at once, so a level took longer than it would alone:
+
+- The laptop ran two commands of two processes each, 4 processes on 4 cores.
+- On Hefesto, YAGO3-10_1_N `r0` ran alone from 13:10 as a memory test (0.9 GB peak). From 13:20 two commands of 4 processes each made family and the other 18 datasets, then from 13:30 four commands of 2 processes each made the YAGO3-10 datasets, one command per dataset and one for YAGO3-10_1_1 and YAGO3-10_1_N. Up to 15 processes shared the 10 cores and 20 threads, and two processes on the two threads of one core each run slower than one alone.
+
+*Sum of levels* adds the times of a dataset's levels. It is the CPU time of the dataset, not its wall-clock time, since its levels ran side by side.
+
+| Dataset | Machine | Shared steps | r0 | r25 | r50 | r75 | Sum of levels |
+|---|---|---:|---:|---:|---:|---:|---:|
+| family | Hefesto | 8 s | 13 s (0) | 1 h 7 min (93) | pending | pending |  |
+| Family1_1 | Hefesto | 4 s | 4 s (0) | 1 min 44 s (33) | 3 min 16 s (63) | 5 min 8 s (95) | 10 min 12 s |
+| Family1_N | Hefesto | 4 s | 3 s (0) | 30 s (18) | 41 s (35) | 1 min 2 s (53) | 2 min 16 s |
+| FamilyM_N | Hefesto | 4 s | 4 s (0) | 1 min 55 s (23) | 3 min 30 s (46) | 4 min 42 s (69) | 10 min 10 s |
+| FamilyN_1 | Hefesto | 4 s | 4 s (0) | 29 s (16) | 42 s (31) | 1 min 6 s (46) | 2 min 20 s |
+| french | laptop | 10 November | 3 s (0) | 5 min 6 s (60) | 12 min 0 s (120) | 16 min 32 s (180) | 33 min 41 s |
+| french1_1 | laptop | 10 November | 3 s (0) | 3 min 23 s (56) | 5 min 25 s (112) | 8 min 21 s (168) | 17 min 12 s |
+| french1_N | laptop | 10 November | 2 s (0) | 4 s (4) | 7 s (8) | 8 s (12) | 22 s |
+| frenchN_1 | laptop | 10 November | 2 s (0) | 36 s (33) | 55 s (66) | 1 min 18 s (102) | 2 min 51 s |
+| frenchN_M | laptop | 10 November | 3 s (0) | 46 s (14) | 1 min 35 s (27) | 2 min 19 s (41) | 4 min 42 s |
+| SGKG1 | Hefesto | 16 s | 6 min 22 s (0) |  |  |  | 6 min 22 s |
+| SGKG2 | Hefesto | 12 s | 4 min 27 s (0) |  |  |  | 4 min 27 s |
+| SGKG3 | Hefesto | 12 s | 4 min 29 s (0) |  |  |  | 4 min 29 s |
+| SGKG4 | Hefesto | 15 s | 6 min 28 s (0) |  |  |  | 6 min 28 s |
+| WN18RR | Hefesto | 17 s | 7 min 35 s (0) | 19 min 23 s (6) | pending | pending |  |
+| WN18RR1_1 | Hefesto | 14 s | 4 min 48 s (0) | 16 min 8 s (5) | 29 min 29 s (9) | 31 min 37 s (13) | 1 h 22 min |
+| WN18RR1_N | Hefesto | 8 s | 20 s (0) | 15 s (3) | 19 s (5) | 25 s (8) | 1 min 19 s |
+| WN18RRN_1 | Hefesto | 13 s | 4 min 28 s (0) | 11 min 41 s (4) | 20 min 4 s (8) | 18 min 26 s (12) | 54 min 38 s |
+| WN18RRN_M | Hefesto | 17 s | pending | pending | pending | pending |  |
+| YAGO3-10 | Hefesto | 2 min 44 s | pending | pending | pending | pending |  |
+| YAGO3-10_1_1 | Hefesto | 59 s | pending | pending | pending | pending |  |
+| YAGO3-10_1_N | Hefesto | 57 s | 18 min 36 s (0) | pending | pending | pending |  |
+| YAGO3-10_N_1 | Hefesto | 1 min 56 s | pending | pending | pending | pending |  |
+| YAGO3-10_N_M | Hefesto | 1 min 58 s | pending | pending | pending | pending |  |
+
+The time of a level grows with its rules, as for the full copies: `r0`, without rules, took at most 8 minutes on every dataset but YAGO3-10_1_N, and family `r25`, with 93 rules, took over an hour. The SGKG datasets took 4 to 7 minutes without any rule, about a quarter of the 19 to 24 minutes of their full copies, which have 3 to 6 rules.
