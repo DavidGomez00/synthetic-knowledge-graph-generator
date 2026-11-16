@@ -110,7 +110,7 @@ COPY_SETS = ("ours", "kbgen", "pygraft")
 # level: `french_kbgen_r25` is kbgen's copy of `french` at level r25. They form their
 # own sets, `kbgen-levels` and `ours-levels`, apart from the full copies.
 LEVEL_SETS = ("ours-levels", "kbgen-levels")
-LEVEL_COPY = re.compile(r"_(ours|kbgen|pygraft)_(r\d+)$")
+LEVEL_COPY = re.compile(r"_(ours|kbgen|pygraft)_(r\d+|std1)$")
 LOG_FILE = Path("logs/train_kge.log")
 INTERRUPTED_STATUS = 130
 # Our name of each metric and its key in results.json.

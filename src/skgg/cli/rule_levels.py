@@ -1,10 +1,11 @@
 """Picks the PCA confidence thresholds of the rule-level experiment for every dataset.
 
 The experiment generates each benchmark dataset with this project's generator and
-with kbgen at several rule levels: no rules (`r0`), a share of the dataset's mined
-rules (`r25`, `r50`, `r75` by default) and all of them (`r100`). A level's threshold
-is chosen per dataset, from its rules file `<folder>/<folder>.csv`, so that a level
-keeps about the same share of rules in every dataset:
+with kbgen at several rule levels: no rules (`r0`), only the rules with std
+confidence 1 (`std1`), a share of the dataset's mined rules (`r25`, `r50`, `r75` by
+default) and all of them (`r100`). A share level's threshold is chosen per dataset,
+from its rules file `<folder>/<folder>.csv`, so that it keeps about the same share of
+rules in every dataset:
 
 1. The N rules are sorted by PCA confidence, descending. For share s, the k-th rule,
    with k = ceil(s * N), gives the boundary value b.
@@ -14,9 +15,15 @@ keeps about the same share of rules in every dataset:
    Ties can raise the share kept above s.
 3. `r100` has threshold 0 and `r0` keeps no rule.
 
-For each level the output also counts the rules each generator can use. Ours: the
-rules left after `core/cycles.remove_minimal_cyclic_rules`, with the symmetric rules of
-`engine/edb.get_undirected_rule_ids` exempt, as `cli/main.py` runs it. kbgen: the
+`std1` has no PCA threshold but a std confidence threshold of 1 (`std_threshold`),
+the rules `cli/main.py` keeps without `--pca-conf`. Since PCA confidence is never
+below std confidence, every share level keeps these rules too.
+
+For each level the output also counts the rules each generator can use. Ours, as
+`cli/main.py` runs it: the complete rules (std confidence 1) left after
+`core/cycles.remove_minimal_cyclic_rules`, with the symmetric rules of
+`engine/edb.get_undirected_rule_ids` exempt, plus every partial rule (std confidence
+below 1), which cycle removal leaves alone. kbgen: the
 rules whose relations all keep a triple once kbgen's `load_tensor.py` has dropped
 every triple whose object is never a subject. The profiles both need are read from
 `<folder>.unified.tsv`, so no graph database is used.
@@ -52,10 +59,14 @@ from skgg.engine.metrics import PredicateProfile
 logger = logging.getLogger(__name__)
 
 DEFAULT_SHARES = (0.25, 0.5, 0.75)
+# The level that keeps only the rules with std confidence >= STD_THRESHOLD, as
+# cli/main.py does without --pca-conf.
+STD_LEVEL = "std1"
+STD_THRESHOLD = Decimal(1)
 # Suffixes of the copies' folders, which hold no rules of their own.
 COPY_SUFFIXES = ("_ours", "_kbgen", "_pygraft")
 # The rule-level copies, e.g. `french_kbgen_r25` (see docs/rule-levels.md).
-LEVEL_COPY = re.compile(r"_(ours|kbgen|pygraft)_r\d+$")
+LEVEL_COPY = re.compile(r"_(ours|kbgen|pygraft)_(r\d+|std1)$")
 # Namespace of a dataset's graphs in cli/generate_datasets.py.
 NAMESPACE = "http://skgg.org/{folder}/"
 COLUMNS = (
@@ -63,6 +74,7 @@ COLUMNS = (
     "level",
     "target_share",
     "pca_threshold",
+    "std_threshold",
     "rules_mined",
     "rules_kept",
     "share_kept",
@@ -79,13 +91,15 @@ class Level:
 
     name: str
     target_share: float
-    # None for r0, which keeps no rule.
+    # PCA threshold; None for r0, which keeps no rule, and for std1.
     threshold: Decimal | None
     kept: set[str]
     ours: set[str]
     kbgen: set[str]
     ours_same_as: str = ""
     kbgen_same_as: str = ""
+    # Std confidence threshold, set only for std1.
+    std_threshold: Decimal | None = None
 
 
 def level_name(share: float) -> str:
@@ -113,12 +127,14 @@ def pick_threshold(pca: list[Decimal], share: float) -> Decimal:
         decimals += 1
 
 
-def read_rule_confidences(rules_file: Path) -> dict[str, Decimal]:
-    """PCA confidence of every rule of a rules CSV, by rule_id. Decimal keeps the
-    CSV's digits, so a threshold equal to a rule's value keeps that rule."""
+def read_rule_confidences(
+    rules_file: Path, column: str = "pca_confidence"
+) -> dict[str, Decimal]:
+    """A confidence column of a rules CSV, PCA by default, by rule_id. Decimal keeps
+    the CSV's digits, so a threshold equal to a rule's value keeps that rule."""
     with rules_file.open(encoding="utf-8", newline="") as f:
         return {
-            row["rule_id"].strip(): Decimal(row["pca_confidence"])
+            row["rule_id"].strip(): Decimal(row[column])
             for row in csv.DictReader(f)
         }
 
@@ -165,7 +181,8 @@ def dataset_levels(folder: Path, shares: list[float]) -> tuple[int, list[Level]]
     """Computes every level of one dataset.
 
     Returns:
-        The number of mined rules and the levels, from r0 to r100.
+        The number of mined rules and the levels: r0, std1, the share levels and
+        r100.
 
     Raises:
         ValueError: If a rule uses a predicate that the graph lacks.
@@ -173,12 +190,16 @@ def dataset_levels(folder: Path, shares: list[float]) -> tuple[int, list[Level]]
     rules_file = folder / f"{folder.name}.csv"
     term_mapping = build_term_mapping({}, NAMESPACE.format(folder=folder.name))
     confidences = read_rule_confidences(rules_file)
+    std = read_rule_confidences(rules_file, "std_confidence")
     pca = sorted(confidences.values(), reverse=True)
     profiles, kbgen_preds = read_graph(
         folder / f"{folder.name}.unified.tsv", term_mapping
     )
 
-    thresholds: list[tuple[str, float, Decimal | None]] = [("r0", 0.0, None)]
+    thresholds: list[tuple[str, float, Decimal | None]] = [
+        ("r0", 0.0, None),
+        (STD_LEVEL, 0.0, None),
+    ]
     thresholds += [
         (level_name(s), s, pick_threshold(pca, s) if pca else None) for s in shares
     ]
@@ -186,15 +207,25 @@ def dataset_levels(folder: Path, shares: list[float]) -> tuple[int, list[Level]]
 
     levels = []
     for name, share, threshold in thresholds:
-        if threshold is None:
+        if name == STD_LEVEL:
+            rules = parse_rule_set(
+                rules_file, term_mapping, std_threshold=float(STD_THRESHOLD)
+            )
+            kept = {r_id for r_id, value in std.items() if value >= STD_THRESHOLD}
+            condition = f"std >= {STD_THRESHOLD}"
+        elif threshold is None:
             levels.append(Level(name, share, None, set(), set(), set()))
             continue
-        rules = parse_rule_set(rules_file, term_mapping, pca_threshold=float(threshold))
-        kept = {r_id for r_id, value in confidences.items() if value >= threshold}
+        else:
+            rules = parse_rule_set(
+                rules_file, term_mapping, pca_threshold=float(threshold)
+            )
+            kept = {r_id for r_id, value in confidences.items() if value >= threshold}
+            condition = f"PCA >= {threshold}"
         if set(rules) != kept:
             raise RuntimeError(
                 f"{folder.name} {name}: parse_rule_set kept {len(rules)} rules at "
-                f"PCA >= {threshold}, the CSV has {len(kept)}."
+                f"{condition}, the CSV has {len(kept)}."
             )
         used = {p for rule in rules.values() for p in rule.get_predicates()}
         missing = sorted(used - set(profiles))
@@ -208,10 +239,24 @@ def dataset_levels(folder: Path, shares: list[float]) -> tuple[int, list[Level]]
             for r_id, rule in rules.items()
             if rule.get_predicates() <= kbgen_preds
         }
+        # As cli/main.py: cycle removal only sees the complete rules (std confidence
+        # 1), and the partial ones are all used.
+        complete = {r_id: rule for r_id, rule in rules.items() if rule.is_complete}
+        partial = set(rules) - set(complete)
         remove_minimal_cyclic_rules(
-            rules, exempt=get_undirected_rule_ids(rules, profiles)
+            complete, exempt=get_undirected_rule_ids(complete, profiles)
         )
-        levels.append(Level(name, share, threshold, kept, set(rules), kbgen))
+        levels.append(
+            Level(
+                name,
+                share,
+                threshold,
+                kept,
+                set(complete) | partial,
+                kbgen,
+                std_threshold=STD_THRESHOLD if name == STD_LEVEL else None,
+            )
+        )
 
     for level in levels:
         level.ours_same_as = stand_in(level, levels, "ours")
@@ -260,8 +305,13 @@ def format_share(value: float) -> str:
 
 
 def threshold_text(level: Level) -> str:
-    """The level's threshold as written in the output, empty for r0."""
+    """The level's PCA threshold as written in the output, empty for r0 and std1."""
     return "" if level.threshold is None else str(level.threshold)
+
+
+def std_threshold_text(level: Level) -> str:
+    """The level's std threshold as written in the output, set only for std1."""
+    return "" if level.std_threshold is None else str(level.std_threshold)
 
 
 def main() -> int:
@@ -318,6 +368,7 @@ def main() -> int:
                     "level": level.name,
                     "target_share": format_share(level.target_share),
                     "pca_threshold": threshold_text(level),
+                    "std_threshold": std_threshold_text(level),
                     "rules_mined": n_rules,
                     "rules_kept": len(level.kept),
                     "share_kept": format_share(len(level.kept) / n_rules)
@@ -334,8 +385,13 @@ def main() -> int:
             folder.name,
             n_rules,
             "; ".join(
-                f"{level.name} PCA >= {threshold_text(level) or '-'} "
-                f"{len(level.kept)}/{len(level.ours)}/{len(level.kbgen)}"
+                f"{level.name} "
+                + (
+                    f"std >= {level.std_threshold} "
+                    if level.std_threshold is not None
+                    else f"PCA >= {threshold_text(level) or '-'} "
+                )
+                + f"{len(level.kept)}/{len(level.ours)}/{len(level.kbgen)}"
                 for level in levels
             ),
         )

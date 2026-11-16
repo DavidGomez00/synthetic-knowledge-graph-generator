@@ -70,7 +70,7 @@ The driver starts kbgen's scripts with the interpreter that runs it, so run ever
 
 ## 3. Get kbgen and apply the patch
 
-`baselines/kbgen.patch` holds every change made to kbgen's code for these copies, against commit `e5d06bc`, the head of the authors' `master` on 16 November 2026. It is the Python 3 fixes (`list()` around dict views and the results of `filter()` and `zip()`, `allow_pickle=True` when loading the `.npz`, rules files opened in text mode, URIRefs wrapped in `str()` in SPARQL patterns) and the driver `synthesize_exp_datasets.py`, with its `--levels` option. kbgen's generation logic is unchanged, known bugs included ([`benchmark-copies.md`](benchmark-copies.md), kbgen section).
+`baselines/kbgen.patch` holds every change made to kbgen's code for these copies, against commit `e5d06bc`, the head of the authors' `master` on 16 November 2026. It is the Python 3 fixes (`list()` around dict views and the results of `filter()` and `zip()`, `allow_pickle=True` when loading the `.npz`, rules files opened in text mode, URIRefs wrapped in `str()` in SPARQL patterns) and the driver `synthesize_exp_datasets.py`, with its `--levels` and `--rules-from-ours` options. kbgen's generation logic is unchanged, known bugs included ([`benchmark-copies.md`](benchmark-copies.md), kbgen section).
 
 ```bash
 git clone https://github.com/aolimelo/kbgen.git $KBGEN
@@ -78,10 +78,10 @@ cd $KBGEN
 git switch -c exp-datasets e5d06bc
 git apply $REPO/baselines/kbgen.patch
 git status --short                   # 6 modified files and ?? synthesize_exp_datasets.py
-sha256sum synthesize_exp_datasets.py # f8c727b20b4fb60ef2dd542e8c6a88557f1842a297a16cf75da9ff582175e6f5
+sha256sum synthesize_exp_datasets.py # 06568bc9bcd120296225da24bde9f2d51eb311036e95d3db0a1b29d8cfa44103
 ```
 
-The patched files are identical to the ones that made the french copies. Don't change kbgen's code: the copies of every machine must come from the same code.
+The copies made on 16 November 2026 before 16:23 came from the driver with checksum `f8c727b2...`. The current one adds the level `std1` (rules with std confidence 1, through the column `std_threshold` of `rule_levels.tsv`) and `--rules-from-ours`, which gives kbgen the rules this generator used at each level, and writes the columns `std_threshold` and `rules_from` to the summary; it picks the same rules as before for the other levels. kbgen's own files are unchanged. Don't change kbgen's code otherwise: the copies of every machine must come from the same code.
 
 ## 4. Measure the memory of a YAGO3-10 process
 

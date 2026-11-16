@@ -141,7 +141,7 @@ FILTERING = "realistic"
 COPY_SETS = ("ours", "kbgen", "pygraft")
 # A rule-level copy (docs/rule-levels.md), e.g. `french_kbgen_r25`, is the `kbgen`
 # variant of the family of its level, `french-r25`.
-LEVEL_COPY = re.compile(r"^(.+)_(ours|kbgen|pygraft)_(r\d+)$")
+LEVEL_COPY = re.compile(r"^(.+)_(ours|kbgen|pygraft)_(r\d+|std1)$")
 REFERENCE_VARIANT = "original"
 # The order of the variants in every plot, which fixes their colors.
 VARIANT_ORDER = [REFERENCE_VARIANT, *COPY_SETS]

@@ -36,7 +36,7 @@ LOCK_NAME = ".validation.lock"
 # As in train_kge.py: the suffixes of the folders of synthetic copies.
 COPY_SETS = ("ours", "kbgen", "pygraft")
 # As in report_results.py: `french_kbgen_r25` is the `kbgen` variant of `french-r25`.
-LEVEL_COPY = re.compile(r"^(.+)_(ours|kbgen|pygraft)_(r\d+)$")
+LEVEL_COPY = re.compile(r"^(.+)_(ours|kbgen|pygraft)_(r\d+|std1)$")
 
 
 def held_locks() -> set[tuple[int, int, int]] | None:

@@ -24,11 +24,13 @@ With `--levels`, the copies are made at rule levels of `<root>/rule_levels.tsv`
 (`--rule-levels`, written by `cli/rule_levels.py`) instead: for each dataset and
 level L, `cli/main.py` keeps the rules with PCA confidence >= the row's
 `pca_threshold` (`--pca-conf`; none at all for r0, through a rules file with no
-rule), and the copy goes to `<root>/<folder>_ours_L/<folder>_ours_L.tsv`, with the
-rules the run used next to it as `<folder>_ours_L_used.csv`. A row with
+rule; for std1, which has no PCA threshold, the rules with std confidence 1, as
+without `--levels`), and the copy goes to
+`<root>/<folder>_ours_L/<folder>_ours_L.tsv`, with the rules the run used next to it
+as `<folder>_ours_L_used.csv`. A row with
 `ours_same_as` is skipped. See docs/rule-levels.md.
 
-    python -m skgg.cli.generate_datasets --levels r0 r25 r50 r75 r100 \
+    python -m skgg.cli.generate_datasets --levels r0 std1 r25 r50 r75 r100 \
         --datasets french french1_1 french1_N frenchN_1 frenchN_M
 """
 
@@ -56,7 +58,7 @@ logger = logging.getLogger(__name__)
 OUTPUT_SUFFIX = "_ours"
 # Copies of a dataset D, which are not datasets themselves: D_ours, D_kbgen,
 # D_pygraft and the rule-level copies such as D_ours_r25.
-COPY_NAME = re.compile(r"_(ours|kbgen|pygraft)(_r\d+)?$")
+COPY_NAME = re.compile(r"_(ours|kbgen|pygraft)(_r\d+|_std1)?$")
 REPOSITORY_PREFIX = "skgg_ours_"
 CHUNK_SIZE = 5000
 
@@ -133,12 +135,14 @@ def rules_file(folder: Path) -> Path:
 @dataclass(frozen=True)
 class RuleLevel:
     """A rule level of `rule_levels.tsv` for one dataset: its name (e.g. `r25`),
-    the PCA threshold its rules need (None: no rule at all), and the level whose
-    copy stands in for it (`ours_same_as`), if any."""
+    the PCA threshold its rules need (None for no PCA threshold: the default std
+    confidence 1 filter for std1, or no rule at all if `no_rules`), and the level
+    whose copy stands in for it (`ours_same_as`), if any."""
 
     name: str
     threshold: str | None
     same_as: str
+    no_rules: bool = False
 
 
 def read_levels(path: Path) -> dict[str, dict[str, RuleLevel]]:
@@ -146,9 +150,10 @@ def read_levels(path: Path) -> dict[str, dict[str, RuleLevel]]:
     levels: dict[str, dict[str, RuleLevel]] = {}
     with path.open(encoding="utf-8", newline="") as f:
         for row in csv.DictReader(f, delimiter="\t"):
-            threshold = row["pca_threshold"] if row["rules_kept"] != "0" else None
+            no_rules = row["rules_kept"] == "0"
+            threshold = None if no_rules else row["pca_threshold"] or None
             levels.setdefault(row["dataset"], {})[row["level"]] = RuleLevel(
-                row["level"], threshold or None, row["ours_same_as"]
+                row["level"], threshold, row["ours_same_as"], no_rules
             )
     return levels
 
@@ -266,7 +271,7 @@ def generate_dataset(
             config = Path(tmp) / "config.json"
             # A rules file with the header only: no rule at all.
             no_rules = None
-            if level is not None and threshold is None:
+            if level is not None and level.no_rules:
                 no_rules = Path(tmp) / "no_rules.csv"
                 with rules_file(folder).open(encoding="utf-8") as f:
                     no_rules.write_text(f.readline(), encoding="utf-8")
@@ -274,6 +279,10 @@ def generate_dataset(
                 config, folder, graph, store, repository, log_level, no_rules
             )
             download_stem = Path(tmp) / "graph"
+            # cli/main.py writes the rules it used next to the rules file; remove
+            # an earlier run's file so that only this run's can be copied.
+            used = rules_file(folder).with_name(f"{folder.name}_used.csv")
+            used.unlink(missing_ok=True)
             for step in (
                 ["skgg.cli.graph", "upload", "-f", str(config)],
                 [
@@ -303,9 +312,9 @@ def generate_dataset(
             output = output_file(folder, level)
             output.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(download_stem.with_suffix(".tsv"), output)
-            # cli/main.py writes the rules it used next to the rules file.
-            used = rules_file(folder).with_name(f"{folder.name}_used.csv")
-            if level is not None and threshold is not None and used.is_file():
+            if level is not None and not level.no_rules:
+                if not used.is_file():
+                    raise FileNotFoundError(f"{folder.name} {level.name}: no {used}.")
                 shutil.copy(used, output.with_name(f"{output.stem}_used.csv"))
     finally:
         store.delete_repository(repository)
