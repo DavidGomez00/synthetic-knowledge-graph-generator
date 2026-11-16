@@ -1,5 +1,7 @@
 # Rule levels
 
+[`runs/rule-levels/`](../runs/rule-levels/README.md) makes the copies of both generators at `std1`, `r25`, `r50`, `r75` and `r100` with the same rules, and records how each was made; its `REPORT.md` gives every copy's rules, triples and time.
+
 kbgen (Melo and Paulheim, ESWC 2017) made its copies, `<dataset>_kbgen`, from every rule mined from a dataset, and this generator made `<dataset>_ours` from the rules with std confidence 1 only. 11 of the 24 datasets have no such rule: Family1_1, Family1_N, FamilyM_N, FamilyN_1, french1_N, frenchN_M, WN18RR1_1, WN18RR1_N, WN18RRN_1, YAGO3-10_1_1 and YAGO3-10_N_1. To measure how the amount of rules changes the copies and the models trained on them, both generators make each dataset again at six rule levels:
 
 | Level | Rules given to the generator |
@@ -90,7 +92,7 @@ python -m skgg.cli.generate_datasets --levels r0 std1 r25 r50 r75 r100 --force -
 python scripts/check_outputs.py --suffix _ours_r25 --datasets french
 ```
 
-french's copies were made again on 16 November 2026 on Hefesto, at all six levels, each with the rules it used (`runs/french-rule-levels/` has the commands, logs and times). The copies of french1_1, french1_N, frenchN_1 and frenchN_M were made earlier that day on the development laptop, at the five levels other than `std1` and without their used rules, in 1 to 22 s each (logs in `logs/ours-levels/`, ignored by git), and split with `split_copies.py --suffix _ours_<level>`. `check_outputs.py` finds them well formed, with the source's entities, relations and self-loops. Every relation keeps its source frequency and degrees except `parent`, which the complete rules derive in completion. french's copies of Hefesto match the source exactly at `r0`; `parent` ends 47 triples short at `std1`, as in `french_ours`, 1 short at `r25` and `r75`, 3 short at `r100`, and has the right count but other degrees at `r50`. On the laptop's copies, frenchN_1 ends one `predecessor` triple short at r25.
+french's copies were made again on 16 November 2026 on Hefesto, at all six levels, each with the rules it used (`runs/rule-levels/` has the commands, logs and times). The copies of french1_1, french1_N, frenchN_1 and frenchN_M were made earlier that day on the development laptop, at the five levels other than `std1` and without their used rules, in 1 to 22 s each (logs in `logs/ours-levels/`, ignored by git), and split with `split_copies.py --suffix _ours_<level>`. `check_outputs.py` finds them well formed, with the source's entities, relations and self-loops. Every relation keeps its source frequency and degrees except `parent`, which the complete rules derive in completion. french's copies of Hefesto match the source exactly at `r0`; `parent` ends 47 triples short at `std1`, as in `french_ours`, 1 short at `r25` and `r75`, 3 short at `r100`, and has the right count but other degrees at `r50`. On the laptop's copies, frenchN_1 ends one `predecessor` triple short at r25.
 
 Partial rules within 0.05 of their source PCA confidence, of the partial rules of each copy, and the median absolute difference:
 
