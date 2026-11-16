@@ -288,16 +288,17 @@ index f0b0a4b..812d245 100644
          for i in range(1,len(lines)):
 diff --git a/synthesize_exp_datasets.py b/synthesize_exp_datasets.py
 new file mode 100644
-index 0000000..7bf281d
+index 0000000..a0cd08a
 --- /dev/null
 +++ b/synthesize_exp_datasets.py
-@@ -0,0 +1,533 @@
+@@ -0,0 +1,537 @@
 +#!/usr/bin/env python3
 +"""Synthesizes a kbgen (model M3) copy of every benchmark dataset.
 +
 +For every folder `D` under the root that has `D/D.unified.tsv` (the graph) and
 +`D/D.csv` (its AMIE rules, as written by the generator's `mine_rules/run_amie.py`),
-+and whose name does not end in `_ours` or `_kbgen`, this runs the original kbgen
++and that is not a copy (`D_ours`, `D_kbgen`, or a level copy such as `D_kbgen_r25`),
++this runs the original kbgen
 +pipeline in `work/D/`:
 +
 +    1. D.unified.tsv -> D.nt            (format_change.py, namespace http://example.org/)
@@ -319,8 +320,8 @@ index 0000000..7bf281d
 +`python -m skgg.cli.rule_levels`), M3 is learned only from the rules with
 +`pca_confidence >= pca_threshold` of that row (none for r0), in
 +`work/rule-levels/D-L/`, and the copy goes to
-+`<level root>/D-L_kbgen/D-L_kbgen.tsv` (default level root:
-+`<root>/rule-levels`). The N-Triples file, tensor, M1 and M2 don't depend on the
++`<level root>/D_kbgen_L/D_kbgen_L.tsv` (default level root: `<root>`, so the
++copy sits next to `D` and `D_kbgen`). The N-Triples file, tensor, M1 and M2 don't depend on the
 +rules: they are made once in `work/D/` and linked into each level's folder, so
 +every level, and the existing `D_kbgen` copy, uses the same M2. A row whose
 +`kbgen_same_as` is set has the same rules as the level it names and is skipped,
@@ -346,6 +347,7 @@ index 0000000..7bf281d
 +import logging
 +import os
 +import pickle
++import re
 +import subprocess
 +import sys
 +import time
@@ -362,7 +364,8 @@ index 0000000..7bf281d
 +NAMESPACE = "http://example.org/"
 +SYNTH_PREFIX = "http://dws.uni-mannheim.de/synthesized/"
 +RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
-+SKIP_SUFFIXES = ("_ours", "_kbgen")
++# Copies of a dataset D: D_ours, D_kbgen, and their level copies such as D_kbgen_r25.
++COPY_NAME = re.compile(r"_(ours|kbgen)(_r\d+)?$")
 +AMIE_HEADER = "\t".join([
 +    "Rule", "Head Coverage", "Std Confidence", "PCA Confidence", "Positive Examples",
 +    "Body size", "PCA Body size", "Functional variable",
@@ -403,8 +406,9 @@ index 0000000..7bf281d
 +        self.models = {m: self.work / f"{self.tag}-{m}.pkl" for m in ("M1", "M2", "M3")}
 +        self.synth_nt = self.work / f"{self.tag}.kbgenm3.nt"
 +        self.synth_tsv = self.work / f"{self.tag}.kbgenm3.tsv"
-+        out_root = root if level is None else level_root or root / "rule-levels"
-+        self.output = out_root / f"{self.tag}_kbgen" / f"{self.tag}_kbgen.tsv"
++        out_root = root if level is None else level_root or root
++        copy = f"{name}_kbgen" if level is None else f"{name}_kbgen_{level}"
++        self.output = out_root / copy / f"{copy}.tsv"
 +        self.stats = self.work / "stats.json"
 +        self.timings = self.work / "timings.json"
 +        self.log = self.work / "pipeline.log"
@@ -413,7 +417,7 @@ index 0000000..7bf281d
 +def find_datasets(root: Path, work_root: Path, names: list[str] | None) -> list[Dataset]:
 +    found = {}
 +    for folder in sorted(p for p in root.iterdir() if p.is_dir()):
-+        if folder.name.endswith(SKIP_SUFFIXES):
++        if COPY_NAME.search(folder.name):
 +            continue
 +        ds = Dataset(root, folder.name, work_root)
 +        if ds.triples.is_file() and ds.rules_csv.is_file():
@@ -778,7 +782,7 @@ index 0000000..7bf281d
 +    p.add_argument("--rule-levels", type=Path, default=None,
 +                   help="rule levels file of skgg.cli.rule_levels (default: <root>/rule_levels.tsv)")
 +    p.add_argument("--level-root", type=Path, default=None,
-+                   help="folder of the level copies (default: <root>/rule-levels)")
++                   help="folder of the level copies D_kbgen_L (default: <root>)")
 +    args = p.parse_args()
 +
 +    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")

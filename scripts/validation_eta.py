@@ -23,6 +23,7 @@ import argparse
 import csv
 import json
 import os
+import re
 import statistics
 import sys
 from datetime import datetime, timedelta, timezone
@@ -34,6 +35,8 @@ STATE_NAME = "validation_state.json"
 LOCK_NAME = ".validation.lock"
 # As in train_kge.py: the suffixes of the folders of synthetic copies.
 COPY_SETS = ("ours", "kbgen", "pygraft")
+# As in report_results.py: `french_kbgen_r25` is the `kbgen` variant of `french-r25`.
+LEVEL_COPY = re.compile(r"^(.+)_(ours|kbgen|pygraft)_(r\d+)$")
 
 
 def held_locks() -> set[tuple[int, int, int]] | None:
@@ -73,7 +76,11 @@ def duration(seconds: float) -> str:
 
 
 def run_label(dataset: str) -> str:
-    """`french_kbgen` as `french/kbgen`, `french` as `french/original`."""
+    """`french_kbgen` as `french/kbgen`, `french` as `french/original`, and the
+    rule-level copy `french_kbgen_r25` as `french-r25/kbgen`."""
+    if match := LEVEL_COPY.match(dataset):
+        source, variant, level = match.groups()
+        return f"{source}-{level}/{variant}"
     for variant in COPY_SETS:
         if dataset.endswith(f"_{variant}"):
             return f"{dataset[: -len(variant) - 1]}/{variant}"

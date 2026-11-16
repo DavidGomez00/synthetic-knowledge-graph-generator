@@ -69,13 +69,15 @@ For the 19 datasets other than YAGO3-10, that leaves 129 of the 171 copies of th
 
 ## Layout
 
-The copies of a level go to `exp_datasets/rule-levels/<dataset>-<level>_<generator>/<dataset>-<level>_<generator>.tsv`, for example `french-r50_ours/` and `french-r0_kbgen/`. The level is part of the name because `scripts/upload_results.py` keys the runs of the `kge-results` branch by dataset name and skips a run the branch already has, so a level copy named `french_ours` would never be uploaded. The names still end in `_ours` and `_kbgen`, so `train_kge.py --set`, `kge_eta.py` and `validation_eta.py` handle them as copies.
+The copies of a level sit in `exp_datasets/` next to their dataset and its full copies, as `<dataset>_<generator>_<level>/<dataset>_<generator>_<level>.tsv`, so a folder listing reads `french`, `french_kbgen`, `french_kbgen_r0`, `french_kbgen_r25`, ..., `french_ours`, `french_ours_r0`, .... kbgen's `r100` has no folder of its own: it is the full copy, `french_kbgen`, which already uses every rule. This generator's full copy, `french_ours`, keeps only the rules with std confidence 1, so its `r100` is a level copy, `french_ours_r100`. The level is part of the name because `scripts/upload_results.py` keys the runs of the `kge-results` branch by dataset name and skips a run the branch already has, so a level copy named `french_ours` would never be uploaded.
+
+The scripts that tell copies from datasets by their folder name handle the level copies as their own sets. `train_kge.py --set` and `kge_eta.py --set` take `ours-levels` and `kbgen-levels`, while `--set ours` and `--set kbgen` stay the full copies. `report_results.py` and `validation_eta.py` put a level copy in the family of its level, as the `kbgen` or `ours` variant of `french-r25` for `french_kbgen_r25`, so a level's plots compare the two generators at that level. `cli/rule_levels.py`, `cli/generate_datasets.py`, `mine_rules/mine_datasets.py` and kbgen's driver don't take a level copy for a dataset: the first and the driver skip its name, and the others need a `<folder>.unified.tsv` that it doesn't have.
 
 ## Making the copies
 
 This generator: `cli/generate_datasets.py` does not take a level yet. It needs to pass each dataset's `pca_threshold` from `rule_levels.tsv` to `cli/main.py --pca-conf` (and no rule at all for `r0`), write to the layout above, skip a row with `ours_same_as`, and keep each copy's used rules: `core/rules.write_used_rules` writes `<dataset>/<dataset>_used.csv`, which every level overwrites, so it should be copied next to the level's copy.
 
-kbgen: the driver in `~/GitHub/kbgen` (local branch `exp-datasets`) takes `--levels`. For each dataset it makes the N-Triples file, tensor, M1 and M2 once in `work/<dataset>/`, which already holds them from the `_kbgen` copies, and links the tensor and M2 into `work/rule-levels/<dataset>-<level>/`. There it learns M3 from the rules of the level only and synthesizes the copy, so every level uses the M2 of the existing copy. It skips a row with `kbgen_same_as` and a level that keeps every rule, checks each level's rule count against `rules_kept`, and writes its summary to `results/rule-levels/`. A test on french1_N gave the expected rule counts (0, 4, 8 and 12 parsed) and 881 facts at each level, as many as kbgen keeps from the dataset. `baselines/kbgen.patch` rebuilds that code from the authors' repository, and [`generate-kbgen-levels.md`](generate-kbgen-levels.md) gives the steps to make the copies on another machine, which datasets each machine makes, and `scripts/check_kbgen_levels.py`, which checks the copies against `rule_levels.tsv`. The 19 datasets other than YAGO3-10, on the development laptop:
+kbgen: the driver in `~/GitHub/kbgen` (local branch `exp-datasets`) takes `--levels`. For each dataset it makes the N-Triples file, tensor, M1 and M2 once in `work/<dataset>/`, which already holds them from the `_kbgen` copies, and links the tensor and M2 into `work/rule-levels/<dataset>-<level>/`. There it learns M3 from the rules of the level only and synthesizes the copy, so every level uses the M2 of the existing copy. It skips a row with `kbgen_same_as` and a level that keeps every rule, checks each level's rule count against `rules_kept`, writes each copy to `exp_datasets/<dataset>_kbgen_<level>/` (`--level-root` picks another folder), and writes its summary to `results/rule-levels/`, where a copy's row is named `<dataset>-<level>`. A test on french1_N gave the expected rule counts (0, 4, 8 and 12 parsed) and 881 facts at each level, as many as kbgen keeps from the dataset. `baselines/kbgen.patch` rebuilds that code from the authors' repository, and [`generate-kbgen-levels.md`](generate-kbgen-levels.md) gives the steps to make the copies on another machine, which datasets each machine makes, and `scripts/check_kbgen_levels.py`, which checks the copies against `rule_levels.tsv`. The 19 datasets other than YAGO3-10, on the development laptop:
 
 ```bash
 cd ~/GitHub/kbgen
@@ -86,22 +88,22 @@ kbgen's time grows with the rules per relation (see "Times" in [`benchmark-copie
 
 ## Splits and training
 
-`scripts/split_copies.py` finds a copy's source by removing the suffix, so a suffix that includes the level resolves `french-r50_ours` to `french` without a code change. The suffix starts with a dash, so it must be passed as `--suffix=-r50_ours`: with a space, argparse takes it for an option.
+`scripts/split_copies.py` finds a copy's source by removing the suffix, so a suffix that includes the level resolves `french_ours_r50` to `french` without a code change. `--suffix _ours` doesn't match `french_ours_r50`, so the full copies and the level copies are split separately.
 
 ```bash
 for level in r0 r25 r50 r75 r100; do
-  python scripts/split_copies.py --root exp_datasets/rule-levels --sources exp_datasets --suffix=-${level}_ours
+  python scripts/split_copies.py --suffix _ours_${level}
 done
 for level in r0 r25 r50 r75; do
-  python scripts/split_copies.py --root exp_datasets/rule-levels --sources exp_datasets --suffix=-${level}_kbgen
+  python scripts/split_copies.py --suffix _kbgen_${level}
 done
 ```
 
 The splits use seed 1235 and the source's shares of valid and test triples at every level, so the levels of a dataset differ only in their graph. Training runs on the training machine, with the usual settings:
 
 ```bash
-python scripts/train_kge.py --root exp_datasets/rule-levels --set ours --skip-models CompGCN --workers 4 --upload
-python scripts/train_kge.py --root exp_datasets/rule-levels --set kbgen --skip-models CompGCN --workers 4 --upload
+python scripts/train_kge.py --set ours-levels --skip-models CompGCN --workers 4 --upload
+python scripts/train_kge.py --set kbgen-levels --skip-models CompGCN --workers 4 --upload
 ```
 
 `train_kge.py` trains only the folders that have splits, so the YAGO3-10 levels are left out until their copies are made. With 4 workers on an RTX 3090 a set of the 19 datasets other than YAGO3-10 takes about 11 hours ([`kge_training.md`](kge_training.md)), so the nine new sets take about 4 days, less with the levels that are not generated. Each set of the five YAGO3-10 datasets adds about 3.2 days.

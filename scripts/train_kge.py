@@ -65,6 +65,7 @@ import json
 import logging
 import multiprocessing
 import os
+import re
 import shutil
 import signal
 import sys
@@ -105,6 +106,11 @@ PROGRESS_FILE = "progress.csv"
 # Suffixes (after "_") of the folders of synthetic copies; the other folders are the
 # base datasets. scripts/split_copies.py writes the copies' splits.
 COPY_SETS = ("ours", "kbgen", "pygraft")
+# The rule-level copies (docs/rule-levels.md) are named after the copy set and the
+# level: `french_kbgen_r25` is kbgen's copy of `french` at level r25. They form their
+# own sets, `kbgen-levels` and `ours-levels`, apart from the full copies.
+LEVEL_SETS = ("ours-levels", "kbgen-levels")
+LEVEL_COPY = re.compile(r"_(ours|kbgen|pygraft)_(r\d+)$")
 LOG_FILE = Path("logs/train_kge.log")
 INTERRUPTED_STATUS = 130
 # Our name of each metric and its key in results.json.
@@ -290,7 +296,10 @@ class AtomicCheckpointLoop(SLCWATrainingLoop):
 
 
 def dataset_set(name: str) -> str:
-    """The set a dataset folder belongs to: a COPY_SETS name, or "base"."""
+    """The set a dataset folder belongs to: a COPY_SETS name, a LEVEL_SETS name, or
+    "base"."""
+    if match := LEVEL_COPY.search(name):
+        return f"{match.group(1)}-levels"
     for copy_set in COPY_SETS:
         if name.endswith(f"_{copy_set}"):
             return copy_set
@@ -845,10 +854,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--set",
         dest="dataset_set",
-        choices=("base", *COPY_SETS),
+        choices=("base", *COPY_SETS, *LEVEL_SETS),
         default="base",
-        help="datasets to train when --datasets is not given: the base datasets, or "
-        "the copies whose folder names end in _ours, _kbgen or _pygraft "
+        help="datasets to train when --datasets is not given: the base datasets, "
+        "the copies whose folder names end in _ours, _kbgen or _pygraft, or the "
+        "rule-level copies such as french_ours_r25 or french_kbgen_r25 "
         "(default: %(default)s)",
     )
     parser.add_argument(

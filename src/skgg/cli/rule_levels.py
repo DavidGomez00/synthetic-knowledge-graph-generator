@@ -36,6 +36,7 @@ import argparse
 import csv
 import logging
 import math
+import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
@@ -53,6 +54,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_SHARES = (0.25, 0.5, 0.75)
 # Suffixes of the copies' folders, which hold no rules of their own.
 COPY_SUFFIXES = ("_ours", "_kbgen", "_pygraft")
+# The rule-level copies, e.g. `french_kbgen_r25` (see docs/rule-levels.md).
+LEVEL_COPY = re.compile(r"_(ours|kbgen|pygraft)_r\d+$")
 # Namespace of a dataset's graphs in cli/generate_datasets.py.
 NAMESPACE = "http://skgg.org/{folder}/"
 COLUMNS = (
@@ -238,6 +241,7 @@ def find_datasets(root: Path, names: list[str] | None) -> list[Path]:
         for folder in sorted(root.iterdir(), key=lambda p: p.name.lower())
         if folder.is_dir()
         and not folder.name.endswith(COPY_SUFFIXES)
+        and not LEVEL_COPY.search(folder.name)
         and (folder / f"{folder.name}.unified.tsv").is_file()
         and (folder / f"{folder.name}.csv").is_file()
     }

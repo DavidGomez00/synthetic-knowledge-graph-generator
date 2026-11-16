@@ -97,7 +97,7 @@ Run at most as many YAGO3-10 processes at once as the free memory holds at that 
 
 ## 5. Run the batch
 
-`--root $REPO/exp_datasets` is required: the driver's default root is the path on the development laptop. For each dataset, the driver first makes kbgen's N-Triples file, tensor, M1 and M2 in `$KBGEN/work/<dataset>/`, once, in a few minutes at most. A fresh run learns the same tensor and the same M2 statistics per relation as the development laptop did for the existing `_kbgen` copies; only the numbering of entities and relations differs (checked on french1_N). Then, for each level, it learns M3 from the level's rules in `$KBGEN/work/rule-levels/<dataset>-<level>/` and writes the copy to `$REPO/exp_datasets/rule-levels/<dataset>-<level>_kbgen/<dataset>-<level>_kbgen.tsv`. It skips `r100` and the levels with `kbgen_same_as`, and stops if `rule_levels.tsv` and the dataset's rules file disagree on the number of rules a level keeps.
+`--root $REPO/exp_datasets` is required: the driver's default root is the path on the development laptop. For each dataset, the driver first makes kbgen's N-Triples file, tensor, M1 and M2 in `$KBGEN/work/<dataset>/`, once, in a few minutes at most. A fresh run learns the same tensor and the same M2 statistics per relation as the development laptop did for the existing `_kbgen` copies; only the numbering of entities and relations differs (checked on french1_N). Then, for each level, it learns M3 from the level's rules in `$KBGEN/work/rule-levels/<dataset>-<level>/` and writes the copy to `$REPO/exp_datasets/<dataset>_kbgen_<level>/<dataset>_kbgen_<level>.tsv`, next to the dataset and its full copy `<dataset>_kbgen`. It skips `r100` and the levels with `kbgen_same_as`, and stops if `rule_levels.tsv` and the dataset's rules file disagree on the number of rules a level keeps.
 
 The driver starts the smallest datasets first and runs `--jobs` levels at once. Give each long dataset (family and the YAGO3-10 datasets) its own command, started first, with its levels from the longest to the shortest, so that its longest level starts at once:
 
@@ -116,7 +116,7 @@ Progress: each finished level logs a line ending in `finished`, and each failed 
 
 ```bash
 grep -h -e " finished$" -e FAILED $KBGEN/work/levels_*.log
-ls $REPO/exp_datasets/rule-levels
+ls -d $REPO/exp_datasets/*_kbgen_r*
 ```
 
 If a command stops, run it again: steps whose output exists are skipped. A process killed while writing a copy can leave it incomplete, and the rerun then skips it; the check of step 6 finds it, and `--force --datasets <dataset> --levels <level>` makes that level again.
@@ -139,24 +139,24 @@ For each copy, the script checks that kbgen was given the `rules_kept` rules of 
 ```bash
 cd $REPO
 for level in r0 r25 r50 r75; do
-  python scripts/split_copies.py --root exp_datasets/rule-levels --sources exp_datasets --suffix=-${level}_kbgen
+  python scripts/split_copies.py --suffix _kbgen_${level}
 done
 python scripts/check_kbgen_levels.py --summary $KBGEN/results/rule-levels/summary.csv --splits
 ```
 
-Keep the `=` in `--suffix=-...`: with a space, argparse takes the suffix, which starts with a dash, for an option. `split_copies.py` skips the copies that already have their splits, so it can run after each machine's batch, and a copy's splits are the same on every machine (seed 1235).
+`--suffix _kbgen_r25` picks the `<dataset>_kbgen_r25` folders and finds each one's source by removing the suffix. `split_copies.py` skips the copies that already have their splits, so it can run after each machine's batch, and a copy's splits are the same on every machine (seed 1235).
 
 ## 8. Record the run and bring the copies back
 
-Record the run next to the copies, under a short name for the machine, so that the generation times can be reported per machine:
+Record the run in `baselines/kbgen-runs/`, next to the patch, under a short name for the machine, so that the generation times can be reported per machine:
 
 ```bash
 cd $REPO
 M=<machine name>
-mkdir -p exp_datasets/rule-levels/kbgen-runs/$M
-cp $KBGEN/results/rule-levels/summary.csv $KBGEN/work/levels_*.log exp_datasets/rule-levels/kbgen-runs/$M/
+mkdir -p baselines/kbgen-runs/$M
+cp $KBGEN/results/rule-levels/summary.csv $KBGEN/work/levels_*.log baselines/kbgen-runs/$M/
 { echo "machine: $M"; date -Is; lscpu | grep "Model name"; echo "cores: $(nproc)"; free -g | head -2
-  python --version; sha256sum baselines/kbgen.patch; git rev-parse HEAD; } > exp_datasets/rule-levels/kbgen-runs/$M/machine.txt
+  python --version; sha256sum baselines/kbgen.patch; git rev-parse HEAD; } > baselines/kbgen-runs/$M/machine.txt
 ```
 
 Add the commands run and when each started and ended to `machine.txt`. The summary's `seconds_*` columns give each step's time per level.
@@ -164,8 +164,8 @@ Add the commands run and when each started and ended to `machine.txt`. The summa
 Then commit the copies, their splits and the record on the branch and push them. Machines write different folders, so a push refused because another machine pushed first only needs a rebase:
 
 ```bash
-git add exp_datasets/rule-levels/*-r*_kbgen exp_datasets/rule-levels/kbgen-runs/$M docs/generate-kbgen-levels.md
-git status --short exp_datasets/rule-levels | head    # only this machine's datasets
+git add exp_datasets/*_kbgen_r* baselines/kbgen-runs/$M docs/generate-kbgen-levels.md
+git status --short exp_datasets baselines | head    # only this machine's datasets
 git commit -m "Add kbgen's rule-level copies made on $M"
 git pull --rebase origin rule-levels && git push origin rule-levels
 ```

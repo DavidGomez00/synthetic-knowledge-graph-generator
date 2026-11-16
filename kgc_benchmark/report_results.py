@@ -64,6 +64,7 @@ import fcntl
 import gzip
 import json
 import os
+import re
 import signal
 import textwrap
 import time
@@ -138,6 +139,9 @@ FILTERING = "realistic"
 # family. A folder without one is its family's original, the reference that
 # the other variants are compared with.
 COPY_SETS = ("ours", "kbgen", "pygraft")
+# A rule-level copy (docs/rule-levels.md), e.g. `french_kbgen_r25`, is the `kbgen`
+# variant of the family of its level, `french-r25`.
+LEVEL_COPY = re.compile(r"^(.+)_(ours|kbgen|pygraft)_(r\d+)$")
 REFERENCE_VARIANT = "original"
 # The order of the variants in every plot, which fixes their colors.
 VARIANT_ORDER = [REFERENCE_VARIANT, *COPY_SETS]
@@ -281,8 +285,13 @@ def dataset_family(dataset: str) -> tuple[str, str]:
     """
     The family and variant of a dataset folder of `exp_results`: a copy's folder
     is its source's name with the copy set as suffix, e.g. `french_kbgen` is
-    (`french`, `kbgen`), and a source dataset is its own family's `original`.
+    (`french`, `kbgen`), and a source dataset is its own family's `original`. A
+    rule-level copy belongs to the family of its level: `french_kbgen_r25` is
+    (`french-r25`, `kbgen`).
     """
+    if match := LEVEL_COPY.match(dataset):
+        source, variant, level = match.groups()
+        return f"{source}-{level}", variant
     for variant in COPY_SETS:
         if dataset.endswith(f"_{variant}"):
             return dataset[: -len(variant) - 1], variant

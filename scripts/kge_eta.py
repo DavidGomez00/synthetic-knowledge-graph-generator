@@ -31,6 +31,7 @@ Needs only the Python standard library.
 import argparse
 import csv
 import os
+import re
 import statistics
 import sys
 from collections import defaultdict
@@ -40,9 +41,16 @@ from pathlib import Path
 MIN_TRIPLES = 20_000
 # As in train_kge.py: the suffixes of the folders of synthetic copies.
 COPY_SETS = ("ours", "kbgen", "pygraft")
+# The rule-level copies (docs/rule-levels.md) are named after the copy set and the
+# level: `french_kbgen_r25` is kbgen's copy of `french` at level r25. They form their
+# own sets, `kbgen-levels` and `ours-levels`, apart from the full copies.
+LEVEL_SETS = ("ours-levels", "kbgen-levels")
+LEVEL_COPY = re.compile(r"_(ours|kbgen|pygraft)_(r\d+)$")
 
 
 def dataset_set(name: str) -> str:
+    if match := LEVEL_COPY.search(name):
+        return f"{match.group(1)}-levels"
     for copy_set in COPY_SETS:
         if name.endswith(f"_{copy_set}"):
             return copy_set
@@ -123,7 +131,7 @@ def main() -> int:
     parser.add_argument(
         "--set",
         dest="dataset_set",
-        choices=("all", "base", *COPY_SETS),
+        choices=("all", "base", *COPY_SETS, *LEVEL_SETS),
         default="all",
         help="estimate only the base datasets or one set of copies; the speeds come "
         "from every finished run (default: %(default)s)",

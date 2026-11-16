@@ -82,7 +82,7 @@ Each copy is trained and tested on itself, so the benchmark shows whether the mo
 
 The split is reproducible, two runs writing identical files, and git tracks the splits of every copy, so a clone has them. `train_kge.py` records the checksums of the splits in each dataset's `settings.json`, and refuses to resume a dataset whose splits changed.
 
-`--set` picks the datasets `train_kge.py` trains when `--datasets` is not given: `base` (the default), `ours`, `kbgen` or `pygraft`. Results of every set go to the same `exp_results/`, one folder per dataset. `kge_eta.py --set ours` estimates one set; its speeds come from every finished run, and on a machine with no finished run yet, from the runs in progress.
+`--set` picks the datasets `train_kge.py` trains when `--datasets` is not given: `base` (the default), `ours`, `kbgen` or `pygraft`, or the rule-level copies, `ours-levels` or `kbgen-levels` (see [`rule-levels.md`](rule-levels.md)). Results of every set go to the same `exp_results/`, one folder per dataset. `kge_eta.py --set ours` estimates one set; its speeds come from every finished run, and on a machine with no finished run yet, from the runs in progress.
 
 On a new machine, with the environment of `requirements.txt` installed and the branch with the copies checked out, the splits are already there:
 

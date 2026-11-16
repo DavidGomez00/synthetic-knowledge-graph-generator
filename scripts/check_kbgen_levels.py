@@ -4,8 +4,9 @@ For every dataset and level that kbgen's driver should have made (every row of
 `exp_datasets/rule_levels.tsv` except r100 and the rows with `kbgen_same_as`), of the
 datasets named with --datasets or else of those in kbgen's summary, this checks:
 
-- the copy `<level root>/<dataset>-<level>_kbgen/<dataset>-<level>_kbgen.tsv` exists
-  and has as many lines as the summary's `synthetic_triples`;
+- the copy `<level root>/<dataset>_kbgen_<level>/<dataset>_kbgen_<level>.tsv` exists
+  (the level root is `exp_datasets`, next to the dataset) and has as many lines as
+  the summary's `synthetic_triples`, whose rows kbgen's driver names `<dataset>-<level>`;
 - kbgen was given `rules_kept` rules and parsed `rules_kbgen` of them;
 - the copy has as many facts as kbgen kept from the source, give or take 0.1%
   (the all-rules copies have exactly that many or one more), and loses no relation;
@@ -83,7 +84,10 @@ def main() -> int:
         "--levels-file", type=Path, default=Path("exp_datasets/rule_levels.tsv")
     )
     parser.add_argument(
-        "--level-root", type=Path, default=Path("exp_datasets/rule-levels")
+        "--level-root",
+        type=Path,
+        default=Path("exp_datasets"),
+        help="folder of the <dataset>_kbgen_<level> copies (default: %(default)s)",
     )
     parser.add_argument(
         "--datasets",
@@ -119,16 +123,17 @@ def main() -> int:
         ):
             continue
         tag = f"{row['dataset']}-{row['level']}"
-        copy = args.level_root / f"{tag}_kbgen" / f"{tag}_kbgen.tsv"
+        name = f"{row['dataset']}_kbgen_{row['level']}"
+        copy = args.level_root / name / f"{name}.tsv"
         problems = check(row, summary.get(tag), copy, args.splits)
         checked += 1
         if problems:
             failed += 1
-            print(f"FAIL {tag}: {'; '.join(problems)}")
+            print(f"FAIL {name}: {'; '.join(problems)}")
         else:
             stats = summary[tag]
             facts, rules = stats["synthetic_triples"], stats["parsed_rules"]
-            print(f"ok   {tag}: {facts} facts, {rules} rules")
+            print(f"ok   {name}: {facts} facts, {rules} rules")
     print(f"{checked - failed} of {checked} copies pass.")
     return 1 if failed or not checked else 0
 
