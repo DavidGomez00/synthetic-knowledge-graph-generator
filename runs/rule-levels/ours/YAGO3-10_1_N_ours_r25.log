@@ -1,0 +1,138 @@
+23:39:15 | __main__ | INFO   | Inserted /home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets/YAGO3-10_1_N/YAGO3-10_1_N.unified.tsv into <http://skgg.org/YAGO3-10_1_N/base> with 915478 triples.
+23:39:17 | __main__ | INFO   | Confifuration correctly initialized.
+23:39:17 | __main__ | INFO   | [1/5] Extracting metrics and rules
+23:39:17 | __main__ | INFO   | Rule filter pca=0.362: EDB at <http://skgg.org/YAGO3-10_1_N/skgg/pca=0.362/edb>, synthetic graph at <http://skgg.org/YAGO3-10_1_N/skgg/pca=0.362>.
+23:39:24 | skgg.core.rules | INFO   | Kept 20/79 rules with PCA confidence >= 0.362 (classification == POSITIVE); dropped 59 (NEGATIVE or UNKNOWN).
+23:39:24 | __main__ | INFO   | 20 rules: 1 complete (std confidence 1, forward-chained), 19 partial (grounded round(PCA confidence x support) times in the EDB, after the complete rules).
+23:39:24 | skgg.core.visualization | INFO   | Saved relation graph visualization (1 predicates, 1 in a cycle) to <logs/relation_graph_YAGO3-10_1_N.png>
+23:39:24 | skgg.core.cycles | INFO   | Cycle of isInterestedIn: keeping 0 of 1 cyclic rules with the order isInterestedIn.
+23:39:24 | skgg.core.cycles | INFO   | Removed rule 1: recursive.
+23:39:24 | skgg.core.cycles | INFO   | Predicates made extensional by cyclic rule removal: isInterestedIn
+23:39:24 | skgg.core.cycles | INFO   | Removed 1 cyclic rules; 0 rules left.
+23:39:24 | __main__ | INFO   | Extensional relations (34, target frequency): actedIn 31630, created 5499, dealsWith 1260, directed 4993, edited 3084, exports 350, graduatedFrom 4696, happenedIn 5037, hasAcademicAdvisor 220, hasCapital 644, hasChild 3543, hasMusicalRole 7145, hasNeighbor 538, hasOfficialLanguage 109, hasWebsite 8, hasWonPrize 19818, imports 359, influences 9926, isAffiliatedTo 366363, isCitizenOf 849, isConnectedTo 32317, isInterestedIn 133, isKnownFor 14, isLeaderOf 583, isLocatedIn 74834, isMarriedTo 1020, isPoliticianOf 643, livesIn 1999, owns 448, participatedIn 4935, playsFor 323881, wasBornIn 4, worksAt 2914, wroteMusicFor 5682
+23:39:24 | __main__ | INFO   | Intensional relations (0, target frequency): none
+23:39:24 | __main__ | INFO   | [2/5] Generating EDB
+23:39:24 | skgg.core.rules | INFO   | Saved 19 used rules to `/home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets/YAGO3-10_1_N/YAGO3-10_1_N_used.csv`.
+23:39:25 | skgg.engine.edb | INFO   | [Self-loops] Placed 2 self-loops (placed/target): isLocatedIn 2/2
+23:39:25 | skgg.engine.edb | INFO   | Start warm-up.
+23:39:25 | skgg.engine.edb | INFO   | [Warm-up] No direct matches.
+23:39:25 | skgg.engine.edb | INFO   | Creating EDB
+23:39:25 | skgg.engine.edb | INFO   | Extensional relations to generate (34/34, current/target): actedIn 0/31630 (open), created 0/5499 (open), dealsWith 0/1260 (open), directed 0/4993 (open), edited 0/3084 (open), exports 0/350 (open), graduatedFrom 0/4696 (open), happenedIn 0/5037 (open), hasAcademicAdvisor 0/220 (open), hasCapital 0/644 (open), hasChild 0/3543 (open), hasMusicalRole 0/7145 (open), hasNeighbor 0/538 (open), hasOfficialLanguage 0/109 (open), hasWebsite 0/8 (open), hasWonPrize 0/19818 (open), imports 0/359 (open), influences 0/9926 (open), isAffiliatedTo 0/366363 (open), isCitizenOf 0/849 (open), isConnectedTo 0/32317 (open), isInterestedIn 0/133 (open), isKnownFor 0/14 (open), isLeaderOf 0/583 (open), isLocatedIn 2/74834 (open), isMarriedTo 0/1020 (open), isPoliticianOf 0/643 (open), livesIn 0/1999 (open), owns 0/448 (open), participatedIn 0/4935 (open), playsFor 0/323881 (open), wasBornIn 0/4 (open), worksAt 0/2914 (open), wroteMusicFor 0/5682 (open)
+23:39:25 | skgg.engine.edb | INFO   | Closed predicates [0/34].
+00:33:09 | skgg.engine.generator | WARNING | Built 12594 of 14618 needed groundings for ['?b <http://skgg.org/YAGO3-10_1_N/isConnectedTo> ?a', '?a <http://skgg.org/YAGO3-10_1_N/isConnectedTo> ?b'].
+00:33:16 | skgg.engine.generator | WARNING | Built 162 of 205 needed groundings for ['?b <http://skgg.org/YAGO3-10_1_N/isMarriedTo> ?a', '?a <http://skgg.org/YAGO3-10_1_N/isMarriedTo> ?b'].
+00:33:17 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?e <http://skgg.org/YAGO3-10_1_N/dealsWith> ?b', '?e <http://skgg.org/YAGO3-10_1_N/hasNeighbor> ?a', '?a <http://skgg.org/YAGO3-10_1_N/dealsWith> ?b']; skipping the rule.
+00:33:17 | skgg.engine.generator | WARNING | Built 135 of 208 needed groundings for ['?e <http://skgg.org/YAGO3-10_1_N/dealsWith> ?b', '?e <http://skgg.org/YAGO3-10_1_N/hasNeighbor> ?a', '?a <http://skgg.org/YAGO3-10_1_N/dealsWith> ?b'].
+00:33:18 | skgg.engine.generator | WARNING | Built 39 of 196 needed groundings for ['?b <http://skgg.org/YAGO3-10_1_N/hasNeighbor> ?a', '?a <http://skgg.org/YAGO3-10_1_N/hasNeighbor> ?b'].
+00:33:18 | skgg.engine.edb | INFO   | [Step 74] Closed predicates [1/34].
+00:33:19 | skgg.engine.edb | INFO   | [Step 177] Closed predicates [2/34].
+00:33:19 | skgg.engine.edb | INFO   | [Step 193] Closed predicates [3/34].
+00:33:20 | skgg.engine.edb | INFO   | [Step 302] Closed predicates [4/34].
+00:33:24 | skgg.engine.edb | INFO   | [Step 934] Closed predicates [5/34].
+00:33:30 | skgg.engine.edb | INFO   | [Step 1468] Closed predicates [6/34].
+00:33:41 | skgg.engine.edb | INFO   | [Step 2722] Closed predicates [7/34].
+00:33:41 | skgg.engine.edb | INFO   | [Step 2786] Closed predicates [8/34].
+00:33:45 | skgg.engine.edb | INFO   | [Step 3176] Closed predicates [9/34].
+00:33:51 | skgg.engine.edb | INFO   | [Step 3999] Closed predicates [10/34].
+00:33:51 | skgg.engine.edb | INFO   | [Step 4004] Closed predicates [11/34].
+00:33:52 | skgg.engine.edb | INFO   | [Step 4105] Closed predicates [12/34].
+00:34:13 | skgg.engine.edb | INFO   | [Step 6150] Closed predicates [13/34].
+00:34:19 | skgg.engine.edb | INFO   | [Step 6712] Closed predicates [14/34].
+00:34:37 | skgg.engine.edb | INFO   | [Step 8654] Closed predicates [15/34].
+00:34:44 | skgg.engine.edb | INFO   | [Step 9274] Closed predicates [16/34].
+00:34:45 | skgg.engine.edb | INFO   | [Step 9356] Closed predicates [17/34].
+00:34:58 | skgg.engine.edb | INFO   | [Step 10647] Closed predicates [18/34].
+00:35:42 | skgg.engine.edb | INFO   | [Step 14597] Closed predicates [19/34].
+00:35:49 | skgg.engine.edb | INFO   | [Step 15361] Closed predicates [20/34].
+00:35:59 | skgg.engine.edb | INFO   | [Step 16181] Closed predicates [21/34].
+00:36:09 | skgg.engine.edb | INFO   | [Step 17136] Closed predicates [22/34].
+00:36:23 | skgg.engine.edb | INFO   | [Step 18283] Closed predicates [23/34].
+00:36:27 | skgg.engine.edb | INFO   | [Step 18622] Closed predicates [24/34].
+00:37:03 | skgg.engine.edb | INFO   | [Step 20836] Closed predicates [25/34].
+00:37:18 | skgg.engine.edb | INFO   | [Step 21714] Closed predicates [26/34].
+00:37:23 | skgg.engine.edb | INFO   | [Step 21964] Closed predicates [27/34].
+00:38:30 | skgg.engine.edb | INFO   | [Step 25444] Closed predicates [28/34].
+00:38:49 | skgg.engine.edb | INFO   | [Step 26220] Closed predicates [29/34].
+00:44:01 | skgg.engine.edb | INFO   | [Step 38884] Closed predicates [30/34].
+00:44:39 | skgg.engine.edb | INFO   | [Step 40168] Closed predicates [31/34].
+01:00:57 | skgg.engine.edb | INFO   | [Step 76518] Closed predicates [32/34].
+01:05:15 | skgg.engine.edb | INFO   | [Step 94049] Closed predicates [33/34].
+01:05:33 | skgg.engine.edb | INFO   | [Step 97987] Closed predicates [34/34].
+01:05:34 | skgg.engine.edb | INFO   | [Partial] Head triples placed by the groundings of partial rules: 287760.
+01:05:35 | __main__ | INFO   | EDB generated in 5169.7s at <http://skgg.org/YAGO3-10_1_N/skgg/pca=0.362/edb> with 915227 triples.
+01:05:37 | __main__ | INFO   | [3/5] Completing graph
+01:05:37 | __main__ | INFO   | [EDB] Closed predicates: 34/34, closed rules: 18/19.
+01:05:37 | __main__ | INFO   | [EDB] Newly closed predicates: actedIn, created, dealsWith, directed, edited, exports, graduatedFrom, happenedIn, hasAcademicAdvisor, hasCapital, hasChild, hasMusicalRole, hasNeighbor, hasOfficialLanguage, hasWebsite, hasWonPrize, imports, influences, isAffiliatedTo, isCitizenOf, isConnectedTo, isInterestedIn, isKnownFor, isLeaderOf, isLocatedIn, isMarriedTo, isPoliticianOf, livesIn, owns, participatedIn, playsFor, wasBornIn, worksAt, wroteMusicFor
+01:05:37 | __main__ | INFO   | [EDB] Newly closed rules: 11, 12, 13, 14, 15, 16, 17, 2, 21, 28, 4, 5, 57, 59, 6, 7, 8, 9
+01:05:37 | __main__ | INFO   | Applying the 0 complete rules (0 open): none
+01:05:56 | skgg.engine.completion | INFO   | [initial] Pass 1: no triples added.
+01:05:56 | skgg.engine.completion | INFO   | [initial] +0 triples in 1 passes (stale state).
+01:05:59 | __main__ | INFO   | [initial] Closed predicates: 34/34, closed rules: 18/19.
+01:05:59 | __main__ | INFO   | [4/5] Filling open relations
+01:05:59 | __main__ | INFO   | Skipping the fill step (pass --fill to run it); synthetic graph at <http://skgg.org/YAGO3-10_1_N/skgg/pca=0.362>.
+01:05:59 | __main__ | INFO   | [5/5] Summary
+01:06:27 | __main__ | INFO   | Experiment summary, <http://skgg.org/YAGO3-10_1_N/base> -> <http://skgg.org/YAGO3-10_1_N/skgg/pca=0.362>:
+Triples: 915478 -> 915227 (-251, -0.0%)
+
+Predicates (34):
+  actedIn               31630 -> 31630   (  +0)  [CLOSED]  [EXTENSIONAL]
+  created                5499 -> 5499    (  +0)  [CLOSED]  [EXTENSIONAL]
+  dealsWith              1260 -> 1223    ( -37)  [CLOSED]  [EXTENSIONAL]
+  directed               4993 -> 4993    (  +0)  [CLOSED]  [EXTENSIONAL]
+  edited                 3084 -> 3084    (  +0)  [CLOSED]  [EXTENSIONAL]
+  exports                 350 -> 350     (  +0)  [CLOSED]  [EXTENSIONAL]
+  graduatedFrom          4696 -> 4696    (  +0)  [CLOSED]  [EXTENSIONAL]
+  happenedIn             5037 -> 5037    (  +0)  [CLOSED]  [EXTENSIONAL]
+  hasAcademicAdvisor      220 -> 220     (  +0)  [CLOSED]  [EXTENSIONAL]
+  hasCapital              644 -> 644     (  +0)  [CLOSED]  [EXTENSIONAL]
+  hasChild               3543 -> 3543    (  +0)  [CLOSED]  [EXTENSIONAL]
+  hasMusicalRole         7145 -> 7145    (  +0)  [CLOSED]  [EXTENSIONAL]
+  hasNeighbor             538 -> 538     (  +0)  [CLOSED]  [EXTENSIONAL]
+  hasOfficialLanguage     109 -> 108     (  -1)  [CLOSED]  [EXTENSIONAL]
+  hasWebsite                8 -> 8       (  +0)  [CLOSED]  [EXTENSIONAL]
+  hasWonPrize           19818 -> 19818   (  +0)  [CLOSED]  [EXTENSIONAL]
+  imports                 359 -> 359     (  +0)  [CLOSED]  [EXTENSIONAL]
+  influences             9926 -> 9926    (  +0)  [CLOSED]  [EXTENSIONAL]
+  isAffiliatedTo       366363 -> 366259  (-104)  [CLOSED]  [EXTENSIONAL]
+  isCitizenOf             849 -> 849     (  +0)  [CLOSED]  [EXTENSIONAL]
+  isConnectedTo         32317 -> 32277   ( -40)  [CLOSED]  [EXTENSIONAL]
+  isInterestedIn          133 -> 133     (  +0)  [CLOSED]  [EXTENSIONAL]
+  isKnownFor               14 -> 14      (  +0)  [CLOSED]  [EXTENSIONAL]
+  isLeaderOf              583 -> 583     (  +0)  [CLOSED]  [EXTENSIONAL]
+  isLocatedIn           74834 -> 74834   (  +0)  [CLOSED]  [EXTENSIONAL]
+  isMarriedTo            1020 -> 1020    (  +0)  [CLOSED]  [EXTENSIONAL]
+  isPoliticianOf          643 -> 638     (  -5)  [CLOSED]  [EXTENSIONAL]
+  livesIn                1999 -> 1999    (  +0)  [CLOSED]  [EXTENSIONAL]
+  owns                    448 -> 448     (  +0)  [CLOSED]  [EXTENSIONAL]
+  participatedIn         4935 -> 4935    (  +0)  [CLOSED]  [EXTENSIONAL]
+  playsFor             323881 -> 323817  ( -64)  [CLOSED]  [EXTENSIONAL]
+  wasBornIn                 4 -> 4       (  +0)  [CLOSED]  [EXTENSIONAL]
+  worksAt                2914 -> 2914    (  +0)  [CLOSED]  [EXTENSIONAL]
+  wroteMusicFor          5682 -> 5682    (  +0)  [CLOSED]  [EXTENSIONAL]
+
+Rules (19), support, std and PCA confidence, original -> synthetic:
+  2   ?b dealsWith ?a & ?b hasNeighbor ?a => ?a hasNeighbor ?b                       153 -> 158     (    +5)  std 0.987 -> 0.873 (-0.114)  pca 0.994 -> 0.873 (-0.121)  [CLOSED]  [PARTIAL 152]
+  3   ?b hasNeighbor ?a => ?a hasNeighbor ?b                                         520 -> 388     (  -132)  std 0.967 -> 0.721 (-0.245)  pca 0.970 -> 0.724 (-0.246)  [OPEN]    [PARTIAL 504]
+  4   ?a playsFor ?b => ?a isAffiliatedTo ?b                                      284907 -> 274460  (-10447)  std 0.880 -> 0.848 (-0.032)  pca 0.963 -> 0.928 (-0.035)  [CLOSED]  [PARTIAL 274458]
+  5   ?a isAffiliatedTo ?b => ?a playsFor ?b                                      284907 -> 274460  (-10447)  std 0.778 -> 0.749 (-0.028)  pca 0.861 -> 0.830 (-0.031)  [CLOSED]  [PARTIAL 245349]
+  6   ?b isConnectedTo ?a => ?a isConnectedTo ?b                                   21584 -> 25188   ( +3604)  std 0.668 -> 0.780 (+0.112)  pca 0.677 -> 0.791 (+0.114)  [CLOSED]  [PARTIAL 14618]
+  7   ?a actedIn ?b & ?a created ?b => ?a directed ?b                                143 -> 76      (   -67)  std 0.445 -> 0.987 (+0.542)  pca 0.532 -> 0.987 (+0.455)  [CLOSED]  [PARTIAL 76]
+  8   ?e hasChild ?a & ?e isPoliticianOf ?b => ?a isPoliticianOf ?b                   47 -> 42      (    -5)  std 0.431 -> 0.389 (-0.042)  pca 0.904 -> 0.519 (-0.385)  [CLOSED]  [PARTIAL 42]
+  9   ?a isMarriedTo ?f & ?f hasChild ?b => ?a hasChild ?b                           203 -> 86      (  -117)  std 0.424 -> 0.158 (-0.266)  pca 0.424 -> 0.158 (-0.266)  [CLOSED]  [PARTIAL 86]
+  11  ?b isMarriedTo ?a => ?a isMarriedTo ?b                                         348 -> 324     (   -24)  std 0.341 -> 0.318 (-0.024)  pca 0.590 -> 0.549 (-0.041)  [CLOSED]  [PARTIAL 205]
+  12  ?a actedIn ?b & ?a directed ?b => ?a created ?b                                143 -> 76      (   -67)  std 0.329 -> 0.987 (+0.658)  pca 0.532 -> 1.000 (+0.468)  [CLOSED]  [PARTIAL 76]
+  13  ?b dealsWith ?a & ?b hasNeighbor ?a => ?a dealsWith ?b                          51 -> 30      (   -21)  std 0.329 -> 0.166 (-0.163)  pca 0.402 -> 0.199 (-0.203)  [CLOSED]  [PARTIAL 20]
+  14  ?a dealsWith ?b & ?b dealsWith ?a => ?a hasNeighbor ?b                          51 -> 30      (   -21)  std 0.319 -> 0.429 (+0.110)  pca 0.455 -> 0.508 (+0.053)  [CLOSED]  [PARTIAL 23]
+  15  ?a hasNeighbor ?b & ?b dealsWith ?a => ?a dealsWith ?b                          51 -> 30      (   -21)  std 0.317 -> 0.164 (-0.153)  pca 0.392 -> 0.196 (-0.196)  [CLOSED]  [PARTIAL 20]
+  16  ?b hasNeighbor ?a => ?a dealsWith ?b                                           161 -> 183     (   +22)  std 0.299 -> 0.340 (+0.041)  pca 0.377 -> 0.429 (+0.052)  [CLOSED]  [PARTIAL 61]
+  17  ?e dealsWith ?b & ?e hasNeighbor ?a => ?a dealsWith ?b                         632 -> 464     (  -168)  std 0.296 -> 0.189 (-0.107)  pca 0.365 -> 0.205 (-0.160)  [CLOSED]  [PARTIAL 231]
+  21  ?a hasNeighbor ?b => ?a dealsWith ?b                                           155 -> 181     (   +26)  std 0.288 -> 0.336 (+0.048)  pca 0.363 -> 0.424 (+0.061)  [CLOSED]  [PARTIAL 56]
+  28  ?a hasChild ?f & ?f isPoliticianOf ?b => ?a isPoliticianOf ?b                   30 -> 41      (   +11)  std 0.250 -> 0.283 (+0.033)  pca 0.857 -> 0.554 (-0.303)  [CLOSED]  [PARTIAL 26]
+  57  ?a hasNeighbor ?f & ?f hasOfficialLanguage ?b => ?a hasOfficialLanguage ?b      10 -> 6       (    -4)  std 0.132 -> 0.075 (-0.057)  pca 0.588 -> 0.333 (-0.255)  [CLOSED]  [PARTIAL 6]
+  59  ?e hasNeighbor ?a & ?e hasOfficialLanguage ?b => ?a hasOfficialLanguage ?b      10 -> 7       (    -3)  std 0.130 -> 0.083 (-0.047)  pca 0.588 -> 0.350 (-0.238)  [CLOSED]  [PARTIAL 6]
+
+Removed cyclic rules (1):
+  1   ?a isInterestedIn ?f & ?f isInterestedIn ?b => ?a isInterestedIn ?b              3 -> 0       (    -3)  std 1.000 -> 0.000 (-1.000)  pca 1.000 -> 0.000 (-1.000)
+01:06:27 | __main__ | INFO   | Execution finished after 5229.5s.
+01:07:05 | skgg.core.triples | INFO   | Wrote 915227 triples to /tmp/tmpyeoop95q/graph.tsv, skipping 0 duplicate triples and 0 invalid lines.
+01:07:05 | __main__ | INFO   | Downloaded <http://skgg.org/YAGO3-10_1_N/skgg/pca=0.362>: 915227 triples to /tmp/tmpyeoop95q/graph.nt and /tmp/tmpyeoop95q/graph.tsv.
