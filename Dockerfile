@@ -90,4 +90,7 @@ WORKDIR /workspace
 # anonymous volume that removing the container leaves behind.
 VOLUME /workspace
 ENTRYPOINT ["skgg-entrypoint"]
-CMD ["--skip-models", "CompGCN"]
+# Every model on the base set. CompGCN is no longer left out: with its own batch size
+# and learning rate it takes about 25 minutes per YAGO3-10 dataset. The CMD can't be
+# empty: the base image's default (/bin/bash) would replace it and start a shell.
+CMD ["--set", "base"]

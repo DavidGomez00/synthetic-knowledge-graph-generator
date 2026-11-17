@@ -12,7 +12,7 @@ The project has no hyperparameter search. Every model trains with fixed settings
 |---|---|
 | Training loop | PyKEEN's sLCWA, inverse triples, filtered negative sampling, margin ranking loss |
 | Epochs | 100, no early stopping |
-| Batch size | 32; CompGCN 131,072, capped at the training instances |
+| Batch size | 32; 4,096 on the YAGO3-10 datasets and their copies; CompGCN 131,072, capped at the training instances |
 | Learning rate | Adam, 0.001 (PyKEEN's default); CompGCN 0.03 |
 | Embedding dimension | 50 |
 | Seed | 1235 |
@@ -34,6 +34,19 @@ A larger batch would be faster, but it changes which models come out ahead. Six 
 Batch size 512 trained these 24 runs in 31 minutes instead of 304. At learning rate 0.001 and 100 epochs it makes 16 times fewer updates, which leaves some models undertrained: ComplEx goes from second to last on `family`, while TuckER and TransH gain on some datasets. Comparing models at batch size 512 would mostly measure which ones tolerate few updates, so the benchmark keeps 32 and gains speed by training runs in parallel.
 
 TODO: It's not that larget batch sizes lead to worse results, but that it requires looking for the best lr., and we don't want to spend time looking for hyperparameters.
+
+The YAGO3-10 datasets are the other exception. At batch size 32 their runs took 500 to 1,100 seconds per epoch on the training machine, 14 to 31 hours per run, so on the five YAGO3-10 datasets and their copies every model but CompGCN trains at batch size 4,096 (`YAGO_BATCH_SIZE` in `train_kge.py`, which `--batch-size` doesn't change), with the other settings unchanged, learning rate 0.001 included. A copy trains with its source's batch size, so the two stay comparable. The batch size was chosen by timing one epoch of each model on YAGO3-10 (871,232 training triples, the largest) at batch sizes 256 to 16,384, and one full evaluation on `test`, on 17 November 2026, each model alone on a MIG 1g.24gb slice while the baseline ran on the machine. 4,096 is the smallest power of two that keeps every model under an hour per run:
+
+| Model | Seconds per epoch at 1,024 / 2,048 / 4,096 | Evaluation (s) | 100 epochs and evaluation at 4,096 (min) |
+|---|---|---|---|
+| TransE | 28.7 / 16.3 / 10.7 | 144 | 20 |
+| TransH | 39.3 / 22.7 / 12.3 | 275 | 25 |
+| TransD | 52.5 / 29.4 / 16.7 | 868 | 42 |
+| RotatE | 38.1 / 22.4 / 13.5 | 234 | 26 |
+| ComplEx | 43.6 / 24.6 / 14.7 | 53 | 25 |
+| TuckER | 40.1 / 22.8 / 15.0 | 140 | 27 |
+
+No run used more than 0.8 GB of GPU memory, even at 16,384. Several runs on one slice are slower than these times. At 4,096 a run makes 128 times fewer updates than at 32, so the YAGO3-10 results are not comparable with batch-32 results, and the section above applies to them: some models may come out undertrained at learning rate 0.001.
 
 CompGCN is the exception. It encodes the whole graph at every step, so at batch size 32 it would take about 60 days per YAGO3-10 dataset on the training machine; it trains with batch size 131,072 and learning rate 0.03 instead, and its results are compared across datasets, not with the other models ([`training-protocol.md`](training-protocol.md), section 3).
 
@@ -64,7 +77,7 @@ tmux new -s baseline
 python scripts/train_kge.py --set base --workers 12 --threads 4
 ```
 
-The French and Family graphs come first, then SGKG and WN18RR, then the five YAGO3-10 datasets, YAGO3-10 itself last. Scaled linearly from the French Royalty test run, the six models other than CompGCN take about 256 run-hours, 86% of them on the YAGO3-10 datasets (3.5 million of the 4.1 million training triples). The 19 other datasets take about 37 run-hours, a few hours with 12 workers. The longest single runs are TransH on YAGO3-10, YAGO3-10_N_1 and YAGO3-10_N_M, about 13 to 14 hours each, and CompGCN takes about 25 minutes per YAGO3-10 dataset. With 12 workers the whole baseline should take a little over a day.
+The French and Family graphs come first, then SGKG and WN18RR, then the five YAGO3-10 datasets, YAGO3-10 itself last. Scaled linearly from the French Royalty test run, the six models other than CompGCN take about 256 run-hours, 86% of them on the YAGO3-10 datasets (3.5 million of the 4.1 million training triples). The 19 other datasets take about 37 run-hours, a few hours with 12 workers. At batch size 32 the longest single runs would have been TransH on YAGO3-10, YAGO3-10_N_1 and YAGO3-10_N_M, about 13 to 14 hours each by this estimate, and 14 to 31 hours as measured; since 17 November 2026 the YAGO3-10 datasets train at batch size 4,096 ("Why batch size 32"), and each run takes 20 to 42 minutes alone on a slice. CompGCN takes about 25 minutes per YAGO3-10 dataset.
 
 These figures are a lower bound: the YAGO3-10 datasets have about 123,000 entities against French Royalty's 2,644, which slows evaluation and some models more than linearly. Check the pace once the first YAGO3-10 epochs are logged (`python scripts/kge_eta.py --workers 12`). When the baseline is done:
 
@@ -126,6 +139,36 @@ To gather everything on one machine, `python scripts/upload_results.py --downloa
 
 ## Run time
 
-On the training machine, the seven models trained on `french` (8,265 training triples), 7 at once on separate MIG slices, in 147 s (TransE), 177 s (RotatE), 322 s (ComplEx), 325 s (TuckER), 413 s (TransD), 487 s (TransH) and 19 s (CompGCN). Scaled linearly to all 159 datasets (11.7 million training triples), the six models other than CompGCN take about 740 run-hours, about 2 to 2.6 days with 12 to 24 workers; the baseline alone takes about 256 run-hours. These are lower bounds, for the reason given in "Training the baseline".
+### Where the times are kept
+
+Each run records its own times: `train_seconds` and `evaluate_seconds` in `exp_results/<dataset>/status/<model>.json`, the seconds of every epoch in `exp_results/<dataset>/logs/<model>.log`, and the same fields in `exp_results/progress.csv`. `exp_results/` is ignored by git; `--upload` copies the status file and the log of every finished run to the `kge-results` branch. When each command started and when each run finished is in `logs/train_kge.log`, which is local only. The figures below were read from these files, and this section keeps them.
+
+### French Royalty datasets (measured, 16 November 2026)
+
+The 62 French datasets (the five French graphs, their full copies, std1 copies and rule-level copies r25 to r100; 238,537 training triples) were trained with every model, 434 runs, on VANILLA's 80/20 splits:
+
+| | |
+|---|---|
+| Command | `train_kge.py --datasets <the French datasets> --workers 32 --threads 2 --upload`, run beside the baseline's 60 workers (about 92 runs at once on the 12 MIG slices) |
+| Wall-clock time | 51.7 minutes (20:45:59 to 21:37:43); the five original graphs trained earlier in the baseline command, finishing between 20:25 and 20:39 |
+| Compute | 32.4 run-hours of training and under a minute of evaluation |
+| Failures | 1: CompGCN on `frenchN_M_ours_r50` ran out of GPU memory on its crowded slice; run again alone, it took 27 seconds |
+| Not counted | the 70 runs of the r0 copies, trained by the same command (5.2 run-hours) and deleted afterwards |
+
+| Model | Training (run-hours) |
+|---|---|
+| TransD | 6.9 |
+| TransH | 6.4 |
+| ComplEx | 5.7 |
+| TuckER | 5.2 |
+| RotatE | 3.9 |
+| TransE | 3.6 |
+| CompGCN | 0.7 |
+
+The longest run was TransD on `french_kbgen_r25`, 17.1 minutes.
+
+### Estimates
+
+On the training machine, the seven models trained on `french` (8,265 training triples), 7 at once on separate MIG slices, in 147 s (TransE), 177 s (RotatE), 322 s (ComplEx), 325 s (TuckER), 413 s (TransD), 487 s (TransH) and 19 s (CompGCN). Scaled linearly, the six models other than CompGCN take about 685 run-hours on the 133 datasets (10.9 million training triples), and about 256 run-hours on the baseline. These are lower bounds: on the French datasets that scaling predicted 15.0 run-hours for those six models, and they took 31.7, 2.1 times as much, with about 92 runs sharing the machine; larger graphs can also slow some models more than linearly ("Training the baseline").
 
 Measured earlier on an RTX 3090 for the base set on the earlier splits, without CompGCN: about 29 hours for the 19 datasets other than YAGO3-10 and 9.7 days in all with one process, and about 11 hours and 3.7 days with 4 workers.

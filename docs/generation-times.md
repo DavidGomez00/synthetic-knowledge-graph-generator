@@ -1,6 +1,6 @@
 # Generation times of the benchmark copies
 
-This page gives the wall-clock time it took to make each synthetic copy of the 24 benchmark datasets in `exp_datasets/`, with this project's generator (`<dataset>_ours`) and with the two baselines, kbgen (`<dataset>_kbgen`) and PyGraft (`<dataset>_pygraft`). All three ran on the development machine, a laptop with an Intel i5-11300H (4 cores, 8 threads) and 15 GB of RAM. PyGraft has no copy of the five YAGO3-10 datasets yet.
+This page gives the wall-clock time it took to make each synthetic copy of the 24 benchmark datasets in `exp_datasets/`, with this project's generator (`<dataset>_ours`) and with the two baselines, kbgen (`<dataset>_kbgen`) and PyGraft (`<dataset>_pygraft`). All three ran on the development machine, a laptop with an Intel i5-11300H (4 cores, 8 threads) and 15 GB of RAM. PyGraft has no copy of the five YAGO3-10 datasets yet. The full copies `<dataset>_ours/` and `<dataset>_kbgen/` were removed on 17 November 2026: the two generators used different rules there (ours 0 to 18 rules, kbgen every mined rule), so they are not comparable. Only the rule-level copies (`<dataset>_ours_std1`, `_r25` to `_r100` and their `_kbgen` twins, made by both generators from the same rules on the branch `pca-partial-rules`) and `<dataset>_pygraft/` remain. The times below are kept as a record.
 
 ## What each time covers
 

@@ -154,7 +154,7 @@ python -m skgg.cli.generate_datasets --datasets french WN18RR --force
 python scripts/check_outputs.py                                         # compare each copy with its source
 ```
 
-`scripts/check_outputs.py` compares each copy with its source: triple counts, new entities, and, per relation, the frequency, the degrees and the number of self-loops. [`docs/generate-benchmarks.md`](docs/generate-benchmarks.md) lists the steps to run the batch on another machine, from the clone to bringing the copies back. The copies of every dataset are tracked in git, with those of kbgen (`<folder>_kbgen/`) and PyGraft (`<folder>_pygraft/`), and [`docs/generation-times.md`](docs/generation-times.md) compares how long each method took.
+`scripts/check_outputs.py` compares each copy with its source: triple counts, new entities, and, per relation, the frequency, the degrees and the number of self-loops. [`docs/generate-benchmarks.md`](docs/generate-benchmarks.md) lists the steps to run the batch on another machine, from the clone to bringing the copies back. Git tracks the rule-level copies of both generators (`<folder>_ours_r25` to `_r100`, `_std1`, and the same for `_kbgen`, made from the same rules) and those of PyGraft (`<folder>_pygraft/`); the full `<folder>_ours/` and `<folder>_kbgen/` copies were removed on 17 November 2026 because the two generators used different rules there.  [`docs/generation-times.md`](docs/generation-times.md) compares how long each method took.
 
 ## Project layout
 
@@ -170,6 +170,8 @@ logs/              # per-run logs (gitignored)
 - [`docs/getting-started.md`](docs/getting-started.md): full setup + first experiment walkthrough.
 - [`docs/generate-benchmarks.md`](docs/generate-benchmarks.md): generating the benchmark copies on another machine.
 - [`docs/generation-times.md`](docs/generation-times.md): time to make each benchmark copy with this generator, kbgen and PyGraft.
+- [`docs/kge_training.md`](docs/kge_training.md): training the KGE models on the benchmark, in parallel and resumably, with the measured run times.
+- [`docs/training-protocol.md`](docs/training-protocol.md): every detail of how the models are trained and evaluated, and how the copies are compared with their originals.
 - [`docs/architecture.md`](docs/architecture.md): components and data flow, with diagrams.
 - [`docs/concepts.md`](docs/concepts.md): glossary of domain terms (EDB/IDB, Horn rules, closure, ...).
 - [`AGENTS.md`](AGENTS.md): terse architecture reference for contributors and AI coding agents alike (`CLAUDE.md` imports this same file for Claude Code).

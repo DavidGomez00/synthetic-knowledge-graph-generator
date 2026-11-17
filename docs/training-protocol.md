@@ -1,18 +1,19 @@
 # KGE training protocol
 
-This page describes how every knowledge graph embedding model of the benchmark is trained and evaluated: the data splits, every setting passed to PyKEEN, the evaluation, where the protocol differs from VANILLA, and a full test run on French Royalty. The protocol was fixed on 16 November 2026 and tested on French Royalty; the full benchmark has not been run with it yet. The code is `scripts/train_kge.py`, `scripts/split_vanilla.py` and `kgc_benchmark/report_results.py`. Every value here was read from the code, from the trained French Royalty models, or from PyKEEN 1.11.1 itself.
+This page describes how every knowledge graph embedding model of the benchmark is trained and evaluated: the data splits, every setting passed to PyKEEN, the evaluation, where the protocol differs from VANILLA, and a full test run on French Royalty. The protocol was fixed on 16 November 2026 and tested on French Royalty. The same day all 62 French datasets were trained with it (434 runs), and the baseline, every model on the 24 original graphs, was started. The code is `scripts/train_kge.py`, `scripts/split_vanilla.py` and `kgc_benchmark/report_results.py`. Every value here was read from the code, from the trained French Royalty models, or from PyKEEN 1.11.1 itself.
 
 ## Summary
 
 - Seven models are trained, TransE, TransH, TransD, RotatE, ComplEx, TuckER and CompGCN, once each per dataset, with PyKEEN 1.11.1.
 - Every dataset uses VANILLA's own 80/20 train/test split, made by calling VANILLA's code. There is no validation set, no early stopping and no hyperparameter search.
-- Six models use VANILLA's settings: 100 epochs, batch size 32, embedding dimension 50 and learning rate 0.001 (Adam, PyKEEN's default). CompGCN trains with a larger batch and learning rate so that it can run on the largest graphs, and its results are compared across datasets, not with the other models.
+- Six models use VANILLA's settings: 100 epochs, batch size 32, embedding dimension 50 and learning rate 0.001 (Adam, PyKEEN's default), except that on the YAGO3-10 datasets and their copies they train at batch size 4,096. CompGCN trains with a larger batch and learning rate so that it can run on the largest graphs, and its results are compared across datasets, not with the other models.
 - Models are evaluated by filtered, rank-based link prediction on the test split, predicting both heads and tails: Hits@1, 3, 5, 10 and 15, and MRR.
-- A full run of the seven models on French Royalty trained and evaluated correctly, in 19 s (CompGCN) to 8 min (TransH) per model.
+- A full run of the seven models on French Royalty trained and evaluated correctly, in 19 s (CompGCN) to 8 min (TransH) per model; the 62 French datasets then took 51.7 minutes and 32.4 run-hours.
+- Each copy is compared with its original by Spearman's ρ between the model rankings and by the mean squared error of each metric.
 
 ## 1. Data and splits
 
-The benchmark has 159 datasets in `exp_datasets/`: 24 original graphs (French Royalty, Family, SGKG, WN18RR, YAGO3-10 and their 1:1, 1:N, N:1 and N:M sub-graphs) and 135 synthetic copies made by this project's generator, kbgen and PyGraft, including copies at several rule thresholds. The 24 archived copies in `exp_datasets/ours-no-reflexivity-09-11/` are split the same way. The copies come from the branch `pca-partial-rules` (up to commit `ecce66e`), which records how the rule-level copies were made in `runs/rule-levels/`; only their triples files and used rules are taken from it, with `exp_datasets/rule_levels.tsv`, the thresholds of each level.
+The benchmark has 133 datasets in `exp_datasets/`: 24 original graphs (French Royalty, Family, SGKG, WN18RR, YAGO3-10 and their 1:1, 1:N, N:1 and N:M sub-graphs) and 109 synthetic copies made by this project's generator, kbgen and PyGraft, including copies at several rule thresholds. The 24 archived copies in `exp_datasets/ours-no-reflexivity-09-11/` are split the same way. The copies come from the branch `pca-partial-rules` (up to commit `ecce66e`), which records how the rule-level copies were made in `runs/rule-levels/`; only their triples files and used rules are taken from it, with `exp_datasets/rule_levels.tsv`, the thresholds of each level.
 
 ### Split procedure
 
@@ -21,7 +22,7 @@ The benchmark has 159 datasets in `exp_datasets/`: 24 original graphs (French Ro
 3. It splits with the same call as `KGC.py`, `TriplesFactory.split(random_state=1235)`, PyKEEN's default 80/20 ratio. PyKEEN moves triples into the training part where needed so that every entity and relation appears in training.
 4. The two parts are written as `KGC.py` writes them, to `train` and `test`, tab-separated, without header or index. There is no `valid` file, since `KGC.py` has no validation set.
 
-### Checks on the 183 split datasets
+### Checks on the 157 split datasets
 
 - Every source file was checked first: three tab-separated fields per line, LF line endings, no header rows and no duplicate triples.
 - Train and test share no triple, and together they hold exactly the triples of the source file.
@@ -43,7 +44,7 @@ Every run is one call to PyKEEN's `pipeline` with the arguments below. Anything 
 |---|---|---|
 | Training loop | sLCWA (stochastic local closed-world assumption) | set |
 | Epochs | 100, no early stopping | set |
-| Batch size | 32 (CompGCN: see section 3) | set |
+| Batch size | 32; 4,096 on the YAGO3-10 datasets and their copies (`YAGO_BATCH_SIZE`, see "Why batch size 32" in `kge_training.md`) (CompGCN: see section 3) | set |
 | Embedding dimension | 50 (RotatE and ComplEx: 50 complex numbers) | set |
 | Inverse triples | yes: each training triple (h, r, t) also adds (t, r⁻¹, h) | set |
 | Random seed | 1235 | set |
@@ -62,12 +63,12 @@ The model hyperparameters are PyKEEN's defaults, apart from the embedding dimens
 
 | Model | Model details (PyKEEN defaults) | Regularization | Parameters | Batch size | Learning rate |
 |---|---|---|---|---|---|
-| TransE | L1 distance | none | 133,300 | 32 | 0.001 |
-| TransH | L2 distance, relation hyperplanes | norm-limit and orthogonality regularizers, weight 0.05 | 134,400 | 32 | 0.001 |
-| TransD | entity and relation projection vectors, relation dimension 50 | none | 266,600 | 32 | 0.001 |
-| RotatE | complex embeddings, rotation in the complex plane | none | 266,600 | 32 | 0.001 |
-| ComplEx | complex embeddings | Lp regularizer, weight 0.01 | 266,600 | 32 | 0.001 |
-| TuckER | core tensor 50×50×50, dropouts 0.3, 0.4 and 0.5, batch normalization | dropout | 258,500 | 32 | 0.001 |
+| TransE | L1 distance | none | 133,300 | 32; YAGO3-10: 4,096 | 0.001 |
+| TransH | L2 distance, relation hyperplanes | norm-limit and orthogonality regularizers, weight 0.05 | 134,400 | 32; YAGO3-10: 4,096 | 0.001 |
+| TransD | entity and relation projection vectors, relation dimension 50 | none | 266,600 | 32; YAGO3-10: 4,096 | 0.001 |
+| RotatE | complex embeddings, rotation in the complex plane | none | 266,600 | 32; YAGO3-10: 4,096 | 0.001 |
+| ComplEx | complex embeddings | Lp regularizer, weight 0.01 | 266,600 | 32; YAGO3-10: 4,096 | 0.001 |
+| TuckER | core tensor 50×50×50, dropouts 0.3, 0.4 and 0.5, batch normalization | dropout | 258,500 | 32; YAGO3-10: 4,096 | 0.001 |
 | CompGCN | one CompGCN layer (multiplicative composition, symmetric edge weighting, batch normalization, dropout 0), DistMult decoder | none | 143,500 | 131,072, capped (section 3) | 0.03 |
 
 ## 3. CompGCN
@@ -95,7 +96,8 @@ On small datasets one update per epoch means 100 updates in all, which may lower
 - Realistic rank: when several candidates tie in score, the correct answer gets the mean of their ranks.
 - Metrics: Hits@k for k = 1, 3, 5, 10 and 15, the share of queries whose correct answer ranks in the top k, and MRR, the mean reciprocal rank, over head and tail queries together.
 - PyKEEN computes Hits@1, 3, 5 and 10 and MRR at the end of training. `report_results.py` then ranks every test triple again with the saved model, which gives Hits@15 and the per-relation results, and leaves out a run whose recomputed MRR differs from PyKEEN's by more than 0.001.
-- A copy is compared with its original by Spearman's ρ between the two rankings of the models (`scipy.stats.spearmanr`), and by the mean squared error of each metric over the models trained on both (`sklearn.metrics.mean_squared_error`), both computed metric by metric (`kgc_benchmark/spearman_rho.py`, `scripts/compare_results.py`, `scripts/results_table.py`).
+- A copy is compared with its original by Spearman's ρ between the two rankings of the models (`scipy.stats.spearmanr`), and by the mean squared error of each metric over the models trained on both (`sklearn.metrics.mean_squared_error`), both computed metric by metric (`kgc_benchmark/spearman_rho.py`, `scripts/compare_results.py`, `scripts/results_table.py`). A ρ with p < 0.005 is marked with an asterisk.
+- `compare_results.py` writes, for each graph at each threshold, the metrics table, the agreement table and a bump chart of the model ranking (`exp_analysis/results_tables/<graph>_<threshold>/`), and for each graph one MSE table with a row per threshold (`exp_analysis/results_tables/<graph>/mse.*`); `results_table.py` writes the main tables of the benchmark.
 
 ## 5. Differences from VANILLA's KGC.py
 
@@ -154,9 +156,13 @@ Decided on 16 November 2026:
 - The hyperparameter search was removed from the project as out of scope, and all models use fixed settings.
 - CompGCN uses its own batch size and learning rate, and is compared across datasets only.
 - All results trained on the earlier splits or with searched hyperparameters were deleted.
+- Ranking agreement is Spearman's ρ (it replaced Kendall's τ), with an asterisk for p < 0.005, and the distance between a copy's and the original's metrics is the mean squared error, metric by metric (it replaced the mean absolute and relative differences).
+- The copies made with no rules (level r0) are not part of the benchmark and were removed.
+- Datasets train smallest first, so the YAGO3-10 datasets come last.
+- An upload to the results branch replaces a dataset's runs there when its settings or splits changed, and a worker no longer waits for another worker's upload.
 
 Open points:
 
 - On small datasets CompGCN gets only 100 updates in all, which may understate its performance there.
 - With the fixed default settings some models, ComplEx and TransH in particular, score low on French Royalty.
-- The six models other than CompGCN should take about 740 run-hours on the 159 datasets (11.7 million training triples), about 2 to 2.6 days with 12 to 24 parallel runs, scaled linearly from the French Royalty timings. This is a lower bound, since larger graphs can slow some models more than linearly.
+- The six models other than CompGCN should take about 685 run-hours on the 133 datasets (10.9 million training triples), scaled linearly from the French Royalty timings. This is a lower bound: the 62 French datasets took 31.7 run-hours for those six models, 2.1 times the 15.0 that scaling predicted, with about 92 runs sharing the machine (all seven models: 32.4 run-hours, 51.7 minutes of wall-clock time; [`kge_training.md`](kge_training.md), "Run time").

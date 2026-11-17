@@ -1,18 +1,21 @@
 """Trains the KGC-Benchmark embedding models on every dataset under exp_datasets/.
 
-Each dataset is trained the way KGC.py of the KGC-Benchmark project trains a graph,
-with the settings of its input.json: PyKEEN's pipeline with the sLCWA training loop,
-inverse triples, filtered negative sampling and seed 1235. The split is the one
-difference: KGC.py splits one file 80/20, and this script uses the `train`, `valid`
-and `test` files of each dataset folder. Models train on `train` and are evaluated
-on `test`. `valid` only adds known answers to filter out of the ranking, as there is
-no early stopping.
+Each dataset is trained the way KGC.py of VANILLA (the KGC-Benchmark project) trains
+a graph, with the settings of its input.json: PyKEEN's pipeline with the sLCWA
+training loop, 100 epochs, batch size 32, embedding dimension 50, filtered negative
+sampling and seed 1235, plus inverse triples. CompGCN trains with its own batch size
+and learning rate (`Settings.compgcn_batch_size`, `compgcn_learning_rate`). The
+YAGO3-10 datasets and their copies train the other models at batch size 4096
+(`YAGO_BATCH_SIZE`), which `--batch-size` doesn't change. Every
+dataset folder holds VANILLA's 80/20 split of the dataset, `train` and `test`, made
+by scripts/split_vanilla.py with KGC.py's own code; models train on `train` and are
+evaluated on `test`. A `valid` file is optional: none of the current datasets has
+one, and a missing `valid` is read as empty (it would only add known answers to
+filter out of the ranking, as there is no early stopping).
 
 The output has KGC.py's layout, so `report_results.py --root <output>` reads it:
-`<output>/<dataset>/` holds the three splits and `<model>/` the trained model and its
-metrics. That script doesn't filter `valid` when it recomputes the ranks, so its
-per-prediction analysis leaves out a run whose MRR then differs by more than 0.001
-from its results.json.
+`<output>/<dataset>/` holds the splits and `<model>/` the trained model and its
+metrics. docs/training-protocol.md describes every setting.
 
 The script can be stopped at any moment, by Ctrl-C, a kill or a power cut. Running
 the same command again skips the finished models and resumes the others from
@@ -77,7 +80,7 @@ import sys
 import time
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -116,6 +119,12 @@ COPY_SETS = ("ours", "kbgen", "pygraft")
 REQUIRED_SPLITS = ("train", "test")
 # CPU threads of each worker; PyTorch would otherwise start one per core.
 DEFAULT_THREADS = 4
+# The YAGO3-10 datasets (base datasets whose name starts with this prefix, and their
+# copies) train every model but CompGCN at YAGO_BATCH_SIZE instead of
+# Settings.batch_size: at batch size 32 a run took 14 to 31 hours on a MIG 1g.24gb
+# slice, and at 4096 the slowest model (TransD) takes about 42 minutes on YAGO3-10.
+YAGO_PREFIX = "YAGO"
+YAGO_BATCH_SIZE = 4096
 LOG_FILE = Path("logs/train_kge.log")
 # Each training run's own log, `<output>/<dataset>/logs/<model>.log`, with every
 # message of the run: DEBUG of the loggers in RUN_LOG_DEBUG, INFO of the others.
@@ -351,6 +360,14 @@ def base_dataset(name: str) -> str:
     """The base dataset of a copy, or the dataset itself."""
     match = COPY_NAME.fullmatch(name)
     return match["base"] if match else name
+
+
+def dataset_settings(settings: Settings, name: str) -> Settings:
+    """The settings a dataset trains with: YAGO_BATCH_SIZE for the YAGO3-10 datasets
+    and their copies, so a copy trains as its source does; `settings` otherwise."""
+    if base_dataset(name).startswith(YAGO_PREFIX):
+        return replace(settings, batch_size=YAGO_BATCH_SIZE)
+    return settings
 
 
 def visible_devices() -> list[str]:
@@ -800,7 +817,7 @@ def run_jobs(
                     checkpoints,
                     folder,
                     model,
-                    settings,
+                    dataset_settings(settings, folder.name),
                     status,
                     loaded,
                     progress_bars,
@@ -1259,11 +1276,14 @@ def main() -> int:
     )
     initialize_statuses(args.output, folders, args.models, settings.num_epochs)
     logger.info(
-        "Training %s on %d datasets with %d worker(s), with %s.",
+        "Training %s on %d datasets with %d worker(s), with %s (batch size %d on "
+        "the %s datasets).",
         ", ".join(args.models),
         len(folders),
         args.workers,
         settings,
+        YAGO_BATCH_SIZE,
+        YAGO_PREFIX,
     )
     if args.workers > 1:
         logger.info(

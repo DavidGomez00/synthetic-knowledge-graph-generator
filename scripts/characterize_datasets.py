@@ -1,16 +1,17 @@
 """Computes the structural descriptors of the benchmark datasets (objective O1).
 
 For each folder directly under the root (default `exp_datasets`) with a
-`<folder>.unified.tsv`, reads its distinct triples and, if present, the rules
-mined from it (`<folder>.csv`), and computes five groups of descriptors:
+`<folder>.unified.tsv` (a source dataset) or a `<folder>.tsv` (a copy), reads its
+distinct triples and, if present, the rules mined from it (`<folder>.csv`), and
+computes five groups of descriptors:
 
 - size and density: entities, relations, triples, self-loops, mean degree
-  (2|E|/|V|), density |E| / (|V|^2 |R|) and the share of entities in the largest
-  weakly connected component;
+  (2|E|/|V|), density |E| / (|V| (|V| - 1)), the number of weakly connected
+  components and the share of entities in the largest one;
 - degree heterogeneity: for the in-degree and the out-degree of each entity
   (triples with the entity as object or subject, over all relations), the
-  maximum, the coefficient of variation (std / mean), the Gini coefficient and
-  the share of entities with degree 0;
+  maximum, the standard deviation, the coefficient of variation (std / mean),
+  the Gini coefficient and the share of entities with degree 0;
 - relation frequency distribution: the Gini coefficient and normalized Shannon
   entropy of the relation frequencies, the share of the most frequent relation,
   and the smallest, median and largest frequency;
@@ -36,16 +37,23 @@ Writes to `--output-dir` (default `exp_analysis`):
 - `dataset_characteristics.csv`: one row per dataset with every descriptor;
 - `relation_characteristics.csv`: one row per relation of each dataset;
 - `dataset_characteristics.md` and `.tex`: the summary table, one row per
-  dataset grouped by dataset family.
+  dataset grouped by dataset family;
+- `structural_comparison.csv`, `.md` and `.tex`: the descriptors that compare a
+  copy with its source (|E|, |V|, |L|, components, density, max and std of the
+  in- and out-degree), one block per source dataset with the source first and
+  then its copies;
+- `structural_tables/<descriptor>.csv`, `.md` and `.tex`: one table per
+  descriptor of the comparison, one row per source dataset and one column per
+  method (Original, PyGraft, KBgen, NAME), with the full copies only.
 
-`--set` picks the datasets as `train_kge.py` does: `base` (default), the
-`_ours`, `_kbgen` or `_pygraft` copies (read from `<folder>/<folder>.tsv`), or
-`all`. Only the Python standard library is used, and one dataset is read at a
-time.
+`--set` picks the datasets: `base` (default), the `_ours`, `_kbgen` or
+`_pygraft` copies (read from `<folder>/<folder>.tsv`), including their
+rule-level copies (`<source>_<set>_r50`, `<source>_<set>_std1`, ...), or `all`.
+Only the Python standard library is used, and one dataset is read at a time.
 
     python scripts/characterize_datasets.py
     python scripts/characterize_datasets.py --datasets french family
-    python scripts/characterize_datasets.py --set all --output-dir /tmp/characteristics
+    python scripts/characterize_datasets.py --set all
 """
 
 import argparse
@@ -81,6 +89,10 @@ FAMILY_ORDER = ("French Royalty", "Family", "WN18RR", "YAGO3-10", "SGKG")
 VARIANT_ORDER = ("complete", "1-1", "1-N", "N-1", "N-M")
 VARIANT_RE = re.compile(r"^(.*?)_?([1NM])_([1NM])$")
 SGKG_RE = re.compile(r"^(SGKG)(\d+)$", re.IGNORECASE)
+# A copy: `<source>_<set>`, or a rule-level copy `<source>_<set>_<level>`.
+COPY_RE = re.compile(
+    rf"^(?P<source>.+)_(?P<set>{'|'.join(COPY_SETS)})(?:_(?P<level>r\d+|std1))?$"
+)
 
 
 @dataclass
@@ -161,8 +173,8 @@ def normalized_entropy(values: list[int]) -> float:
     return h / math.log(len(values))
 
 
-def largest_component_share(graph: Graph) -> float:
-    """Share of entities in the largest weakly connected component."""
+def component_sizes(graph: Graph) -> list[int]:
+    """Sizes of the weakly connected components, ignoring direction and relation."""
     parent = list(range(len(graph.entities)))
 
     def find(x: int) -> int:
@@ -176,8 +188,7 @@ def largest_component_share(graph: Graph) -> float:
             a, b = find(h), find(t)
             if a != b:
                 parent[a] = b
-    sizes = Counter(find(x) for x in range(len(parent)))
-    return max(sizes.values()) / len(parent) if parent else 0.0
+    return list(Counter(find(x) for x in range(len(parent))).values())
 
 
 def cardinality(tails_per_head: float, heads_per_tail: float) -> str:
@@ -307,11 +318,29 @@ def rule_descriptors(path: Path) -> dict[str, object]:
     }
 
 
-def dataset_set(name: str) -> str:
-    for copy_set in COPY_SETS:
-        if name.endswith(f"_{copy_set}"):
-            return copy_set
-    return "base"
+def parse_name(name: str) -> tuple[str, str, str]:
+    """The set (base, ours, kbgen or pygraft), source dataset and rule level
+    ("" for a source or a default copy) of a dataset folder."""
+    match = COPY_RE.match(name)
+    if match is None:
+        return "base", name, ""
+    return match["set"], match["source"], match["level"] or ""
+
+
+def level_key(level: str) -> tuple[int, int]:
+    """Default copy first, then std1, then the rule levels by threshold."""
+    if not level:
+        return (0, 0)
+    if level == "std1":
+        return (1, 0)
+    return (2, int(level[1:]))
+
+
+def triples_path(root: Path, name: str) -> Path:
+    copy_set = parse_name(name)[0]
+    return (
+        root / name / (f"{name}.unified.tsv" if copy_set == "base" else f"{name}.tsv")
+    )
 
 
 def family_and_variant(name: str) -> tuple[str, str]:
@@ -335,9 +364,12 @@ def family_and_variant(name: str) -> tuple[str, str]:
     return FAMILY_NAMES.get(base.lower(), base), variant
 
 
-def sort_key(row: dict[str, object]) -> tuple[int, str, int, str, str]:
+def sort_key(
+    row: dict[str, object],
+) -> tuple[int, str, int, str, int, str, tuple[int, int]]:
     family = str(row["family"])
     variant = str(row["variant"])
+    copy_set = str(row["set"])
     return (
         FAMILY_ORDER.index(family) if family in FAMILY_ORDER else len(FAMILY_ORDER),
         family,
@@ -345,19 +377,17 @@ def sort_key(row: dict[str, object]) -> tuple[int, str, int, str, str]:
         if variant in VARIANT_ORDER
         else len(VARIANT_ORDER),
         variant,
-        str(row["set"]),
+        ("base", *COPY_SETS).index(copy_set),
+        copy_set,
+        level_key(str(row["level"])),
     )
 
 
 def characterize(
     root: Path, name: str, threshold: float
 ) -> tuple[dict[str, object], list[dict[str, object]]]:
-    copy_set = dataset_set(name)
-    source = name.removesuffix(f"_{copy_set}") if copy_set != "base" else name
-    triples_file = (
-        root / name / (f"{name}.unified.tsv" if copy_set == "base" else f"{name}.tsv")
-    )
-    graph = read_graph(triples_file)
+    copy_set, source, level = parse_name(name)
+    graph = read_graph(triples_path(root, name))
     family, variant = family_and_variant(source)
 
     n_entities = len(graph.entities)
@@ -369,6 +399,7 @@ def characterize(
         for h, t in pairs:
             out_degree[h] += 1
             in_degree[t] += 1
+    components = component_sizes(graph)
 
     relations = relation_rows(graph, threshold)
     frequencies = [int(r["triples"]) for r in relations]  # type: ignore[call-overload]
@@ -381,6 +412,7 @@ def characterize(
         "dataset": name,
         "set": copy_set,
         "source": source,
+        "level": level,
         "family": family,
         "variant": variant,
         "lines": graph.lines,
@@ -392,16 +424,19 @@ def characterize(
         "triples": n_triples,
         "self_loops": sum(int(r["self_loops"]) for r in relations),  # type: ignore[call-overload]
         "mean_degree": 2 * n_triples / n_entities if n_entities else 0.0,
-        "density": n_triples / (n_entities**2 * n_relations)
-        if n_entities and n_relations
+        "density": n_triples / (n_entities * (n_entities - 1))
+        if n_entities > 1
         else 0.0,
-        "largest_wcc_share": largest_component_share(graph),
+        "components": len(components),
+        "largest_wcc_share": max(components) / n_entities if n_entities else 0.0,
         # Degree heterogeneity.
         "in_degree_max": max(in_degree, default=0),
+        "in_degree_std": statistics.pstdev(in_degree) if in_degree else 0.0,
         "in_degree_cv": coefficient_of_variation(in_degree),
         "in_degree_gini": gini(in_degree),
         "in_degree_zero_share": in_degree.count(0) / n_entities if n_entities else 0.0,
         "out_degree_max": max(out_degree, default=0),
+        "out_degree_std": statistics.pstdev(out_degree) if out_degree else 0.0,
         "out_degree_cv": coefficient_of_variation(out_degree),
         "out_degree_gini": gini(out_degree),
         "out_degree_zero_share": out_degree.count(0) / n_entities
@@ -436,7 +471,7 @@ def characterize(
         **rule_descriptors(root / name / f"{name}.csv"),
     }
     for r in relations:
-        r.update({"dataset": name, "set": copy_set})
+        r.update({"dataset": name, "set": copy_set, "level": level})
     return row, relations
 
 
@@ -462,6 +497,7 @@ SUMMARY_COLUMNS: tuple[tuple[str, str, str], ...] = (
     ("|E|", "triples", "int"),
     ("Mean deg.", "mean_degree", "1f"),
     ("Density", "density", "sci"),
+    ("Comp.", "components", "int"),
     ("WCC", "largest_wcc_share", "2f"),
     ("Gini in", "in_degree_gini", "2f"),
     ("Gini out", "out_degree_gini", "2f"),
@@ -482,6 +518,38 @@ SUMMARY_COLUMNS: tuple[tuple[str, str, str], ...] = (
     ("R hier.", "rules_hierarchy", "int"),
     ("R comp.", "rules_composition", "int"),
 )
+
+# Comparison of the copies with their source.
+COMPARISON_COLUMNS: tuple[tuple[str, str, str], ...] = (
+    ("|E|", "triples", "int"),
+    ("|V|", "entities", "int"),
+    ("|L|", "relations", "int"),
+    ("Comp.", "components", "int"),
+    ("Density", "density", "sci"),
+    ("Max in", "in_degree_max", "int"),
+    ("Max out", "out_degree_max", "int"),
+    ("Std in", "in_degree_std", "2f"),
+    ("Std out", "out_degree_std", "2f"),
+)
+# Columns of the per-descriptor tables: header and set. NAME is this generator,
+# as in `results_table.py`.
+METHOD_COLUMNS = (
+    ("Original", "base"),
+    ("PyGraft", "pygraft"),
+    ("KBgen", "kbgen"),
+    ("NAME", "ours"),
+)
+METRIC_TITLES = {
+    "triples": "Number of triples |E|",
+    "entities": "Number of entities |V|",
+    "relations": "Number of relations |L|",
+    "components": "Number of weakly connected components",
+    "density": "Density |E| / (|V| (|V| - 1))",
+    "in_degree_max": "Maximum in-degree",
+    "out_degree_max": "Maximum out-degree",
+    "in_degree_std": "Standard deviation of the in-degree",
+    "out_degree_std": "Standard deviation of the out-degree",
+}
 
 
 def format_value(value: object, fmt: str, latex: bool = False) -> str:
@@ -506,7 +574,10 @@ def dataset_label(row: dict[str, object]) -> str:
         label = (
             f"{row['family']} {label}" if label != "complete" else str(row["family"])
         )
-    return label if row["set"] == "base" else f"{label} ({row['set']})"
+    if row["set"] == "base":
+        return label
+    copy = f"{row['set']}, {row['level']}" if row["level"] else str(row["set"])
+    return f"{label} ({copy})"
 
 
 # Description of every descriptor for `dataset_characteristics.md`. The source
@@ -517,9 +588,12 @@ DESCRIPTORS = """\
 
 Each dataset is a graph G = (V, R, E): V is the set of entities, R the set of
 relations and E the set of distinct triples (h, r, t), with h, t in V and r in R.
-Repeated triples are counted once. The table shows the main descriptors, and
-`dataset_characteristics.csv` has every one of them under the column name given
-in parentheses.
+Repeated triples are counted once. A source dataset is read from
+`<dataset>.unified.tsv` and a copy from `<dataset>.tsv`. A copy is labelled with
+its generator (ours, kbgen, pygraft) and, for a rule-level copy, its level
+(std1, or r25 to r100, listed in `exp_datasets/rule_levels.tsv`). The table
+shows the main descriptors, and `dataset_characteristics.csv` has every one of
+them under the column name given in parentheses.
 
 ### Size and density
 
@@ -530,12 +604,14 @@ in parentheses.
 - Self-loops (`self_loops`, CSV only): the number of triples with h = t.
 - Mean deg. (`mean_degree`): 2|E| / |V|, the mean number of triples an entity
   takes part in, as subject or object.
-- Density (`density`): |E| / (|V|² |R|), the share of all possible labelled
-  triples that are in the graph. Knowledge graphs are very sparse, so it is
-  between 10⁻⁷ and 10⁻⁴ here.
+- Density (`density`): |E| / (|V| (|V| − 1)), the number of triples over the
+  number of ordered pairs of distinct entities, the density of a directed
+  graph without relation labels. |E| counts distinct triples, so a pair linked
+  by several relations counts once per relation.
+- Comp. (`components`): the number of weakly connected components, found with
+  union-find over the triples, ignoring their direction and relation.
 - WCC (`largest_wcc_share`): the share of entities in the largest weakly
-  connected component, found with union-find over the triples, ignoring their
-  direction and relation.
+  connected component.
 
 ### Degree heterogeneity
 
@@ -545,6 +621,8 @@ Every entity of V is counted, including those with degree 0.
 
 - Max in, Max out (`in_degree_max`, `out_degree_max`): the largest in- and
   out-degree.
+- Std in, Std out (`in_degree_std`, `out_degree_std`, CSV and comparison
+  table): the population standard deviation of the degrees.
 - CV (`in_degree_cv`, `out_degree_cv`, CSV only): the coefficient of variation,
   the standard deviation of the degrees divided by their mean (|E| / |V|).
 - Gini in, Gini out (`in_degree_gini`, `out_degree_gini`): the Gini coefficient
@@ -656,8 +734,21 @@ def descriptor_lines(threshold: float) -> list[str]:
     return lines
 
 
+def markdown_table(
+    rows: list[dict[str, object]], columns: tuple[tuple[str, str, str], ...]
+) -> list[str]:
+    headers = ["Dataset"] + [h.replace("|", "\\|") for h, _, _ in columns]
+    lines = [
+        "| " + " | ".join(headers) + " |",
+        "|" + "|".join(["---"] + ["---:"] * len(columns)) + "|",
+    ]
+    for row in rows:
+        cells = [dataset_label(row)] + [format_value(row[k], f) for _, k, f in columns]
+        lines.append("| " + " | ".join(cells) + " |")
+    return lines
+
+
 def write_markdown(path: Path, rows: list[dict[str, object]], threshold: float) -> None:
-    headers = ["Dataset"] + [h.replace("|", "\\|") for h, _, _ in SUMMARY_COLUMNS]
     lines = [
         "# Dataset characteristics",
         "",
@@ -665,51 +756,180 @@ def write_markdown(path: Path, rows: list[dict[str, object]], threshold: float) 
         "`dataset_characteristics.csv` has every descriptor and "
         "`relation_characteristics.csv` one row per relation.",
         "",
-        "| " + " | ".join(headers) + " |",
-        "|" + "|".join(["---"] + ["---:"] * len(SUMMARY_COLUMNS)) + "|",
+        *markdown_table(rows, SUMMARY_COLUMNS),
+        "",
+        *descriptor_lines(threshold),
     ]
-    for row in rows:
-        cells = [dataset_label(row)] + [
-            format_value(row[k], f) for _, k, f in SUMMARY_COLUMNS
-        ]
-        lines.append("| " + " | ".join(cells) + " |")
-    lines += ["", *descriptor_lines(threshold)]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def write_latex(path: Path, rows: list[dict[str, object]]) -> None:
+def write_latex(
+    path: Path,
+    rows: list[dict[str, object]],
+    columns: tuple[tuple[str, str, str], ...] = SUMMARY_COLUMNS,
+    group: str = "family",
+) -> None:
+    """A tabular of `rows`, with a rule between rows of different `group`."""
     headers = ["Dataset"] + [
-        f"${h}$" if h.startswith("|") else h for h, _, _ in SUMMARY_COLUMNS
+        f"${h}$" if h.startswith("|") else h for h, _, _ in columns
     ]
     lines = [
         "% Generated by scripts/characterize_datasets.py",
-        "\\begin{tabular}{l" + "r" * len(SUMMARY_COLUMNS) + "}",
+        "\\begin{tabular}{l" + "r" * len(columns) + "}",
         "\\toprule",
         " & ".join(headers) + " \\\\",
         "\\midrule",
     ]
     previous = None
     for row in rows:
-        if previous is not None and row["family"] != previous:
+        if previous is not None and row[group] != previous:
             lines.append("\\midrule")
-        previous = row["family"]
+        previous = row[group]
         cells = [dataset_label(row).replace("_", "\\_")] + [
-            format_value(row[k], f, latex=True) for _, k, f in SUMMARY_COLUMNS
+            format_value(row[k], f, latex=True) for _, k, f in columns
         ]
         lines.append(" & ".join(cells) + " \\\\")
     lines += ["\\bottomrule", "\\end{tabular}"]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def comparison_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    """The rows of the comparison, one block per source: the source dataset, then
+    its copies. A copy whose source is not among the rows keeps its own block."""
+    sources = {str(r["dataset"]) for r in rows if r["set"] == "base"}
+    missing = sorted({str(r["source"]) for r in rows if r["set"] != "base"} - sources)
+    if missing:
+        print(f"Copies without their source in the run: {', '.join(missing)}")
+    columns = ("dataset", "set", "level", "source", "family", "variant")
+    keys = columns + tuple(k for _, k, _ in COMPARISON_COLUMNS)
+    # `rows` is sorted by family, variant, set and level, so each source comes
+    # before its copies; the stable sort only groups the rows by source.
+    order = {
+        source: i
+        for i, source in enumerate(dict.fromkeys(str(r["source"]) for r in rows))
+    }
+    picked = [{k: r[k] for k in keys} for r in rows]
+    return sorted(picked, key=lambda r: order[str(r["source"])])
+
+
+def write_comparison(out: Path, rows: list[dict[str, object]]) -> None:
+    write_csv(out / "structural_comparison.csv", rows)
+    lines = [
+        "# Structural comparison of the datasets and their copies",
+        "",
+        "Generated by `scripts/characterize_datasets.py`. Each block is a source "
+        "dataset followed by its copies: ours, kbgen and pygraft, then the "
+        "rule-level copies. The descriptors are defined in "
+        "`dataset_characteristics.md`; Std is the population standard deviation of "
+        "the in- or out-degree over every entity, and Density is "
+        "|E| / (|V| (|V| − 1)).",
+        "",
+    ]
+    previous = None
+    block: list[dict[str, object]] = []
+    for row in [*rows, None]:
+        source = None if row is None else row["source"]
+        if block and source != previous:
+            lines += [f"## {dataset_label(block[0]).split(' (')[0]}", ""]
+            lines += [*markdown_table(block, COMPARISON_COLUMNS), ""]
+            block = []
+        if row is not None:
+            block.append(row)
+            previous = source
+    (out / "structural_comparison.md").write_text("\n".join(lines), encoding="utf-8")
+    write_latex(
+        out / "structural_comparison.tex", rows, COMPARISON_COLUMNS, group="source"
+    )
+
+
+def method_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    """One row per source dataset, in `sort_key` order, with its own descriptors
+    and those of its full copies under `<set>:<key>` ("" for a missing copy)."""
+    copies = {
+        (str(r["source"]), str(r["set"])): r
+        for r in rows
+        if r["set"] != "base" and not r["level"]
+    }
+    table = []
+    for row in rows:
+        if row["set"] != "base":
+            continue
+        source = str(row["dataset"])
+        out: dict[str, object] = {
+            "dataset": source,
+            "label": dataset_label(row),
+            "family": row["family"],
+        }
+        for _, copy_set in METHOD_COLUMNS:
+            found = row if copy_set == "base" else copies.get((source, copy_set))
+            for _, key, _ in COMPARISON_COLUMNS:
+                out[f"{copy_set}:{key}"] = "" if found is None else found[key]
+        table.append(out)
+    return table
+
+
+def write_metric_tables(out: Path, rows: list[dict[str, object]]) -> None:
+    """`structural_tables/<key>.csv`, `.md` and `.tex` for each descriptor of
+    `COMPARISON_COLUMNS`: datasets as rows, methods as columns."""
+    table = method_rows(rows)
+    if not table:
+        return
+    folder = out / "structural_tables"
+    folder.mkdir(parents=True, exist_ok=True)
+    names = [name for name, _ in METHOD_COLUMNS]
+    for _, key, fmt in COMPARISON_COLUMNS:
+        title = METRIC_TITLES[key]
+        values = [[r[f"{s}:{key}"] for _, s in METHOD_COLUMNS] for r in table]
+        with (folder / f"{key}.csv").open("w", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["dataset", "label", *(s for _, s in METHOD_COLUMNS)])
+            for r, vals in zip(table, values, strict=True):
+                writer.writerow(
+                    [
+                        r["dataset"],
+                        r["label"],
+                        *(f"{v:.6g}" if isinstance(v, float) else v for v in vals),
+                    ]
+                )
+        md = [
+            f"# {title}",
+            "",
+            "Generated by `scripts/characterize_datasets.py`. One row per source "
+            "dataset; NAME is this generator. – marks a copy that does not exist.",
+            "",
+            "| Dataset | " + " | ".join(names) + " |",
+            "|---|" + "---:|" * len(names),
+        ]
+        for r, vals in zip(table, values, strict=True):
+            cells = [format_value(v, fmt) for v in vals]
+            md.append(f"| {r['label']} | " + " | ".join(cells) + " |")
+        (folder / f"{key}.md").write_text("\n".join(md) + "\n", encoding="utf-8")
+        tex = [
+            "% Generated by scripts/characterize_datasets.py",
+            f"% {title}",
+            "\\begin{tabular}{l" + "r" * len(names) + "}",
+            "\\toprule",
+            "Dataset & " + " & ".join(names) + " \\\\",
+            "\\midrule",
+        ]
+        previous = None
+        for r, vals in zip(table, values, strict=True):
+            if previous is not None and r["family"] != previous:
+                tex.append("\\midrule")
+            previous = r["family"]
+            cells = [format_value(v, fmt, latex=True) for v in vals]
+            label = str(r["label"]).replace("_", "\\_")
+            tex.append(f"{label} & " + " & ".join(cells) + " \\\\")
+        tex += ["\\bottomrule", "\\end{tabular}"]
+        (folder / f"{key}.tex").write_text("\n".join(tex) + "\n", encoding="utf-8")
+
+
 def find_datasets(root: Path, chosen_set: str, names: list[str] | None) -> list[str]:
     found = []
     for folder in sorted(p for p in root.iterdir() if p.is_dir()):
         name = folder.name
-        copy_set = dataset_set(name)
-        triples = folder / (
-            f"{name}.unified.tsv" if copy_set == "base" else f"{name}.tsv"
-        )
-        if not triples.is_file():
+        copy_set = parse_name(name)[0]
+        if not triples_path(root, name).is_file():
             continue
         if names is not None:
             if name in names:
@@ -779,13 +999,18 @@ def main() -> None:
     out = args.output_dir
     write_csv(out / "dataset_characteristics.csv", rows)
     write_csv(
-        out / "relation_characteristics.csv", relation_table, first=("dataset", "set")
+        out / "relation_characteristics.csv",
+        relation_table,
+        first=("dataset", "set", "level"),
     )
     write_markdown(out / "dataset_characteristics.md", rows, args.pattern_threshold)
     write_latex(out / "dataset_characteristics.tex", rows)
+    write_comparison(out, comparison_rows(rows))
+    write_metric_tables(out, rows)
     print(
-        "Wrote dataset_characteristics.{csv,md,tex} and "
-        f"relation_characteristics.csv to {out}"
+        "Wrote dataset_characteristics.{csv,md,tex}, structural_comparison."
+        "{csv,md,tex}, structural_tables/ and relation_characteristics.csv "
+        f"to {out}"
     )
 
 
