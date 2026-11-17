@@ -1,5 +1,7 @@
 # Generating kbgen's rule-level copies on another machine
 
+This page is the procedure of 16 November 2026, before both generators were given the same rules. It is kept as a record: the copies in `exp_datasets/` were made by `runs/rule-levels/reproduce.sh`, which gives kbgen the rules this generator used at each level, and the `r0` copies it plans were dropped on 17 November 2026. Follow `runs/rule-levels/README.md` to make the copies again.
+
 This page lists the steps to make kbgen's copies of the rule-level experiment on any machine with a clone of this repository: get kbgen and patch it, run its driver on some datasets, check the copies, split them and bring them back. [`rule-levels.md`](rule-levels.md) explains the experiment: each dataset is copied with only part of its mined rules, at the levels `r0` (none), `r25`, `r50` and `r75`, with a PCA threshold per dataset and level read from `exp_datasets/rule_levels.tsv`. The level `r100` is the existing `<dataset>_kbgen` copy and is never made again.
 
 kbgen is not seeded, so two runs of the same dataset and level give different copies. Each dataset is made on one machine only: check the table below, and take only the datasets the user assigns to the machine.

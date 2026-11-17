@@ -6,7 +6,7 @@ kbgen (Melo and Paulheim, ESWC 2017) made its copies, `<dataset>_kbgen`, from ev
 
 | Level | Rules given to the generator |
 |---|---|
-| `r0` | none |
+| `r0` | none (in `rule_levels.tsv`, but no copy since 17 November 2026) |
 | `std1` | the rules with std confidence 1, those `<dataset>_ours` uses |
 | `r25` | about 25% of the dataset's mined rules, those with the highest PCA confidence |
 | `r50` | about 50% |
@@ -134,4 +134,4 @@ python scripts/train_kge.py --set kbgen-levels --skip-models CompGCN --workers 4
 
 ## Reading the results
 
-For each dataset and generator, the metrics of its copies (MRR, Hits@1, Hits@10) are compared across `share_kept`, from `r0` to `r100`, with the source dataset's own results as reference, and a second view against `rules_ours` and `rules_kbgen`. A level that is not generated takes the results of the level it names in `ours_same_as` or `kbgen_same_as`. The thresholds keep the rules of highest PCA confidence first, so the amount of rules and their confidence change together: a lower level has fewer rules and more confident ones.
+For each dataset and generator, the metrics of its copies (MRR, Hits@1, Hits@10) are compared across `share_kept`, from `std1` to `r100`, with the source dataset's own results as reference, and a second view against `rules_ours` and `rules_kbgen`. A level that is not generated takes the results of the level it names in `ours_same_as` or `kbgen_same_as`. The thresholds keep the rules of highest PCA confidence first, so the amount of rules and their confidence change together: a lower level has fewer rules and more confident ones.
