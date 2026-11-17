@@ -168,8 +168,6 @@ def latex_tables(
     results_table.AGREEMENT_GRAPHS = ((family,),)
     results_table.AGREEMENT_METRICS = METRICS
     made = THRESHOLDS.get(threshold, f"made at threshold {threshold}")
-    if any(generator(c)[2] == FULL for c in copies):
-        made += " (PyGraft's made without rules)"
     stem = f"{family.replace('_', '-')}_{threshold}"
     metrics = results_table.read_metrics(analysis / "metrics.csv")
     tables = {
@@ -437,9 +435,8 @@ def graph_mse_latex(analysis: Path, family: str, caption: str) -> str:
         caption=(
             f"Mean squared error of {results_table.metric_list(METRICS)} between "
             f"{caption} and the synthetic copy of each generator using different "
-            "amounts of rules (std1: the rules with std confidence 1; r25 to r100: 25 "
-            "to 100\\% of the mined rules, those of highest PCA confidence), computed "
-            f"over the models trained on both (all {len(MODELS)} "
+            f"amounts of rules ({rule_legend()}), computed over the models trained on "
+            f"both (all {len(MODELS)} "
             "unless marked $^\\dagger$). The smallest error of each threshold and "
             "metric is in bold."
         ),
@@ -469,9 +466,8 @@ def graph_agreement_latex(analysis: Path, family: str, caption: str) -> str:
         caption=(
             "Spearman's $\\rho$ between the ranking of the models on "
             f"{caption} and on the synthetic copy of each generator using different "
-            "amounts of rules (std1: the rules with std confidence 1; r25 to r100: 25 "
-            "to 100\\% of the mined rules, those of highest PCA confidence), for "
-            f"metrics {results_table.metric_list(METRICS)}. The higher $\\rho$ of "
+            f"amounts of rules ({rule_legend()}), for metrics "
+            f"{results_table.metric_list(METRICS)}. The higher $\\rho$ of "
             "each threshold and metric is in bold, and $^*$ means a p-value of less "
             f"than {SIGNIFICANCE}."
         ),
@@ -481,12 +477,20 @@ def graph_agreement_latex(analysis: Path, family: str, caption: str) -> str:
     return header + "\n" + table.split("\n", 1)[1]
 
 
-# The caption text of the rule thresholds, for the tables of several thresholds.
-THRESHOLD_LEGEND = (
-    "std1: the rules with std confidence 1; r25 to r100: about 25 to 100\\% of the "
-    "mined rules, those of highest PCA confidence; both generators were given the "
-    "same rules"
-)
+def rule_legend() -> str:
+    """The caption text of the rule thresholds of MSE_THRESHOLDS, for the tables of
+    several thresholds: std1 is left out with --no-std1."""
+    shares = (
+        "r25 to r100: 25 to 100\\% of the mined rules, those of highest PCA confidence"
+    )
+    if "std1" in MSE_THRESHOLDS:
+        return f"std1: the rules with std confidence 1; {shares}"
+    return shares
+
+
+def threshold_legend() -> str:
+    """The caption text of the rule thresholds, for the summary tables."""
+    return f"{rule_legend()}; both generators were given the same rules"
 
 
 def summary_rows(scores: pd.DataFrame, families: list[str]) -> list[tuple[str, str]]:
@@ -603,7 +607,7 @@ def summary_latex(
         caption=(
             "Spearman's $\\rho$ between the ranking of the models on each original "
             "graph and on KBgen's and NAME's copy at each rule level "
-            f"({THRESHOLD_LEGEND}), for metrics {names}. The higher $\\rho$ of each "
+            f"({threshold_legend()}), for metrics {names}. The higher $\\rho$ of each "
             f"row and metric is in bold, and $^*$ means a p-value of less than "
             f"{SIGNIFICANCE}."
         ),
@@ -615,9 +619,10 @@ def summary_latex(
         header="Graph and level",
         caption=(
             f"Mean squared error of {names} between each original graph and KBgen's "
-            f"and NAME's copy at each rule level ({THRESHOLD_LEGEND}), computed metric "
-            f"by metric over the models trained on both (all {len(MODELS)} unless "
-            "marked $^\\dagger$). The smaller error of each row and metric is in bold."
+            f"and NAME's copy at each rule level ({threshold_legend()}), computed "
+            f"metric by metric over the models trained on both (all {len(MODELS)} "
+            "unless marked $^\\dagger$). The smaller error of each row and metric "
+            "is in bold."
         ),
         label=f"tab:{stem}-summary-mse",
     )
@@ -786,7 +791,23 @@ def main() -> int:
         action="store_true",
         help="print the LaTeX tables instead of the Markdown ones",
     )
+    parser.add_argument(
+        "--no-std1",
+        action="store_true",
+        help="leave out the copies made from the rules with std confidence 1: no "
+        "<family>_std1 version and no std1 row in the mse, agreement and summary "
+        "tables",
+    )
+    parser.add_argument(
+        "--no-pygraft",
+        action="store_true",
+        help="leave out PyGraft's copies: no PyGraft column in the tables of each "
+        "graph version (the other tables have none)",
+    )
     args = parser.parse_args()
+    global MSE_THRESHOLDS
+    if args.no_std1:
+        MSE_THRESHOLDS = tuple(t for t in MSE_THRESHOLDS if t != "std1")
 
     summary = args.analysis / "metrics.csv"
     if not summary.is_file():
@@ -817,6 +838,10 @@ def main() -> int:
                 groups.setdefault(generator(variant)[2], []).append(variant)
         # PyGraft's copies, made without rules, join the version of every threshold.
         rule_free = groups.pop(FULL, [])
+        if args.no_pygraft:
+            rule_free = []
+        if args.no_std1:
+            groups.pop("std1", None)
         for t, copies in groups.items():
             groups[t] = sorted(copies + rule_free, key=lambda v: generator(v)[0])
         thresholds = [t for t in (args.thresholds or groups) if t in groups]
@@ -909,9 +934,9 @@ def main() -> int:
             printed.append(tex if args.latex else text)
 
             # The same layout for the agreement: Spearman's rho of each metric.
-            rho = summary_frames(
-                args.analysis, [(family, t) for t in MSE_THRESHOLDS]
-            )["agreement"]
+            rho = summary_frames(args.analysis, [(family, t) for t in MSE_THRESHOLDS])[
+                "agreement"
+            ]
             rho.drop(columns="graph").to_csv(folder / "agreement.csv", index=False)
             title = f"{family}: Spearman's rho with the original, by threshold"
             text = summary_markdown(rho, "spearman_rho", title)
