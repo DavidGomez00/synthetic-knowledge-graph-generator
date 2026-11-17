@@ -1,0 +1,74 @@
+21:03:53 | __main__ | INFO   | Inserted /home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets/FamilyN_1/FamilyN_1.unified.tsv into <http://skgg.org/FamilyN_1/base> with 3397 triples.
+21:03:54 | __main__ | INFO   | Confifuration correctly initialized.
+21:03:54 | __main__ | INFO   | [1/5] Extracting metrics and rules
+21:03:54 | __main__ | INFO   | Rule filter pca=0.27: EDB at <http://skgg.org/FamilyN_1/skgg/pca=0.27/edb>, synthetic graph at <http://skgg.org/FamilyN_1/skgg/pca=0.27>.
+21:03:55 | skgg.core.rules | INFO   | Kept 16/61 rules with PCA confidence >= 0.270 (classification == POSITIVE); dropped 45 (NEGATIVE or UNKNOWN).
+21:03:55 | __main__ | INFO   | 16 rules: 0 complete (std confidence 1, forward-chained), 16 partial (grounded round(PCA confidence x support) times in the EDB, after the complete rules).
+21:03:55 | skgg.core.visualization | INFO   | Saved relation graph visualization (0 predicates, 0 in a cycle) to <logs/relation_graph_FamilyN_1.png>
+21:03:55 | __main__ | INFO   | Extensional relations (10, target frequency): aunt 398, brother 448, daughter 203, husband 32, nephew 622, niece 476, sister 347, son 302, uncle 507, wife 62
+21:03:55 | __main__ | INFO   | Intensional relations (0, target frequency): none
+21:03:55 | __main__ | INFO   | [2/5] Generating EDB
+21:03:55 | skgg.core.rules | INFO   | Saved 16 used rules to `/home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets/FamilyN_1/FamilyN_1_used.csv`.
+21:03:55 | skgg.engine.edb | INFO   | Start warm-up.
+21:03:55 | skgg.engine.edb | INFO   | [Warm-up] No direct matches.
+21:03:55 | skgg.engine.edb | INFO   | Creating EDB
+21:03:55 | skgg.engine.edb | INFO   | Extensional relations to generate (10/10, current/target): aunt 0/398 (open), brother 0/448 (open), daughter 0/203 (open), husband 0/32 (open), nephew 0/622 (open), niece 0/476 (open), sister 0/347 (open), son 0/302 (open), uncle 0/507 (open), wife 0/62 (open)
+21:03:55 | skgg.engine.edb | INFO   | Closed predicates [0/10].
+21:03:56 | skgg.engine.edb | INFO   | [Step 369] Closed predicates [1/10].
+21:03:56 | skgg.engine.edb | INFO   | [Step 610] Closed predicates [2/10].
+21:03:56 | skgg.engine.edb | INFO   | [Step 1275] Closed predicates [3/10].
+21:03:56 | skgg.engine.edb | INFO   | [Step 1496] Closed predicates [4/10].
+21:03:56 | skgg.engine.edb | INFO   | [Step 1629] Closed predicates [5/10].
+21:03:56 | skgg.engine.edb | INFO   | [Step 1809] Closed predicates [6/10].
+21:03:56 | skgg.engine.edb | INFO   | [Step 1828] Closed predicates [7/10].
+21:03:56 | skgg.engine.edb | INFO   | [Step 1982] Closed predicates [8/10].
+21:03:56 | skgg.engine.edb | INFO   | [Step 2045] Closed predicates [9/10].
+21:03:56 | skgg.engine.edb | INFO   | [Step 2172] Closed predicates [10/10].
+21:03:56 | skgg.engine.edb | INFO   | [Partial] Head triples placed by the groundings of partial rules: 131.
+21:03:56 | __main__ | INFO   | EDB generated in 1.5s at <http://skgg.org/FamilyN_1/skgg/pca=0.27/edb> with 3397 triples.
+21:03:57 | __main__ | INFO   | [3/5] Completing graph
+21:03:57 | __main__ | INFO   | [EDB] Closed predicates: 10/10, closed rules: 16/16.
+21:03:57 | __main__ | INFO   | [EDB] Newly closed predicates: aunt, brother, daughter, husband, nephew, niece, sister, son, uncle, wife
+21:03:57 | __main__ | INFO   | [EDB] Newly closed rules: 1, 10, 18, 2, 21, 3, 33, 35, 4, 48, 5, 50, 56, 6, 7, 8
+21:03:57 | __main__ | INFO   | Applying the 0 complete rules (0 open): none
+21:03:57 | skgg.engine.completion | INFO   | [initial] Pass 1: no triples added.
+21:03:57 | skgg.engine.completion | INFO   | [initial] +0 triples in 1 passes (stale state).
+21:03:58 | __main__ | INFO   | [initial] Closed predicates: 10/10, closed rules: 16/16.
+21:03:58 | __main__ | INFO   | [4/5] Filling open relations
+21:03:58 | __main__ | INFO   | Skipping the fill step (pass --fill to run it); synthetic graph at <http://skgg.org/FamilyN_1/skgg/pca=0.27>.
+21:03:58 | __main__ | INFO   | [5/5] Summary
+21:03:59 | __main__ | INFO   | Experiment summary, <http://skgg.org/FamilyN_1/base> -> <http://skgg.org/FamilyN_1/skgg/pca=0.27>:
+Triples: 3397 -> 3397 (+0, +0.0%)
+
+Predicates (10):
+  aunt      398 -> 398  (+0)  [CLOSED]  [EXTENSIONAL]
+  brother   448 -> 448  (+0)  [CLOSED]  [EXTENSIONAL]
+  daughter  203 -> 203  (+0)  [CLOSED]  [EXTENSIONAL]
+  husband    32 -> 32   (+0)  [CLOSED]  [EXTENSIONAL]
+  nephew    622 -> 622  (+0)  [CLOSED]  [EXTENSIONAL]
+  niece     476 -> 476  (+0)  [CLOSED]  [EXTENSIONAL]
+  sister    347 -> 347  (+0)  [CLOSED]  [EXTENSIONAL]
+  son       302 -> 302  (+0)  [CLOSED]  [EXTENSIONAL]
+  uncle     507 -> 507  (+0)  [CLOSED]  [EXTENSIONAL]
+  wife       62 -> 62   (+0)  [CLOSED]  [EXTENSIONAL]
+
+Rules (16), support, std and PCA confidence, original -> synthetic:
+  1   ?a brother ?f & ?f son ?b => ?a son ?b           53 -> 38  (-15)  std 0.434 -> 0.286 (-0.149)  pca 0.716 -> 0.475 (-0.241)  [CLOSED]  [PARTIAL 38]
+  2   ?a sister ?f & ?f daughter ?b => ?a daughter ?b  21 -> 14  ( -7)  std 0.323 -> 0.194 (-0.129)  pca 0.677 -> 0.318 (-0.359)  [CLOSED]  [PARTIAL 14]
+  3   ?a sister ?e & ?e son ?b => ?a daughter ?b       19 -> 11  ( -8)  std 0.284 -> 0.153 (-0.131)  pca 0.559 -> 0.262 (-0.297)  [CLOSED]  [PARTIAL 11]
+  4   ?a brother ?e & ?e daughter ?b => ?a son ?b      21 -> 13  ( -8)  std 0.263 -> 0.143 (-0.120)  pca 0.600 -> 0.310 (-0.290)  [CLOSED]  [PARTIAL 13]
+  5   ?e brother ?a & ?e son ?b => ?a son ?b           48 -> 38  (-10)  std 0.262 -> 0.171 (-0.091)  pca 0.696 -> 0.469 (-0.227)  [CLOSED]  [PARTIAL 33]
+  6   ?a brother ?f & ?b aunt ?f => ?a nephew ?b       27 -> 8   (-19)  std 0.260 -> 0.073 (-0.186)  pca 0.303 -> 0.105 (-0.198)  [CLOSED]  [PARTIAL 8]
+  7   ?a brother ?f & ?b son ?f => ?a uncle ?b         12 -> 4   ( -8)  std 0.245 -> 0.082 (-0.163)  pca 0.300 -> 0.182 (-0.118)  [CLOSED]  [PARTIAL 4]
+  8   ?a sister ?e & ?e nephew ?b => ?a niece ?b       39 -> 11  (-28)  std 0.239 -> 0.067 (-0.172)  pca 0.279 -> 0.104 (-0.175)  [CLOSED]  [PARTIAL 11]
+  10  ?a brother ?f & ?b daughter ?f => ?a uncle ?b    12 -> 5   ( -7)  std 0.211 -> 0.088 (-0.123)  pca 0.333 -> 0.238 (-0.095)  [CLOSED]  [PARTIAL 4]
+  18  ?a sister ?e & ?e uncle ?b => ?a aunt ?b         35 -> 11  (-24)  std 0.172 -> 0.053 (-0.119)  pca 0.312 -> 0.125 (-0.188)  [CLOSED]  [PARTIAL 11]
+  21  ?a uncle ?f & ?b brother ?f => ?a uncle ?b       29 -> 8   (-21)  std 0.168 -> 0.042 (-0.125)  pca 0.276 -> 0.143 (-0.133)  [CLOSED]  [PARTIAL 8]
+  33  ?e daughter ?b & ?e sister ?a => ?a daughter ?b  20 -> 14  ( -6)  std 0.132 -> 0.078 (-0.054)  pca 0.606 -> 0.304 (-0.302)  [CLOSED]  [PARTIAL 12]
+  35  ?a sister ?f & ?b nephew ?f => ?a aunt ?b        25 -> 8   (-17)  std 0.131 -> 0.041 (-0.090)  pca 0.272 -> 0.119 (-0.152)  [CLOSED]  [PARTIAL 7]
+  48  ?a sister ?f & ?b daughter ?f => ?a aunt ?b       6 -> 2   ( -4)  std 0.113 -> 0.038 (-0.075)  pca 0.316 -> 0.167 (-0.149)  [CLOSED]  [PARTIAL 2]
+  50  ?e daughter ?b & ?e sister ?a => ?a son ?b       17 -> 11  ( -6)  std 0.112 -> 0.061 (-0.051)  pca 0.500 -> 0.256 (-0.244)  [CLOSED]  [PARTIAL 9]
+  56  ?e brother ?a & ?e son ?b => ?a daughter ?b      19 -> 13  ( -6)  std 0.104 -> 0.059 (-0.045)  pca 0.594 -> 0.310 (-0.284)  [CLOSED]  [PARTIAL 11]
+21:03:59 | __main__ | INFO   | Execution finished after 5.1s.
+21:04:00 | skgg.core.triples | INFO   | Wrote 3397 triples to /tmp/tmpsb6xebb2/graph.tsv, skipping 0 duplicate triples and 0 invalid lines.
+21:04:00 | __main__ | INFO   | Downloaded <http://skgg.org/FamilyN_1/skgg/pca=0.27>: 3397 triples to /tmp/tmpsb6xebb2/graph.nt and /tmp/tmpsb6xebb2/graph.tsv.

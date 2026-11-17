@@ -119,6 +119,12 @@ COPY_SETS = ("ours", "kbgen", "pygraft")
 REQUIRED_SPLITS = ("train", "test")
 # CPU threads of each worker; PyTorch would otherwise start one per core.
 DEFAULT_THREADS = 4
+# The rule-level copies (docs/rule-levels.md) are named after the copy set and the
+# level: `french_kbgen_r25` is kbgen's copy of `french` at level r25. They are in the
+# sets `kbgen` and `ours`, which since the full copies were dropped hold only them,
+# and `kbgen-levels` and `ours-levels` select the same folders.
+LEVEL_SETS = ("ours-levels", "kbgen-levels")
+LEVEL_COPY = re.compile(r"_(ours|kbgen|pygraft)_(r\d+|std1)$")
 # The YAGO3-10 datasets (base datasets whose name starts with this prefix, and their
 # copies) train every model but CompGCN at YAGO_BATCH_SIZE instead of
 # Settings.batch_size: at batch size 32 a run took 14 to 31 hours on a MIG 1g.24gb
@@ -356,6 +362,15 @@ def dataset_set(name: str) -> str:
     return match["set"] if match else "base"
 
 
+def in_set(name: str, set_name: str) -> bool:
+    """Whether a dataset folder is in a set of `--set`: a LEVEL_SETS name keeps only
+    the rule-level copies of that generator, which its COPY_SETS name also keeps."""
+    if set_name in LEVEL_SETS:
+        match = LEVEL_COPY.search(name)
+        return match is not None and f"{match.group(1)}-levels" == set_name
+    return dataset_set(name) == set_name
+
+
 def base_dataset(name: str) -> str:
     """The base dataset of a copy, or the dataset itself."""
     match = COPY_NAME.fullmatch(name)
@@ -506,9 +521,7 @@ def find_datasets(
         if all((d / s).is_file() for s in REQUIRED_SPLITS)
     }
     if names is None and dataset_set_name not in (None, "all"):
-        folders = {
-            n: d for n, d in folders.items() if dataset_set(n) == dataset_set_name
-        }
+        folders = {n: d for n, d in folders.items() if in_set(n, dataset_set_name)}
     if names is not None:
         missing = sorted(set(names) - set(folders))
         if missing:
@@ -1161,11 +1174,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--set",
         dest="dataset_set",
-        choices=("base", *COPY_SETS, "all"),
+        choices=("base", *COPY_SETS, *LEVEL_SETS, "all"),
         default="base",
         help="datasets to train when --datasets is not given: the base datasets, "
-        "the copies whose folder names end in _ours, _kbgen or _pygraft, or all of "
-        "them (default: %(default)s)",
+        "the copies whose folder names end in _ours, _kbgen or _pygraft, with or "
+        "without a tag such as _r25 (ours, kbgen, pygraft), only the rule-level "
+        "copies such as french_ours_r25 (ours-levels, kbgen-levels), or all of them "
+        "(default: %(default)s)",
     )
     parser.add_argument(
         "--datasets",

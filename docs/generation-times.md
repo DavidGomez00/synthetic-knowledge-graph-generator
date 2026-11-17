@@ -1,6 +1,6 @@
 # Generation times of the benchmark copies
 
-This page gives the wall-clock time it took to make each synthetic copy of the 24 benchmark datasets in `exp_datasets/`, with this project's generator (`<dataset>_ours`) and with the two baselines, kbgen (`<dataset>_kbgen`) and PyGraft (`<dataset>_pygraft`). All three ran on the development machine, a laptop with an Intel i5-11300H (4 cores, 8 threads) and 15 GB of RAM. PyGraft has no copy of the five YAGO3-10 datasets yet. The full copies `<dataset>_ours/` and `<dataset>_kbgen/` were removed on 17 November 2026: the two generators used different rules there (ours 0 to 18 rules, kbgen every mined rule), so they are not comparable. Only the rule-level copies (`<dataset>_ours_std1`, `_r25` to `_r100` and their `_kbgen` twins, made by both generators from the same rules on the branch `pca-partial-rules`) and `<dataset>_pygraft/` remain. The times below are kept as a record.
+This page gives the wall-clock time it took to make each synthetic copy of the 24 benchmark datasets in `exp_datasets/`, with this project's generator (`<dataset>_ours`) and with the two baselines, kbgen (`<dataset>_kbgen`) and PyGraft (`<dataset>_pygraft`). All three ran on the development machine, a laptop with an Intel i5-11300H (4 cores, 8 threads) and 15 GB of RAM. PyGraft has no copy of the five YAGO3-10 datasets yet. The full copies `<dataset>_ours/` and `<dataset>_kbgen/` were removed on 17 November 2026: the two generators used different rules there (ours 0 to 18 rules, kbgen every mined rule), so they are not comparable. Only the rule-level copies (`<dataset>_ours_std1`, `_r25` to `_r100` and their `_kbgen` twins, made by both generators from the same rules on the branch `pca-partial-rules`) and `<dataset>_pygraft/` remain. The times below are kept as a record, and [`benchmark-copies.md`](benchmark-copies.md) describes how each set was made. The section "Rule-level copies" gives the times of the copies of both generators at each rule level, and the last section those of kbgen's first rule-level copies, which they replace.
 
 ## What each time covers
 
@@ -88,7 +88,7 @@ These are lower bounds. The checks of functional and inverse-functional relation
 
 The copies in `exp_datasets/<dataset>_ours/` were made on 11 November 2026, from 08:25 to 11:36, at commit `c6e5b35`, which includes the self-loop fix (`35a1b81`). The times are in `logs/ours/batch.log`, `batch_YAGO3-10.log` and `batch_YAGO3-10_N_1.log`. The batch ran one dataset at a time up to YAGO3-10_1_1. Then, to save time, YAGO3-10 was started in a second batch at 10:08 and YAGO3-10_N_1 in a third at 10:18, while the first batch ran YAGO3-10_1_N and YAGO3-10_N_M. Those four datasets ran two or three at a time, sharing GraphDB and the CPU, so their times are not those of a dataset alone, and the tables above keep the times of 9 November.
 
-The copies of 9 November are in `exp_datasets/ours-no-reflexivity-09-11/<dataset>_ours/`. Their logs, in `logs/ours_2026-11-09/`, and their `<dataset>_used.csv` files, in `exp_datasets/ours-no-reflexivity-09-11/used_rules/`, are only on the development machine: git ignores logs, and it ignored `_used.csv` files until 13 November 2026.
+The copies of 9 November were in `exp_datasets/ours-no-reflexivity-09-11/<dataset>_ours/` until 17 November 2026; commit `2b9edf9` still has them. Their logs, in `logs/ours_2026-11-09/`, and their `<dataset>_used.csv` files, in `exp_datasets/ours-no-reflexivity-09-11/used_rules/`, are only on the development machine: git ignores logs, and it ignored `_used.csv` files until 13 November 2026.
 
 | Dataset | 9 November, before `35a1b81` | 11 November, at `c6e5b35` | Ratio |
 |---|---:|---:|---:|
@@ -125,3 +125,101 @@ Two more things affect the times of 11 November:
 - The laptop suspended itself from 08:52 to about 08:59, during WN18RR. The batch measures times with `time.monotonic`, which stops during a suspension, so WN18RR's 6 min 24 s leaves it out.
 
 `scripts/check_outputs.py` finds that 22 of the 24 new copies match their source on every relation, including the number of self-loops. french and family differ as `docs/generate-benchmarks.md` describes: french's `parent` is 47 triples short, and family has more triples than its source and 104 self-loops that its source doesn't have.
+
+## Rule-level copies
+
+The rule-level copies in use ([`rule-levels.md`](rule-levels.md)) were made by `runs/rule-levels/reproduce.sh`, on Hefesto (Intel i9-7900X, 10 cores, 20 threads, 62 GB of RAM), from 16 November 2026: each of the 24 datasets at `std1`, `r25`, `r50`, `r75` and `r100`, by this generator and by kbgen with the same rules. [`runs/rule-levels/README.md`](../runs/rule-levels/README.md) says how, and `runs/rule-levels/REPORT.md` gives every copy's rules, triples, time, date and commit.
+
+A time covers one copy. For ours it is the upload of the source to a GraphDB repository, `cli/main.py` and the download of the copy, read from `runs/rule-levels/ours/times.tsv`. For kbgen it is model M3, `synthesize.py` and writing the copy, read from the driver's `summary.csv`; the tensor and models M1 and M2, made once per dataset and shared by its levels, are the last column. Several copies ran at once: up to four batches of our generator, two of them on the YAGO3-10 datasets, and kbgen with up to 8 levels at a time, next to each other on the same machine. A copy took longer than it would alone, and a method's sum is CPU time, not wall-clock time.
+
+The table below is rewritten by `runs/rule-levels/make_report.py` (step `report` of `reproduce.sh`) from the run's records.
+
+<!-- rule-level times: written by runs/rule-levels/make_report.py -->
+
+Last written on 2026-11-17 11:35. Each cell is ours / kbgen. *Pending*: the copy is not made yet, or was made before its run recorded what `check_copies.py` checks. *No rule*: our generator uses no rule at that level, so neither method makes a copy. *As r100*: the level has the rules of `r100`, whose copy stands for it.
+
+| Dataset | std1 | r25 | r50 | r75 | r100 | Ours, sum | kbgen, sum | kbgen shared steps |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| french | 17 s / 5 s | 18 s / 5 min 2 s | 24 s / 11 min 2 s | 30 s / 18 min 1 s | 36 s / 17 min 49 s | 2 min 6 s | 51 min 59 s | 7 s |
+| french1_1 | no rule | 17 s / 4 min 38 s | 21 s / 7 min 4 s | 26 s / 10 min 40 s | 30 s / 10 min 48 s | 1 min 34 s | 33 min 10 s | 5 s |
+| french1_N | no rule | 7 s / 4 s | 7 s / 7 s | 7 s / 9 s | 8 s / 10 s | 28 s | 30 s | 4 s |
+| frenchN_1 | no rule | 11 s / 46 s | 14 s / 1 min 21 s | 17 s / 1 min 53 s | 19 s / 2 min 5 s | 1 min 0 s | 6 min 4 s | 5 s |
+| frenchN_M | no rule | 9 s / 1 min 0 s | 10 s / 1 min 49 s | 11 s / 2 min 48 s | 12 s / 2 min 59 s | 43 s | 8 min 36 s | 4 s |
+| family | 54 s / 11 min 50 s | 1 min 52 s / 32 min 10 s | 2 min 16 s / 8 h 21 min | 2 min 49 s / 7 h 17 min | 6 min 21 s / 7 h 25 min | 14 min 11 s | 23 h 48 min | 7 s |
+| Family1_1 | no rule | 8 s / 1 min 55 s | 17 s / 3 min 25 s | 1 min 14 s / 5 min 27 s | 4 min 8 s / 6 min 16 s | 5 min 47 s | 17 min 3 s | 5 s |
+| Family1_N | no rule | 6 s / 30 s | 7 s / 46 s | 8 s / 1 min 33 s | 10 s / 1 min 24 s | 30 s | 4 min 12 s | 4 s |
+| FamilyM_N | no rule | 11 s / 2 min 5 s | 13 s / 3 min 53 s | 14 s / 5 min 12 s | 17 s / 7 min 12 s | 54 s | 18 min 22 s | 4 s |
+| FamilyN_1 | no rule | 9 s / 30 s | 13 s / 46 s | 1 min 37 s / 52 s | 8 s / 55 s | 2 min 8 s | 3 min 3 s | 4 s |
+| WN18RR | 11 min 53 s / 4 min 11 s | 9 min 1 s / 12 min 28 s | 8 min 56 s / 22 min 28 s | 9 min 5 s / 36 min 41 s | 9 min 16 s / 35 min 41 s | 48 min 12 s | 1 h 51 min | 18 s |
+| WN18RR1_1 | no rule | 11 min 55 s / 11 min 1 s | 10 min 28 s / 20 min 50 s | 8 min 4 s / 22 min 37 s | 9 min 4 s / 25 min 50 s | 39 min 30 s | 1 h 20 min | 15 s |
+| WN18RR1_N | no rule | 1 min 10 s / 15 s | 1 min 4 s / 23 s | 51 s / 27 s | 40 s / 29 s | 3 min 45 s | 1 min 34 s | 9 s |
+| WN18RRN_1 | no rule | 6 min 39 s / 7 min 53 s | 5 min 50 s / 12 min 21 s | 6 min 10 s / 12 min 28 s | 6 min 18 s / 12 min 28 s | 24 min 57 s | 45 min 11 s | 14 s |
+| WN18RRN_M | 13 min 7 s / 3 min 30 s | 12 min 40 s / 9 min 50 s | 9 min 46 s / 20 min 17 s | 9 min 31 s / 33 min 19 s | 8 min 31 s / 33 min 36 s | 53 min 36 s | 1 h 40 min | 18 s |
+| YAGO3-10 | no rule | 2 h 15 min / 4 h 41 min | 2 h 14 min / 5 h 12 min | 2 h 15 min / 5 h 39 min | 2 h 14 min / 5 h 59 min | 9 h 0 min | 21 h 32 min | 7 min 2 s |
+| YAGO3-10_1_1 | no rule | 3 h 23 min / 2 h 26 min | 56 min 42 s / 2 h 44 min | 1 h 2 min / 3 h 11 min | 56 min 50 s / 3 h 27 min | 6 h 19 min | 11 h 49 min | 1 min 2 s |
+| YAGO3-10_1_N | no rule | 1 h 29 min / 54 min 1 s | 3 h 22 min / 1 h 37 min | 1 h 34 min / 2 h 8 min | 1 h 33 min / 2 h 19 min | 8 h 0 min | 7 h 0 min | 2 min 38 s |
+| YAGO3-10_N_1 | no rule | 4 h 22 min / 2 h 58 min | 2 h 0 min / 3 h 41 min | 2 h 0 min / 4 h 0 min | 2 h 1 min / 4 h 24 min | 10 h 25 min | 15 h 4 min | 2 min 5 s |
+| YAGO3-10_N_M | no rule | 4 h 12 min / 4 h 49 min | 1 h 22 min / 5 h 23 min | 1 h 12 min / 5 h 50 min | 1 h 53 min / 5 h 53 min | 8 h 41 min | 21 h 56 min | 3 min 3 s |
+| SGKG1 | as r100 | as r100 | as r100 | as r100 | 46 s / 10 min 56 s | 46 s | 10 min 56 s | 16 s |
+| SGKG2 | as r100 | as r100 | as r100 | as r100 | 3 min 8 s / 10 min 46 s | 3 min 8 s | 10 min 46 s | 14 s |
+| SGKG3 | as r100 | as r100 | as r100 | as r100 | 1 min 22 s / 9 min 40 s | 1 min 22 s | 9 min 40 s | 14 s |
+| SGKG4 | as r100 | as r100 | as r100 | as r100 | 46 s / 9 min 21 s | 46 s | 9 min 21 s | 16 s |
+| All | | | | | | 45 h 52 min | 109 h 54 min | |
+
+<!-- end of rule-level times -->
+
+## kbgen's first rule-level copies (superseded)
+
+This section records kbgen's first rule-level copies. Most were made again by `runs/rule-levels/` (previous section), given exactly the rules this generator used and recording how many facts kbgen's rules added; the copies in `exp_datasets/` are those of the previous section once it lists them.
+
+
+The rule-level experiment ([`rule-levels.md`](rule-levels.md)) copies every dataset with kbgen at the levels `r0`, `r25`, `r50` and `r75`, each with part of the dataset's mined rules; for most datasets `r100` is the copy of the tables above. The SGKG datasets need only `r0`. The copies were made on two machines, with kbgen at `e5d06bc` plus `baselines/kbgen.patch` and its driver `synthesize_exp_datasets.py --levels`:
+
+| Machine | CPU | RAM | Datasets | When |
+|---|---|---|---|---|
+| laptop | Intel i5-11300H, 4 cores, 8 threads | 15 GB | the five french datasets | 16 November 2026, 12:06 to 12:23 |
+| Hefesto | Intel i9-7900X, 10 cores, 20 threads | 62 GB | the other 19 | 16 November 2026, from 13:10 |
+| Hefesto | as above | | the five french datasets again, with `--rules-from-ours` | 16 November 2026, 16:23 to 16:52 (french) and 17:08 to 17:20 (the other four) |
+
+The french copies were made again on Hefesto so that kbgen sees at each level exactly the rules this generator used (`--rules-from-ours`, see [`rule-levels.md`](rule-levels.md) and `runs/rule-levels/README.md`). For french that is every level, `std1` and `r100` included. french1_1 and frenchN_1 were made again at `r25` to `r100`, since the laptop had given kbgen every rule above the threshold (french1_1 `r25`: 56 rules, against the 50 this generator used). french1_N and frenchN_M only needed `r100`: at the other levels the rules kept are the rules this generator used, so the laptop's copies stand. `r0` gives no rule to either generator, and the laptop's copies of the four other datasets stand. The table gives the time of the copy in `exp_datasets/`, and *Machine* says where each was made.
+
+The driver makes the tensor and the models M1 and M2 once per dataset (*Shared steps*), then model M3 and the copy once per level. A level's time is that of M3, `synthesize.py` and writing the copy, read from the column `total_seconds` of the driver's `summary.csv`; M3 takes 1 to 3 s and the rest is the synthesis. The number in brackets is the rules kbgen was given. On the laptop, the shared steps of the french datasets were made on 10 November for the full copies and reused. The other shared steps come from the driver's logs, `levels_*.log` in `baselines/kbgen-runs/<machine>/`, and for the french datasets on Hefesto from `levels_french_ours_rules.log` in kbgen's `work/` and the batch output in `logs/kbgen-french-rest-*.out`.
+
+Both machines ran several levels at once, so a level took longer than it would alone:
+
+- The laptop ran two commands of two processes each, 4 processes on 4 cores.
+- On Hefesto, YAGO3-10_1_N `r0` ran alone from 13:10 as a memory test (0.9 GB peak). From 13:20 two commands of 4 processes each made family and the other 18 datasets, then from 13:30 four commands of 2 processes each made the YAGO3-10 datasets, one command per dataset and one for YAGO3-10_1_1 and YAGO3-10_1_N. Up to 15 processes shared the 10 cores and 20 threads, and two processes on the two threads of one core each run slower than one alone.
+- The french copies on Hefesto ran next to those batches: french with 6 processes, then french1_1 and frenchN_1 with 6 and french1_N and frenchN_M with 2, alongside 7 to 9 processes of the other datasets. french's `r25` to `r75` took 1.7 to 1.8 times as long as on the laptop, with 5% to 15% fewer rules.
+
+*Sum of levels* adds the times of a dataset's levels. It is the CPU time of the dataset, not its wall-clock time, since its levels ran side by side.
+
+| Dataset | Machine | Shared steps | r0 | std1 | r25 | r50 | r75 | r100 | Sum of levels |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| family | Hefesto | 8 s | 13 s (0) |  | 1 h 7 min (93) | pending | pending |  |  |
+| Family1_1 | Hefesto | 4 s | 4 s (0) |  | 1 min 44 s (33) | 3 min 16 s (63) | 5 min 8 s (95) |  | 10 min 12 s |
+| Family1_N | Hefesto | 4 s | 3 s (0) |  | 30 s (18) | 41 s (35) | 1 min 2 s (53) |  | 2 min 16 s |
+| FamilyM_N | Hefesto | 4 s | 4 s (0) |  | 1 min 55 s (23) | 3 min 30 s (46) | 4 min 42 s (69) |  | 10 min 10 s |
+| FamilyN_1 | Hefesto | 4 s | 4 s (0) |  | 29 s (16) | 42 s (31) | 1 min 6 s (46) |  | 2 min 20 s |
+| french | Hefesto | 7 s | 8 s (0) | 7 s (3) | 9 min 9 s (51) | 21 min 49 s (111) | 28 min 50 s (171) | 26 min 23 s (231) | 1 h 26 min |
+| french1_1 | Hefesto, r0 on the laptop | 5 s, r0 10 November | 3 s (0) |  | 5 min 9 s (50) | 6 min 56 s (106) | 11 min 27 s (162) | 11 min 8 s (217) | 34 min 42 s |
+| french1_N | laptop, r100 on Hefesto | 10 November, r100 4 s | 2 s (0) |  | 4 s (4) | 7 s (8) | 8 s (12) | 19 s (15) | 41 s |
+| frenchN_1 | Hefesto, r0 on the laptop | 5 s, r0 10 November | 2 s (0) |  | 53 s (31) | 1 min 25 s (64) | 2 min 20 s (100) | 2 min 41 s (130) | 7 min 21 s |
+| frenchN_M | laptop, r100 on Hefesto | 10 November, r100 5 s | 3 s (0) |  | 46 s (14) | 1 min 35 s (27) | 2 min 19 s (41) | 4 min 29 s (54) | 9 min 11 s |
+| SGKG1 | Hefesto | 16 s | 6 min 22 s (0) |  |  |  |  |  | 6 min 22 s |
+| SGKG2 | Hefesto | 12 s | 4 min 27 s (0) |  |  |  |  |  | 4 min 27 s |
+| SGKG3 | Hefesto | 12 s | 4 min 29 s (0) |  |  |  |  |  | 4 min 29 s |
+| SGKG4 | Hefesto | 15 s | 6 min 28 s (0) |  |  |  |  |  | 6 min 28 s |
+| WN18RR | Hefesto | 17 s | 7 min 35 s (0) |  | 19 min 23 s (6) | 37 min 7 s (12) | 1 h 1 min (21) |  | 2 h 5 min |
+| WN18RR1_1 | Hefesto | 14 s | 4 min 48 s (0) |  | 16 min 8 s (5) | 29 min 29 s (9) | 31 min 37 s (13) |  | 1 h 22 min |
+| WN18RR1_N | Hefesto | 8 s | 20 s (0) |  | 15 s (3) | 19 s (5) | 25 s (8) |  | 1 min 19 s |
+| WN18RRN_1 | Hefesto | 13 s | 4 min 28 s (0) |  | 11 min 41 s (4) | 20 min 4 s (8) | 18 min 26 s (12) |  | 54 min 38 s |
+| WN18RRN_M | Hefesto | 17 s | 7 min 27 s (0) |  | 18 min 50 s (6) | 37 min 34 s (12) | 1 h 1 min (21) |  | 2 h 5 min |
+| YAGO3-10 | Hefesto | 2 min 44 s | pending |  | pending | 3 h 27 min (75) | pending |  |  |
+| YAGO3-10_1_1 | Hefesto | 59 s | 38 min 51 s (0) |  | 1 h 10 min (22) | 1 h 22 min (44) | 1 h 37 min (66) |  | 4 h 49 min |
+| YAGO3-10_1_N | Hefesto | 57 s | 18 min 36 s (0) |  | 25 min 55 s (20) | 39 min 43 s (40) | 54 min 18 s (60) |  | 2 h 18 min |
+| YAGO3-10_N_1 | Hefesto | 1 min 56 s | 1 h 29 min (0) |  | 1 h 22 min (30) | 2 h 0 min (60) | 2 h 13 min (90) |  | 7 h 5 min |
+| YAGO3-10_N_M | Hefesto | 1 min 58 s | pending |  | pending | 3 h 22 min (67) | 3 h 42 min (100) |  |  |
+
+`std1` and `r100` were made only for the french datasets with `--rules-from-ours`; this generator uses no rule at `std1` on french1_1, french1_N, frenchN_1 and frenchN_M, so those levels are the `r0` copies.
+
+The time of a level grows with its rules, as for the full copies: `r0`, without rules, took at most 8 minutes on every dataset but the YAGO3-10 ones (19 minutes to 1 h 29 min), and family `r25`, with 93 rules, took over an hour. The SGKG datasets took 4 to 7 minutes without any rule, about a quarter of the 19 to 24 minutes of their full copies, which have 3 to 6 rules.

@@ -1,0 +1,59 @@
+16:19:30 | __main__ | INFO   | Inserted /home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets/french/french.unified.tsv into <http://skgg.org/french/base> with 10332 triples.
+16:19:32 | __main__ | INFO   | Confifuration correctly initialized.
+16:19:32 | __main__ | INFO   | [1/5] Extracting metrics and rules
+16:19:32 | __main__ | INFO   | Rule filter std=1: EDB at <http://skgg.org/french/skgg/std=1/edb>, synthetic graph at <http://skgg.org/french/skgg/std=1>.
+16:19:33 | skgg.core.rules | INFO   | Kept 0/0 rules with std confidence >= 1.000 (classification == POSITIVE); dropped 0 (NEGATIVE or UNKNOWN).
+16:19:33 | __main__ | INFO   | 0 rules: 0 complete (std confidence 1, forward-chained), 0 partial (grounded round(PCA confidence x support) times in the EDB, after the complete rules).
+16:19:33 | skgg.core.visualization | INFO   | Saved relation graph visualization (0 predicates, 0 in a cycle) to <logs/relation_graph_french.png>
+16:19:33 | __main__ | INFO   | Extensional relations (11, target frequency): child 1897, father 658, gender 1049, hasSpouse 2212, marriedTo 20, mother 534, name 629, parent 1239, predecessor 471, spouse 1152, successor 471
+16:19:33 | __main__ | INFO   | Intensional relations (0, target frequency): none
+16:19:33 | __main__ | INFO   | [2/5] Generating EDB
+16:19:33 | skgg.core.rules | INFO   | Saved 0 used rules to `/tmp/tmptkqm2v3r/no_rules_used.csv`.
+16:19:33 | skgg.engine.edb | INFO   | [Self-loops] Placed 122 self-loops (placed/target): name 122/122
+16:19:33 | skgg.engine.edb | INFO   | Start warm-up.
+16:19:33 | skgg.engine.edb | INFO   | [Warm-up] No direct matches.
+16:19:33 | skgg.engine.edb | INFO   | Creating EDB
+16:19:33 | skgg.engine.edb | INFO   | Extensional relations to generate (11/11, current/target): child 0/1897 (open), father 0/658 (open), gender 0/1049 (open), hasSpouse 0/2212 (open), marriedTo 0/20 (open), mother 0/534 (open), name 122/629 (open), parent 0/1239 (open), predecessor 0/471 (open), spouse 0/1152 (open), successor 0/471 (open)
+16:19:33 | skgg.engine.edb | INFO   | Closed predicates [0/11].
+16:19:34 | skgg.engine.edb | INFO   | [Step 152] Closed predicates [1/11].
+16:19:38 | skgg.engine.edb | INFO   | [Step 3433] Closed predicates [2/11].
+16:19:38 | skgg.engine.edb | INFO   | [Step 3846] Closed predicates [3/11].
+16:19:38 | skgg.engine.edb | INFO   | [Step 3921] Closed predicates [4/11].
+16:19:38 | skgg.engine.edb | INFO   | [Step 4723] Closed predicates [5/11].
+16:19:39 | skgg.engine.edb | INFO   | [Step 4964] Closed predicates [6/11].
+16:19:39 | skgg.engine.edb | INFO   | [Step 5450] Closed predicates [7/11].
+16:19:39 | skgg.engine.edb | INFO   | [Step 5705] Closed predicates [8/11].
+16:19:39 | skgg.engine.edb | INFO   | [Step 6538] Closed predicates [9/11].
+16:19:39 | skgg.engine.edb | INFO   | [Step 6590] Closed predicates [10/11].
+16:19:40 | skgg.engine.edb | INFO   | [Step 7835] Closed predicates [11/11].
+16:19:40 | __main__ | INFO   | EDB generated in 7.0s at <http://skgg.org/french/skgg/std=1/edb> with 10332 triples.
+16:19:40 | __main__ | INFO   | [3/5] Completing graph
+16:19:40 | __main__ | INFO   | [EDB] Closed predicates: 11/11, closed rules: 0/0.
+16:19:40 | __main__ | INFO   | [EDB] Newly closed predicates: child, father, gender, hasSpouse, marriedTo, mother, name, parent, predecessor, spouse, successor
+16:19:40 | __main__ | INFO   | Applying the 0 complete rules (0 open): none
+16:19:41 | skgg.engine.completion | INFO   | [initial] Pass 1: no triples added.
+16:19:41 | skgg.engine.completion | INFO   | [initial] +0 triples in 1 passes (stale state).
+16:19:41 | __main__ | INFO   | [initial] Closed predicates: 11/11, closed rules: 0/0.
+16:19:41 | __main__ | INFO   | [4/5] Filling open relations
+16:19:41 | __main__ | INFO   | Skipping the fill step (pass --fill to run it); synthetic graph at <http://skgg.org/french/skgg/std=1>.
+16:19:41 | __main__ | INFO   | [5/5] Summary
+16:19:41 | __main__ | INFO   | Experiment summary, <http://skgg.org/french/base> -> <http://skgg.org/french/skgg/std=1>:
+Triples: 10332 -> 10332 (+0, +0.0%)
+
+Predicates (11):
+  child        1897 -> 1897  (+0)  [CLOSED]  [EXTENSIONAL]
+  father        658 -> 658   (+0)  [CLOSED]  [EXTENSIONAL]
+  gender       1049 -> 1049  (+0)  [CLOSED]  [EXTENSIONAL]
+  hasSpouse    2212 -> 2212  (+0)  [CLOSED]  [EXTENSIONAL]
+  marriedTo      20 -> 20    (+0)  [CLOSED]  [EXTENSIONAL]
+  mother        534 -> 534   (+0)  [CLOSED]  [EXTENSIONAL]
+  name          629 -> 629   (+0)  [CLOSED]  [EXTENSIONAL]
+  parent       1239 -> 1239  (+0)  [CLOSED]  [EXTENSIONAL]
+  predecessor   471 -> 471   (+0)  [CLOSED]  [EXTENSIONAL]
+  spouse       1152 -> 1152  (+0)  [CLOSED]  [EXTENSIONAL]
+  successor     471 -> 471   (+0)  [CLOSED]  [EXTENSIONAL]
+
+Rules (0), support, std and PCA confidence, original -> synthetic:
+16:19:41 | __main__ | INFO   | Execution finished after 8.4s.
+16:19:43 | skgg.core.triples | INFO   | Wrote 10332 triples to /tmp/tmptkqm2v3r/graph.tsv, skipping 0 duplicate triples and 0 invalid lines.
+16:19:43 | __main__ | INFO   | Downloaded <http://skgg.org/french/skgg/std=1>: 10332 triples to /tmp/tmptkqm2v3r/graph.nt and /tmp/tmptkqm2v3r/graph.tsv.

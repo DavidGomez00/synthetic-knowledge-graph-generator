@@ -73,10 +73,15 @@ def duration(seconds: float) -> str:
 
 
 def run_label(dataset: str) -> str:
-    """`french_kbgen` as `french/kbgen`, `french` as `french/original`."""
+    """The `<family>/<variant>` label report_results.py gives a dataset folder:
+    `french_kbgen` as `french/kbgen`, `french` as `french/original`, and the
+    rule-level copy `french_kbgen_r25` as `french/kbgen_r25`."""
     for variant in COPY_SETS:
         if dataset.endswith(f"_{variant}"):
             return f"{dataset[: -len(variant) - 1]}/{variant}"
+        family, separator, tag = dataset.rpartition(f"_{variant}_")
+        if separator and family and tag and "_" not in tag:
+            return f"{family}/{variant}_{tag}"
     return f"{dataset}/original"
 
 

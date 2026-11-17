@@ -1,0 +1,69 @@
+21:47:32 | __main__ | INFO   | Inserted /home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets/WN18RR1_1/WN18RR1_1.unified.tsv into <http://skgg.org/WN18RR1_1/base> with 71015 triples.
+21:47:33 | __main__ | INFO   | Confifuration correctly initialized.
+21:47:33 | __main__ | INFO   | [1/5] Extracting metrics and rules
+21:47:33 | __main__ | INFO   | Rule filter pca=0.85: EDB at <http://skgg.org/WN18RR1_1/skgg/pca=0.85/edb>, synthetic graph at <http://skgg.org/WN18RR1_1/skgg/pca=0.85>.
+21:47:34 | skgg.core.rules | INFO   | Kept 5/17 rules with PCA confidence >= 0.850 (classification == POSITIVE); dropped 12 (NEGATIVE or UNKNOWN).
+21:47:34 | __main__ | INFO   | 5 rules: 0 complete (std confidence 1, forward-chained), 5 partial (grounded round(PCA confidence x support) times in the EDB, after the complete rules).
+21:47:34 | skgg.core.visualization | INFO   | Saved relation graph visualization (0 predicates, 0 in a cycle) to <logs/relation_graph_WN18RR1_1.png>
+21:47:34 | __main__ | INFO   | Extensional relations (11, target frequency): _also_see 882, _derivationally_related_form 20613, _has_part 2502, _hypernym 36503, _instance_hypernym 2671, _member_meronym 3280, _member_of_domain_region 159, _member_of_domain_usage 61, _similar_to 82, _synset_domain_topic_of 3193, _verb_group 1069
+21:47:34 | __main__ | INFO   | Intensional relations (0, target frequency): none
+21:47:34 | __main__ | INFO   | [2/5] Generating EDB
+21:47:34 | skgg.core.rules | INFO   | Saved 5 used rules to `/home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets/WN18RR1_1/WN18RR1_1_used.csv`.
+21:47:34 | skgg.engine.edb | INFO   | [Self-loops] Placed 6 self-loops (placed/target): _derivationally_related_form 6/6
+21:47:34 | skgg.engine.edb | INFO   | Start warm-up.
+21:47:34 | skgg.engine.edb | INFO   | [Warm-up] No direct matches.
+21:47:34 | skgg.engine.edb | INFO   | Creating EDB
+21:47:34 | skgg.engine.edb | INFO   | Extensional relations to generate (11/11, current/target): _also_see 0/882 (open), _derivationally_related_form 6/20613 (open), _has_part 0/2502 (open), _hypernym 0/36503 (open), _instance_hypernym 0/2671 (open), _member_meronym 0/3280 (open), _member_of_domain_region 0/159 (open), _member_of_domain_usage 0/61 (open), _similar_to 0/82 (open), _synset_domain_topic_of 0/3193 (open), _verb_group 0/1069 (open)
+21:47:34 | skgg.engine.edb | INFO   | Closed predicates [0/11].
+21:47:35 | skgg.engine.generator | WARNING | Built 459 of 788 needed groundings for ['?b <http://skgg.org/WN18RR1_1/_verb_group> ?a', '?a <http://skgg.org/WN18RR1_1/_verb_group> ?b'].
+21:47:35 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?f <http://skgg.org/WN18RR1_1/_synset_domain_topic_of> ?b', '?a <http://skgg.org/WN18RR1_1/_instance_hypernym> ?f', '?a <http://skgg.org/WN18RR1_1/_synset_domain_topic_of> ?b']; skipping the rule.
+21:47:35 | skgg.engine.generator | WARNING | Built 41 of 105 needed groundings for ['?f <http://skgg.org/WN18RR1_1/_synset_domain_topic_of> ?b', '?a <http://skgg.org/WN18RR1_1/_instance_hypernym> ?f', '?a <http://skgg.org/WN18RR1_1/_synset_domain_topic_of> ?b'].
+21:47:37 | skgg.engine.edb | INFO   | [Step 254] Closed predicates [1/11].
+21:47:41 | skgg.engine.edb | INFO   | [Step 879] Closed predicates [2/11].
+21:47:42 | skgg.engine.edb | INFO   | [Step 1115] Closed predicates [3/11].
+21:47:43 | skgg.engine.edb | INFO   | [Step 1163] Closed predicates [4/11].
+21:48:15 | skgg.engine.edb | INFO   | [Step 5372] Closed predicates [5/11].
+21:49:24 | skgg.engine.edb | INFO   | [Step 13387] Closed predicates [6/11].
+21:49:48 | skgg.engine.edb | INFO   | [Step 15910] Closed predicates [7/11].
+21:50:11 | skgg.engine.edb | INFO   | [Step 18017] Closed predicates [8/11].
+21:50:14 | skgg.engine.edb | INFO   | [Step 18220] Closed predicates [9/11].
+21:56:45 | skgg.engine.edb | INFO   | [Step 45496] Closed predicates [10/11].
+21:59:19 | skgg.engine.edb | INFO   | [Step 65011] Closed predicates [11/11].
+21:59:19 | skgg.engine.edb | INFO   | [Partial] Head triples placed by the groundings of partial rules: 552.
+21:59:19 | __main__ | INFO   | EDB generated in 704.8s at <http://skgg.org/WN18RR1_1/skgg/pca=0.85/edb> with 71015 triples.
+21:59:19 | __main__ | INFO   | [3/5] Completing graph
+21:59:19 | __main__ | INFO   | [EDB] Closed predicates: 11/11, closed rules: 4/5.
+21:59:19 | __main__ | INFO   | [EDB] Newly closed predicates: _also_see, _derivationally_related_form, _has_part, _hypernym, _instance_hypernym, _member_meronym, _member_of_domain_region, _member_of_domain_usage, _similar_to, _synset_domain_topic_of, _verb_group
+21:59:19 | __main__ | INFO   | [EDB] Newly closed rules: 1, 2, 8, 9
+21:59:19 | __main__ | INFO   | Applying the 0 complete rules (0 open): none
+21:59:20 | skgg.engine.completion | INFO   | [initial] Pass 1: no triples added.
+21:59:20 | skgg.engine.completion | INFO   | [initial] +0 triples in 1 passes (stale state).
+21:59:20 | __main__ | INFO   | [initial] Closed predicates: 11/11, closed rules: 4/5.
+21:59:20 | __main__ | INFO   | [4/5] Filling open relations
+21:59:20 | __main__ | INFO   | Skipping the fill step (pass --fill to run it); synthetic graph at <http://skgg.org/WN18RR1_1/skgg/pca=0.85>.
+21:59:20 | __main__ | INFO   | [5/5] Summary
+21:59:20 | __main__ | INFO   | Experiment summary, <http://skgg.org/WN18RR1_1/base> -> <http://skgg.org/WN18RR1_1/skgg/pca=0.85>:
+Triples: 71015 -> 71015 (+0, +0.0%)
+
+Predicates (11):
+  _also_see                       882 -> 882    (+0)  [CLOSED]  [EXTENSIONAL]
+  _derivationally_related_form  20613 -> 20613  (+0)  [CLOSED]  [EXTENSIONAL]
+  _has_part                      2502 -> 2502   (+0)  [CLOSED]  [EXTENSIONAL]
+  _hypernym                     36503 -> 36503  (+0)  [CLOSED]  [EXTENSIONAL]
+  _instance_hypernym             2671 -> 2671   (+0)  [CLOSED]  [EXTENSIONAL]
+  _member_meronym                3280 -> 3280   (+0)  [CLOSED]  [EXTENSIONAL]
+  _member_of_domain_region        159 -> 159    (+0)  [CLOSED]  [EXTENSIONAL]
+  _member_of_domain_usage          61 -> 61     (+0)  [CLOSED]  [EXTENSIONAL]
+  _similar_to                      82 -> 82     (+0)  [CLOSED]  [EXTENSIONAL]
+  _synset_domain_topic_of        3193 -> 3193   (+0)  [CLOSED]  [EXTENSIONAL]
+  _verb_group                    1069 -> 1069   (+0)  [CLOSED]  [EXTENSIONAL]
+
+Rules (5), support, std and PCA confidence, original -> synthetic:
+  1  ?a _hypernym ?b & ?b _verb_group ?a => ?a _verb_group ?b                                    15 -> 14   ( -1)  std 0.938 -> 1.000 (+0.062)  pca 0.938 -> 1.000 (+0.062)  [CLOSED]  [PARTIAL 14]
+  2  ?b _verb_group ?a => ?a _verb_group ?b                                                     934 -> 946  (+12)  std 0.874 -> 0.885 (+0.011)  pca 0.874 -> 0.885 (+0.011)  [CLOSED]  [PARTIAL 816]
+  4  ?a _instance_hypernym ?f & ?f _synset_domain_topic_of ?b => ?a _synset_domain_topic_of ?b  116 -> 41   (-75)  std 0.509 -> 0.179 (-0.330)  pca 0.906 -> 0.804 (-0.102)  [OPEN]    [PARTIAL 105]
+  8  ?a _has_part ?f & ?f _synset_domain_topic_of ?b => ?a _synset_domain_topic_of ?b            43 -> 38   ( -5)  std 0.368 -> 0.322 (-0.045)  pca 0.878 -> 0.905 (+0.027)  [CLOSED]  [PARTIAL 38]
+  9  ?e _has_part ?a & ?e _synset_domain_topic_of ?b => ?a _synset_domain_topic_of ?b            42 -> 38   ( -4)  std 0.339 -> 0.302 (-0.037)  pca 0.857 -> 0.864 (+0.006)  [CLOSED]  [PARTIAL 36]
+21:59:20 | __main__ | INFO   | Execution finished after 707.5s.
+21:59:23 | skgg.core.triples | INFO   | Wrote 71015 triples to /tmp/tmp12m4u53u/graph.tsv, skipping 0 duplicate triples and 0 invalid lines.
+21:59:23 | __main__ | INFO   | Downloaded <http://skgg.org/WN18RR1_1/skgg/pca=0.85>: 71015 triples to /tmp/tmp12m4u53u/graph.nt and /tmp/tmp12m4u53u/graph.tsv.

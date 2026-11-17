@@ -160,7 +160,8 @@ def get_closed_rules(
 
     A rule is considered 'closed' when the count of distinct bindings
     satisfying both its body and head in the graph meets or exceeds
-    its defined support threshold.
+    its `grounding_target`: its support for a complete rule, PCA confidence x
+    support for a partial one.
     """
     closed_rules: set[str] = set()
 
@@ -168,7 +169,7 @@ def get_closed_rules(
     for r_id, rule in rules.items():
         support = get_support(client, rule, graph_uri)
         if support:
-            if support >= rule.support:
+            if support >= rule.grounding_target:
                 closed_rules.add(r_id)
 
     return closed_rules
@@ -254,11 +255,13 @@ def sample_groundings(
     missing_heads: int,
     term_mapping: dict[str, str],
     chunk_size: int,
+    fixed_bindings: list[dict[str, str]] | None = None,
     undirected: Collection[str] = (),
     skip_reflexivity: bool = False,
+    last_atom_triples: list[int] | None = None,
 ) -> list[str]:
     """Returns the new triples of `sample_grounding_groups`'s groundings, as one
-    list. Takes the same arguments, without `fixed_bindings`."""
+    list. Takes the same arguments."""
     return [
         triple
         for group in sample_grounding_groups(
@@ -270,8 +273,10 @@ def sample_groundings(
             missing_heads,
             term_mapping,
             chunk_size,
+            fixed_bindings=fixed_bindings,
             undirected=undirected,
             skip_reflexivity=skip_reflexivity,
+            last_atom_triples=last_atom_triples,
         )
         for triple in group
     ]
@@ -289,6 +294,7 @@ def sample_grounding_groups(
     fixed_bindings: list[dict[str, str]] | None = None,
     undirected: Collection[str] = (),
     skip_reflexivity: bool = False,
+    last_atom_triples: list[int] | None = None,
 ) -> list[list[str]]:
     """Constructs groundings of a rule body directly from predicate profiles.
 
@@ -327,6 +333,9 @@ def sample_grounding_groups(
             their triples and spends the budget of both.
         skip_reflexivity: Whether to use the logic before the self-loop fix (see
             above), which `cli/main.py --skip-reflexivity` selects.
+        last_atom_triples: If given, its first element is increased by the new
+            triples of the last atom of each accepted grounding (a partial rule's
+            head, which `edb.check_triples_from_rule` puts last).
 
     Returns:
         The new triples of each accepted grounding, in the order of `atoms`. Fewer
@@ -468,6 +477,12 @@ def sample_grounding_groups(
             chosen.update(fresh)
             groups.append(list(fresh))
             accepted += 1
+            if last_atom_triples is not None:
+                # The last atom's triples close `grounded`: two if undirected.
+                last = 2 if atoms[-1].predicate in undirected else 1
+                last_atom_triples[0] += len(
+                    {g[0] for g in grounded[-last:]} & fresh.keys()
+                )
 
         empty_batches = 0 if accepted else empty_batches + 1
 

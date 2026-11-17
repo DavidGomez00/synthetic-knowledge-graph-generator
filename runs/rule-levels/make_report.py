@@ -1,0 +1,300 @@
+# ruff: noqa: E501  (the Markdown it writes keeps each paragraph and table row on one line)
+"""Writes runs/rule-levels/REPORT.md, the tables of the rule-level copies, from the
+records of the run: status.tsv (check_copies.py), ours/times.tsv
+(cli/generate_datasets.py --times), kbgen-results/rule-levels/summary.csv (kbgen's
+driver), the shared steps' timings.json in kbgen-work/ and machine.txt.
+
+    python runs/rule-levels/make_report.py
+
+Needs only the Python standard library.
+"""
+
+from __future__ import annotations
+
+import csv
+import datetime as dt
+import json
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+REPO = HERE.parents[1]
+SHARED_STEPS = ("tsv_to_nt", "load_tensor", "learn_M1", "learn_M2")
+
+
+def read_tsv(path: Path) -> list[dict[str, str]]:
+    if not path.is_file():
+        return []
+    with path.open(encoding="utf-8", newline="") as f:
+        return list(csv.DictReader(f, delimiter="\t"))
+
+
+def duration(seconds: float | str | None) -> str:
+    if seconds in (None, ""):
+        return ""
+    s = round(float(seconds))
+    if s < 60:
+        return f"{s} s"
+    if s < 3600:
+        return f"{s // 60} min {s % 60} s"
+    return f"{s // 3600} h {s % 3600 // 60} min"
+
+
+def number(value: str | int | None) -> str:
+    return "" if value in (None, "") else f"{int(value):,}"
+
+
+def stamp(path: Path) -> str:
+    return dt.datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+
+
+def share(part: int, whole: str) -> str:
+    """`part` with its share of `whole`, e.g. `1,663 (16.1%)`."""
+    return f"{part:,} ({100 * part / int(whole):.1f}%)" if whole else f"{part:,}"
+
+
+def produced_row(d: str, level: str, r: dict[str, str], source: str | None) -> str:
+    """A row of the table of triples produced by rules, from a status.tsv row and the
+    triples of the original graph."""
+    ours = kbgen = ["", "", "", ""]
+    if r["ours"] == "valid" and r["ours_derived"] and r["ours_partial_heads"]:
+        derived, heads = int(r["ours_derived"]), int(r["ours_partial_heads"])
+        total = int(r["ours_triples"])
+        ours = [
+            share(derived, r["ours_triples"]),
+            share(heads, r["ours_triples"]),
+            share(derived + heads, r["ours_triples"]),
+            share(total - derived - heads, r["ours_triples"]),
+        ]
+    if r["kbgen"] == "valid" and r["kbgen_rule_facts"]:
+        facts = int(r["kbgen_rule_facts"])
+        kbgen = [
+            share(facts, r["kbgen_triples"]),
+            share(int(r["kbgen_triples"]) - facts, r["kbgen_triples"]),
+        ]
+    else:
+        kbgen = ["", ""]
+    return (
+        f"| {d} | {level} | {number(source)} | {number(r['ours_triples'])} | {' | '.join(ours)} | "
+        f"{number(r['kbgen_triples'])} | {' | '.join(kbgen)} |"
+    )
+
+
+DOC = REPO / "docs" / "generation-times.md"
+DOC_BEGIN = "<!-- rule-level times: written by runs/rule-levels/make_report.py -->"
+DOC_END = "<!-- end of rule-level times -->"
+LEVELS = ["std1", "r25", "r50", "r75", "r100"]
+
+
+def doc_cell(r: dict[str, str] | None) -> str:
+    """Time of our copy / kbgen's copy at one level, for docs/generation-times.md."""
+    if r is None:
+        return ""
+    if r["ours"] == "no-rules":
+        return "no rule"
+    if r["ours"].startswith("same-as"):
+        return f"as {r['ours'][8:]}"
+
+    def one(status: str, seconds: str) -> str:
+        return duration(seconds) if status == "valid" and seconds else "pending"
+
+    return (
+        f"{one(r['ours'], r['ours_seconds'])} / {one(r['kbgen'], r['kbgen_seconds'])}"
+    )
+
+
+def write_doc_times(status: list[dict[str, str]]) -> None:
+    """Rewrites the table between DOC_BEGIN and DOC_END of docs/generation-times.md:
+    per dataset, the time of each level's copy by our generator and by kbgen, the
+    sum of each method and kbgen's shared steps."""
+    text = DOC.read_text(encoding="utf-8")
+    if DOC_BEGIN not in text or DOC_END not in text:
+        return
+    rows = {(r["dataset"], r["level"]): r for r in status}
+    lines = [
+        DOC_BEGIN,
+        "",
+        f"Last written on {dt.datetime.now():%Y-%m-%d %H:%M}. Each cell is ours / kbgen. *Pending*: the copy is not made yet, or was made before its run recorded what `check_copies.py` checks. *No rule*: our generator uses no rule at that level, so neither method makes a copy. *As r100*: the level has the rules of `r100`, whose copy stands for it.",
+        "",
+        "| Dataset | std1 | r25 | r50 | r75 | r100 | Ours, sum | kbgen, sum | kbgen shared steps |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    grand = {"ours": 0.0, "kbgen": 0.0}
+    grand_complete = {"ours": True, "kbgen": True}
+    for d in dict.fromkeys(r["dataset"] for r in status):
+        sums = {"ours": 0.0, "kbgen": 0.0}
+        complete = {"ours": True, "kbgen": True}
+        for level in LEVELS:
+            r = rows.get((d, level))
+            if r is None or r["ours"].startswith(("no-rules", "same-as")):
+                continue
+            for m in sums:
+                if r[m] == "valid" and r[f"{m}_seconds"]:
+                    sums[m] += float(r[f"{m}_seconds"])
+                else:
+                    complete[m] = False
+        for m in grand:
+            grand[m] += sums[m]
+            grand_complete[m] = grand_complete[m] and complete[m]
+        timings = HERE / "kbgen-work" / d / "timings.json"
+        shared = ""
+        if timings.is_file():
+            seconds = json.loads(timings.read_text())
+            shared = duration(sum(seconds.get(k, 0) for k in SHARED_STEPS))
+        cells = " | ".join(doc_cell(rows.get((d, level))) for level in LEVELS)
+        total = {m: duration(s) if complete[m] else "pending" for m, s in sums.items()}
+        lines.append(
+            f"| {d} | {cells} | {total['ours']} | {total['kbgen']} | {shared} |"
+        )
+    all_sums = {
+        m: duration(s)
+        if grand_complete[m]
+        else f"pending ({duration(s) or '0 s'} so far)"
+        for m, s in grand.items()
+    }
+    lines += [
+        f"| All | | | | | | {all_sums['ours']} | {all_sums['kbgen']} | |",
+        "",
+        DOC_END,
+    ]
+    start, end = text.index(DOC_BEGIN), text.index(DOC_END) + len(DOC_END)
+    DOC.write_text(text[:start] + "\n".join(lines) + text[end:], encoding="utf-8")
+    print(f"Updated {DOC}")
+
+
+def main() -> None:
+    status = read_tsv(HERE / "status.tsv")
+    times = {
+        (r["dataset"], r["level"]): r for r in read_tsv(HERE / "ours" / "times.tsv")
+    }
+    summary_path = HERE / "kbgen-results" / "rule-levels" / "summary.csv"
+    kbgen = {}
+    if summary_path.is_file():
+        with summary_path.open(encoding="utf-8", newline="") as f:
+            kbgen = {r["dataset"]: r for r in csv.DictReader(f)}
+    machine = (
+        (HERE / "machine.txt").read_text() if (HERE / "machine.txt").is_file() else ""
+    )
+
+    out = [
+        "# Rule-level copies: results",
+        "",
+        f"Written by `make_report.py` on {dt.datetime.now():%Y-%m-%d %H:%M} from `status.tsv`, `ours/times.tsv`, "
+        "`kbgen-results/rule-levels/summary.csv` and `kbgen-work/<dataset>/timings.json`. README.md says how the copies were made.",
+        "",
+        "## Machine",
+        "",
+        "```",
+        machine.strip() or "machine.txt missing: run reproduce.sh record",
+        "```",
+        "",
+        "## Copies",
+        "",
+        "*Filter* is what a rule needs to be kept at the level. *Used* is the rules our generator used, the rules kbgen was "
+        "given; *parsed* is those kbgen could apply (a rule whose relation kbgen's tensor lacks is dropped). A time covers one "
+        "copy: for ours the upload of the source to GraphDB, `cli/main.py` and the download; for kbgen M3, `synthesize.py` and "
+        "writing the copy, without the shared steps of the next table.",
+        "",
+        "| Dataset | Level | Filter | Rules kept | Used | kbgen parsed | Source triples | Ours triples | Ours time | kbgen triples | kbgen time |",
+        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    totals = {"ours": [0, 0.0], "kbgen": [0, 0.0]}
+    provenance = []
+    produced = []
+    for r in status:
+        d, level = r["dataset"], r["level"]
+        filt = (
+            f"std = {r['std_threshold']}"
+            if r["std_threshold"]
+            else f"PCA ≥ {r['pca_threshold']}"
+        )
+        if r["ours"].startswith(("no-rules", "same-as")):
+            note = (
+                "no rule: no copy"
+                if r["ours"] == "no-rules"
+                else f"same rules as {r['ours'][8:]}: no copy"
+            )
+            out.append(
+                f"| {d} | {level} | {filt} | {r['rules_kept']} | {r['rules_used']} | | | {note} | | | |"
+            )
+            continue
+        t = times.get((d, level), {})
+        k = kbgen.get(f"{d}-{level}", {})
+        # The original graph: the triples our generator read, else those kbgen read
+        # (kbgen drops the triples whose object is never a subject).
+        source = t.get("source_triples") or k.get("input_triples")
+        out.append(
+            f"| {d} | {level} | {filt} | {r['rules_kept']} | {r['rules_used']} | {r['kbgen_parsed']} | {number(source)} | "
+            f"{number(r['ours_triples'])} | {duration(r['ours_seconds'])} | {number(r['kbgen_triples'])} | "
+            f"{duration(r['kbgen_seconds'])} |"
+        )
+        for method, seconds, valid in (
+            ("ours", r["ours_seconds"], r["ours"]),
+            ("kbgen", r["kbgen_seconds"], r["kbgen"]),
+        ):
+            if valid == "valid" and seconds:
+                totals[method][0] += 1
+                totals[method][1] += float(seconds)
+        produced.append(produced_row(d, level, r, source))
+        stats = HERE / "kbgen-work" / "rule-levels" / f"{d}-{level}" / "stats.json"
+        provenance.append(
+            f"| {d} | {level} | {t.get('finished', '')[:16]} | {t.get('commit', '')} | {r['ours']} | "
+            f"{stamp(stats) if stats.is_file() else ''} | {r['kbgen']} |"
+        )
+
+    out += [
+        "",
+        "## Triples produced by rules",
+        "",
+        "Our generator: *derived* is what completion forward-chained from the complete rules (std confidence 1), and *partial heads* "
+        "the head triples the partial rules placed in the EDB, each with its body, as one grounding (`[Partial] Head triples "
+        "placed` in the copy's log). *By rules* is their sum, and *instantiated* the rest of the copy: random triples, the bodies "
+        "of the rules' groundings and the undirected edges. kbgen: *by rules* is the facts added by a rule firing during "
+        "synthesis, each with the rule's PCA confidence as probability (`count_rule_facts` of model M3), and *sampled* the rest. "
+        "*Original triples* is the number of triples of the source dataset, `<dataset>.unified.tsv`. A cell is empty when the "
+        "copy's run did not record the count.",
+        "",
+        "| Dataset | Level | Original triples | Ours triples | Ours derived | Ours partial heads | Ours by rules | Ours instantiated | kbgen triples | kbgen by rules | kbgen sampled |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        *produced,
+        "",
+        "## Totals",
+        "",
+        "Sum of the copies' times; levels of kbgen ran several at a time, so its sum is CPU time, not wall-clock time.",
+        "",
+        "| Method | Copies | Sum of times |",
+        "|---|---:|---:|",
+        *(f"| {m} | {n} | {duration(s)} |" for m, (n, s) in totals.items()),
+        "",
+        "## kbgen's shared steps",
+        "",
+        "Made once per dataset and shared by its levels: the N-Triples file, the tensor and the models M1 and M2.",
+        "",
+        "| Dataset | Time | Made |",
+        "|---|---:|---|",
+    ]
+    for d in dict.fromkeys(r["dataset"] for r in status):
+        timings = HERE / "kbgen-work" / d / "timings.json"
+        if timings.is_file():
+            seconds = json.loads(timings.read_text())
+            out.append(
+                f"| {d} | {duration(sum(seconds.get(k, 0) for k in SHARED_STEPS))} | {stamp(timings)} |"
+            )
+    out += [
+        "",
+        "## Provenance",
+        "",
+        "When each copy was finished, from which commit of this repository (ours; `+dirty`: with uncommitted changes, "
+        "listed in README.md), and the verdict of `check_copies.py`.",
+        "",
+        "| Dataset | Level | Ours finished | Ours commit | Ours check | kbgen finished | kbgen check |",
+        "|---|---|---|---|---|---|---|",
+        *provenance,
+        "",
+    ]
+    (HERE / "REPORT.md").write_text("\n".join(out), encoding="utf-8")
+    print(f"Wrote {HERE / 'REPORT.md'}")
+    write_doc_times(status)
+
+
+if __name__ == "__main__":
+    main()
