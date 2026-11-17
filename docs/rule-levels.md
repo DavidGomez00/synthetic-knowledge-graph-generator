@@ -81,7 +81,7 @@ With the same rules for both generators, kbgen's driver (`--rules-from-ours`) sk
 
 The copies of a level sit in `exp_datasets/` next to their dataset and its full copies, as `<dataset>_<generator>_<level>/<dataset>_<generator>_<level>.tsv`, so a folder listing reads `french`, `french_kbgen`, `french_kbgen_r0`, `french_kbgen_r25`, ..., `french_ours`, `french_ours_r0`, .... kbgen's `r100` has no folder of its own: it is the full copy, `french_kbgen`, which already uses every rule. This generator's full copy, `french_ours`, keeps only the rules with std confidence 1, so its `r100` is a level copy, `french_ours_r100`. The level is part of the name because `scripts/upload_results.py` keys the runs of the `kge-results` branch by dataset name and skips a run the branch already has, so a level copy named `french_ours` would never be uploaded.
 
-The scripts that tell copies from datasets by their folder name handle the level copies as their own sets. `train_kge.py --set` and `kge_eta.py --set` take `ours-levels` and `kbgen-levels`, while `--set ours` and `--set kbgen` stay the full copies. `report_results.py` and `validation_eta.py` put a level copy in the family of its level, as the `kbgen` or `ours` variant of `french-r25` for `french_kbgen_r25`, so a level's plots compare the two generators at that level. `cli/rule_levels.py`, `cli/generate_datasets.py`, `mine_rules/mine_datasets.py` and kbgen's driver don't take a level copy for a dataset: the first and the driver skip its name, and the others need a `<folder>.unified.tsv` that it doesn't have.
+The scripts that tell copies from datasets by their folder name put a level copy in the set of its generator. `train_kge.py --set ours` and `--set kbgen` train the full copies and the level copies, and `--set ours-levels` and `--set kbgen-levels` only the level copies; `kge_eta.py --set` takes the same names, but there `ours` and `kbgen` are only the full copies. `report_results.py` and `validation_eta.py` put a level copy in the family of its dataset, with the level in the variant: `french_kbgen_r25` is `french/kbgen_r25`. `cli/rule_levels.py`, `cli/generate_datasets.py`, `mine_rules/mine_datasets.py` and kbgen's driver don't take a level copy for a dataset: the first and the driver skip its name, and the others need a `<folder>.unified.tsv` that it doesn't have.
 
 ## Making the copies
 
@@ -117,18 +117,13 @@ kbgen's time grows with the rules per relation (see "Times" in [`benchmark-copie
 
 ## Splits and training
 
-`scripts/split_copies.py` finds a copy's source by removing the suffix, so a suffix that includes the level resolves `french_ours_r50` to `french` without a code change. `--suffix _ours` doesn't match `french_ours_r50`, so the full copies and the level copies are split separately.
+The machine that trains splits each copy with VANILLA's 80/20 split, as for every other dataset (`scripts/split_vanilla.py`, see `AGENTS.md`), so the levels of a dataset differ only in their graph:
 
 ```bash
-for level in r0 r25 r50 r75 r100; do
-  python scripts/split_copies.py --suffix _ours_${level}
-done
-for level in r0 r25 r50 r75; do
-  python scripts/split_copies.py --suffix _kbgen_${level}
-done
+python scripts/split_vanilla.py exp_datasets/*_ours_*/*.tsv exp_datasets/*_kbgen_*/*.tsv
 ```
 
-The splits use seed 1235 and the source's shares of valid and test triples at every level, so the levels of a dataset differ only in their graph. Training runs on the training machine, with the usual settings:
+Training runs on the training machine, with the usual settings:
 
 ```bash
 python scripts/train_kge.py --set ours-levels --skip-models CompGCN --workers 4 --upload

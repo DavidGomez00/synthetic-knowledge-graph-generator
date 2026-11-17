@@ -10,7 +10,7 @@ KGC-Benchmark/
 ├── input.json           Configuration for KGC.py
 ├── report_results.py    Collect Hits@k and MRR into one CSV and analyse every test prediction
 ├── cliffs_delta.py      Cliff's delta, the effect size of the relation comparison
-└── kendall_tau.py       Kendall's tau between the model rankings of two graphs
+└── spearman_rho.py      Spearman's rho between the model rankings of two graphs
 ```
 
 ## Input
@@ -228,7 +228,7 @@ Every plot keeps its title and explanation in a band at the top, exactly 330 pix
 | `relation_report.csv` | dataset, model and relation | The columns of `metrics_report.csv`, computed per relation |
 | `training_losses.csv` | dataset, model and epoch | The training `loss` of each epoch, as PyKEEN stores it in `results.json`: averaged over the training triples. Every run of the table is included, even one the analysis leaves out |
 | `relation_comparison.csv` | KG, compared graph, model and relation | Each relation in the reference graph against every other graph, see [Comparing relations across graphs](#comparing-relations-across-graphs) |
-| `ranking_agreement.csv` | KG, compared graph and metric | How alike the reference graph and every other graph rank the models, as a Kendall's tau, see [Comparing model rankings across graphs](#comparing-model-rankings-across-graphs) |
+| `ranking_agreement.csv` | KG, compared graph and metric | How alike the reference graph and every other graph rank the models, as a Spearman's rho, see [Comparing model rankings across graphs](#comparing-model-rankings-across-graphs) |
 | `query_comparison.csv` | query paired between two graphs | The `query`, then for each graph (`reference_` and `compared_` columns): its number of held-out `answers`, their `mrr`, and the share of them in the top k (`hits_at_k`, for k = 1, 3, 5 and 10) |
 | `query_comparison_summary.csv` | comparison, model, group of queries and k | See the table below |
 | `relations.png` | KG | `relation_report.csv` as a chart: one row of panels per model, MRR and Hits@10 per relation, and one column per graph. Each graph keeps its color in every plot: the reference first, then the compared graphs, then the rest (e.g. source, skgg.std=1.filled, pygraft) |
@@ -293,10 +293,10 @@ See [Cliff's delta and p-values](#cliffs-delta-and-p-values) for how `cliffs_del
 |---|---|
 | `metric` | The metric the models are ranked by: `hits_at_1` to `hits_at_15`, or `mrr`. |
 | `models` | Number of models ranked in both graphs. |
-| `kendall_tau` | Kendall's tau (tau-b) of the two rankings, from −1 (reversed order) through 0 (unrelated) to +1 (the same order). See [Kendall's tau](#kendalls-tau). Empty below 2 models, or when one graph gives every model the same value. |
-| `kendall_p` | Its p-value: how likely a tau this far from 0 would be if the two rankings were unrelated. It is not corrected for multiple tests. |
+| `spearman_rho` | Spearman's rho of the two rankings, from −1 (reversed order) through 0 (unrelated) to +1 (the same order). See [Spearman's rho](#spearmans-rho). Empty below 2 models, or when one graph gives every model the same value. |
+| `spearman_p` | Its p-value: how likely a rho this far from 0 would be if the two rankings were unrelated. It is not corrected for multiple tests. |
 
-To find the graph that best stands in for the reference, compare `kendall_tau` across the `compared` graphs, one metric at a time.
+To find the graph that best stands in for the reference, compare `spearman_rho` across the `compared` graphs, one metric at a time.
 
 ## Cliff's delta and p-values
 
@@ -420,33 +420,27 @@ For example, 0.01, 0.02 and 0.04 become 0.03, 0.04 and 0.04. A family is all the
 
 Showing that two graphs behave alike needs an equivalence test, which the project does not run yet. See the [backlog](backlog.md).
 
-## Kendall's tau
+## Spearman's rho
 
-**Meaning.** Rank the same models by one metric in two graphs, and take every pair of models. The pair is **concordant** when both graphs put the same model ahead, and **discordant** when they put different models ahead. Kendall's tau is the share of concordant pairs minus the share of discordant pairs:
+**Meaning.** Rank the same models by one metric in two graphs. Spearman's rho is the correlation of the two lists of ranks:
 
-| τ | Meaning |
+| ρ | Meaning |
 |---|---|
 | +1 | Both graphs rank the models in the same order |
 | 0 | The two orders are unrelated |
 | −1 | One graph ranks the models in the reverse order of the other |
 
-Only the order counts, not how far apart the scores are. A graph on which every model scores half as much as on the reference still has τ = +1.
+Only the order counts, not how far apart the scores are. A graph on which every model scores half as much as on the reference still has ρ = +1. A model that moves several places lowers ρ more than one that moves one place.
 
-**Definition.** With n models there are n₀ = n (n − 1) / 2 pairs. With C concordant and D discordant pairs:
-
-```
-τ = (C − D) / n₀
-```
-
-Two models with the same value of the metric, for example two models with Hits@15 = 1, are **tied**, and their pair is neither concordant nor discordant. The script uses **tau-b**, which divides by the pairs that are not tied rather than by every pair. Two identical rankings with ties then still get +1:
+**Definition.** With n models and d_i the difference between the ranks of model i in the two graphs, and no ties:
 
 ```
-τ_b = (C − D) / √((n₀ − n₁) × (n₀ − n₂))
+ρ = 1 − 6 Σ d_i² / (n (n² − 1))
 ```
 
-where n₁ and n₂ are the pairs tied in the reference graph and in the compared graph. Without ties, τ_b = τ.
+Two models with the same value of the metric, for example two models with Hits@15 = 1, are **tied**, and both get the mean of the ranks they share; ρ is then the Pearson correlation of those ranks.
 
-**Computation.** The code is in [`kendall_tau.py`](../kendall_tau.py), whose docstring repeats this section. Its `ranking_agreement` takes the rows of `metrics_report.csv`. For every graph pair and metric, it calls `kendall_tau`, which calls `scipy.stats.kendalltau`. SciPy computes tau-b by default, and its p-value as well: exactly for a few models without ties, and from a normal approximation otherwise. pandas' `DataFrame.corr(method="kendall")` gives the same tau, but no p-value. `pairwise_kendall_tau` follows the definition literally, comparing every pair of models, to check `kendall_tau`. `python kendall_tau.py` runs that check on the example below and on random samples.
+**Computation.** The code is in [`spearman_rho.py`](../spearman_rho.py), whose docstring repeats this section. Its `ranking_agreement` takes the rows of `metrics_report.csv`. For every graph pair and metric, it calls `spearman_rho`, which calls `scipy.stats.spearmanr` for ρ and its p-value (from a t distribution with n − 2 degrees of freedom). `python spearman_rho.py` checks it against pandas' `Series.corr(method="spearman")` on the example below and on random samples.
 
 A small example, with the MRR of four models:
 
@@ -457,11 +451,11 @@ A small example, with the MRR of four models:
 | C | 0.20 (3rd) | 0.25 (2nd) |
 | D | 0.10 (4th) | 0.05 (4th) |
 
-Of the 6 pairs, only B and C are in a different order, so τ = (5 − 1) / 6 = 0.67.
+Only B and C swap places, so Σ d_i² = 2 and ρ = 1 − 6 × 2 / (4 × 15) = 0.8.
 
-**Reading τ with few models.** Seven models make only 21 pairs, and one swap of two neighbouring models changes τ by 2/21 = 0.095. The p-value is therefore large unless the agreement is nearly perfect. For 7 models without ties, τ = 0.62 (4 discordant pairs) has p = 0.069, and p falls below 0.05 only from τ = 0.71 (3 discordant pairs or fewer). Compare the τ of the graphs with each other to see which one ranks the models most like the reference. Read the p-value only as a reminder that τ rests on few models.
+**Reading ρ with few models.** With 7 models, swapping two neighbouring models lowers ρ by 12 / (7 × 48) = 0.036, and the p-value falls below 0.05 only from about ρ = 0.76. Compare the ρ of the graphs with each other to see which one ranks the models most like the reference. Read the p-value only as a reminder that ρ rests on few models.
 
-**References.** M. G. Kendall, "A new measure of rank correlation", *Biometrika* 30(1–2), 1938. M. G. Kendall, "The treatment of ties in ranking problems", *Biometrika* 33(3), 1945.
+**References.** C. Spearman, "The proof and measurement of association between two things", *The American Journal of Psychology* 15(1), 1904.
 
 ## Requirements
 

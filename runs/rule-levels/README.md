@@ -16,7 +16,7 @@ The datasets are french, family, WN18RR and YAGO3-10, each complete and as its 1
 
 The PCA threshold of each dataset at each level is in `exp_datasets/rule_levels.tsv`, written by `python -m skgg.cli.rule_levels`; [`docs/rule-levels.md`](../../docs/rule-levels.md) explains how it is chosen.
 
-The copies are `exp_datasets/<d>_ours_<L>/<d>_ours_<L>.tsv` and `exp_datasets/<d>_kbgen_<L>/<d>_kbgen_<L>.tsv`, one triple per line, with no splits; `scripts/split_copies.py` makes the `train`, `valid` and `test` files on the machine that trains.
+The copies are `exp_datasets/<d>_ours_<L>/<d>_ours_<L>.tsv` and `exp_datasets/<d>_kbgen_<L>/<d>_kbgen_<L>.tsv`, one triple per line, with no splits; `scripts/split_vanilla.py` makes VANILLA's 80/20 `train` and `test` files on the machine that trains.
 
 ## Both methods get the same rules
 

@@ -11,11 +11,16 @@ that train_kge.py wrote for it, and for each finished run `status/<model>.json` 
 `<model>/` folder (the trained model `trained_model.pkl`, `results.json`, the loss
 plot and PyKEEN's `training_triples/`). `progress.csv` is left out, as every machine
 rewrites it; `--download` rebuilds it. A run is uploaded once: one that the branch
-already has is skipped, even if another machine trained it.
+already has is skipped, even if another machine trained it, as long as its dataset's
+`settings.json` (the training settings and the checksums of the splits) is the same
+on the branch as locally. If it differs, the branch's runs of that dataset were trained
+another way, for instance on earlier splits: the upload removes that dataset from the
+branch and uploads the local runs in its place, and logs the runs it replaced.
 
-The branch is checked out in a git worktree, `.kge-results/` (WORKTREE) at the root of
-the repository, and is created on the remote by the first upload. A lock on the
-worktree keeps the processes of one machine from using it at once. When the push is
+The branch is checked out in a git worktree, `.<branch>/` at the root of the repository
+(`.kge-results/`, WORKTREE, for the default branch), and is created on the remote by
+the first upload. A lock on the worktree keeps the processes of one machine from using
+it at once. When the push is
 refused because another machine pushed first, the commit is rebased on theirs and
 pushed again; machines train different datasets, so their files don't collide.
 
@@ -27,6 +32,7 @@ Needs only the Python standard library and git with push access to the remote.
 
 import argparse
 import fcntl
+import json
 import logging
 import shutil
 import socket
@@ -43,7 +49,13 @@ REMOTE = "origin"
 WORKTREE = ".kge-results"
 RESULTS_DIR = "exp_results"
 PUSH_ATTEMPTS = 5
+# Most bytes of runs per commit and push. A push of a few hundred MB takes under
+# a minute, so it rarely meets another machine's push and, if it does, its retry
+# is short; GitHub refuses any push over 2 GB.
+BATCH_MB = 200
 DATASET_FILES = ("settings.json", "train", "valid", "test")
+# Each run's own log, `<dataset>/logs/<model>.log` (train_kge.RUN_LOG_DIR).
+RUN_LOG_DIR = "logs"
 
 
 def git(*args: str, cwd: Path) -> str:
@@ -60,11 +72,24 @@ def repository_root() -> Path:
     return Path(git("rev-parse", "--show-toplevel", cwd=Path(__file__).parent))
 
 
+def worktree_name(branch: str) -> str:
+    """The worktree folder of a branch, so each branch has its own."""
+    return WORKTREE if branch == BRANCH else f".{branch}"
+
+
 @contextmanager
-def worktree_lock(root: Path) -> Iterator[None]:
-    with (root / f"{WORKTREE}.lock").open("a") as f:
-        fcntl.flock(f, fcntl.LOCK_EX)
-        yield
+def worktree_lock(
+    root: Path, branch: str = BRANCH, wait: bool = True
+) -> Iterator[bool]:
+    """Holds the worktree's lock; yields whether it was taken. Without `wait`, it
+    yields False at once if another process holds it."""
+    with (root / f"{worktree_name(branch)}.lock").open("a") as f:
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | (0 if wait else fcntl.LOCK_NB))
+        except BlockingIOError:
+            yield False
+            return
+        yield True
 
 
 def remote_has_branch(root: Path, remote: str, branch: str) -> bool:
@@ -73,7 +98,7 @@ def remote_has_branch(root: Path, remote: str, branch: str) -> bool:
 
 def open_worktree(root: Path, remote: str, branch: str) -> Path:
     """Returns the worktree of the branch, creating it, and brings it up to date."""
-    worktree = root / WORKTREE
+    worktree = root / worktree_name(branch)
     exists = remote_has_branch(root, remote, branch)
     if not (worktree / ".git").exists():
         if exists:
@@ -106,6 +131,26 @@ def uploaded_runs(worktree: Path) -> set[tuple[str, str]]:
     """(dataset, model) of every run committed to the branch."""
     files = git("ls-files", f"{RESULTS_DIR}/*/*/results.json", cwd=worktree)
     return {(f.split("/")[1], f.split("/")[2]) for f in files.splitlines()}
+
+
+def dataset_settings(folder: Path) -> object | None:
+    """A dataset's recorded settings (parsed `settings.json`), or None without one."""
+    path = folder / "settings.json"
+    if not path.is_file():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def stale_datasets(results: Path, target: Path, datasets: set[str]) -> set[str]:
+    """The `datasets` that the branch has with other settings than the local ones:
+    their runs on the branch were trained another way and are to be replaced."""
+    stale = set()
+    for dataset in datasets:
+        local = dataset_settings(results / dataset)
+        remote = dataset_settings(target / dataset)
+        if local is not None and remote is not None and local != remote:
+            stale.add(dataset)
+    return stale
 
 
 def has_commits(worktree: Path) -> bool:
@@ -157,6 +202,10 @@ def copy_run(results: Path, target: Path, dataset: str, model: str) -> None:
     if status.is_file():
         (destination / "status").mkdir(exist_ok=True)
         shutil.copy2(status, destination / "status" / status.name)
+    log = source / RUN_LOG_DIR / f"{model}.log"
+    if log.is_file():
+        (destination / RUN_LOG_DIR).mkdir(exist_ok=True)
+        shutil.copy2(log, destination / RUN_LOG_DIR / log.name)
     shutil.copytree(source / model, destination / model, dirs_exist_ok=True)
 
 
@@ -175,42 +224,128 @@ def identity_args(root: Path, machine: str) -> list[str]:
     ]
 
 
+def run_bytes(results: Path, dataset: str, model: str) -> int:
+    """The size of a run's files: its model folder and its status file."""
+    files = [p for p in (results / dataset / model).rglob("*") if p.is_file()]
+    files.append(results / dataset / "status" / f"{model}.json")
+    files.append(results / dataset / RUN_LOG_DIR / f"{model}.log")
+    return sum(p.stat().st_size for p in files if p.is_file())
+
+
+def batches(
+    results: Path, runs: list[tuple[str, str]], batch_bytes: int
+) -> Iterator[list[tuple[str, str]]]:
+    """`runs` in order, grouped into batches of at most `batch_bytes` (a larger
+    run makes a batch of its own)."""
+    batch: list[tuple[str, str]] = []
+    size = 0
+    for run in runs:
+        run_size = run_bytes(results, *run)
+        if batch and size + run_size > batch_bytes:
+            yield batch
+            batch, size = [], 0
+        batch.append(run)
+        size += run_size
+    if batch:
+        yield batch
+
+
 def upload(
     results: Path = Path(RESULTS_DIR),
     remote: str = REMOTE,
     branch: str = BRANCH,
     machine: str | None = None,
+    batch_mb: int = BATCH_MB,
+    wait: bool = True,
 ) -> int:
-    """Uploads the finished runs the branch lacks and returns how many."""
+    """
+    Uploads the finished runs the branch lacks and returns how many, in
+    commits and pushes of at most `batch_mb` MB of runs each, so a large
+    upload neither nears GitHub's 2 GB limit per push nor keeps losing the
+    race with other machines' pushes. The batches pushed before an error stay
+    uploaded; the next upload sends the rest.
+
+    Without `wait`, it returns 0 at once if another process of this machine is
+    uploading to the branch. Every upload sends every finished run the branch lacks,
+    so a run that finished meanwhile goes with a later upload: train_kge.py's workers
+    upload this way after each run, instead of queuing for the lock.
+    """
     machine = machine or socket.gethostname()
     results = results.resolve()
     root = repository_root()
-    with worktree_lock(root):
+    with worktree_lock(root, branch, wait) as locked:
+        if not locked:
+            logger.debug(
+                "Another process is uploading; a later upload sends these runs."
+            )
+            return 0
         worktree = open_worktree(root, remote, branch)
         target = worktree / RESULTS_DIR
         done = uploaded_runs(worktree)
-        new = [run for run in finished_runs(results) if run not in done]
+        local = list(finished_runs(results))
+        stale = stale_datasets(results, target, {dataset for dataset, _ in local})
+        for dataset in sorted(stale):
+            replaced = sorted(m for d, m in done if d == dataset)
+            logger.warning(
+                "%s on %s/%s has other settings or splits than the local one: its "
+                "runs there (%s) are replaced by the local runs.",
+                dataset,
+                remote,
+                branch,
+                ", ".join(replaced) or "none finished",
+            )
+        new = [run for run in local if run not in done or run[0] in stale]
         if not new:
             if unpushed(worktree, remote, branch):
                 push(worktree, remote, branch)
                 logger.info("Pushed the runs a failed push had left.")
             return 0
-        for dataset, model in new:
-            copy_run(results, target, dataset, model)
-        names = ", ".join(f"{d}/{m}" for d, m in new)
-        # -f: the code branches' .gitignore lists exp_results.
-        git("add", "-A", "-f", RESULTS_DIR, cwd=worktree)
-        git(
-            *identity_args(root, machine),
-            "commit",
-            "-q",
-            "-m",
-            f"Add {len(new)} runs trained on {machine}\n\n{names}",
-            cwd=worktree,
-        )
-        push(worktree, remote, branch)
-        logger.info("Uploaded %d runs to %s/%s: %s.", len(new), remote, branch, names)
-        return len(new)
+        # A commit left by a failed push goes first, so batches stack on it.
+        if unpushed(worktree, remote, branch):
+            push(worktree, remote, branch)
+        groups = list(batches(results, new, batch_mb * 1024 * 1024))
+        uploaded = 0
+        removed: set[str] = set()
+        for number, batch in enumerate(groups, start=1):
+            for dataset, model in batch:
+                if dataset in stale and dataset not in removed:
+                    # The whole dataset goes: its splits, settings and every run
+                    # trained with them, so no old run is left beside the new ones.
+                    shutil.rmtree(target / dataset)
+                    removed.add(dataset)
+                copy_run(results, target, dataset, model)
+            names = ", ".join(f"{d}/{m}" for d, m in batch)
+            # -f: the code branches' .gitignore lists exp_results.
+            git("add", "-A", "-f", RESULTS_DIR, cwd=worktree)
+            git(
+                *identity_args(root, machine),
+                "commit",
+                "-q",
+                "-m",
+                f"Add {len(batch)} runs trained on {machine}\n\n{names}"
+                + (
+                    "\n\nReplaces the runs of "
+                    + ", ".join(sorted({d for d, _ in batch} & stale))
+                    + ", trained with other settings or splits."
+                    if {d for d, _ in batch} & stale
+                    else ""
+                ),
+                cwd=worktree,
+            )
+            push(worktree, remote, branch)
+            uploaded += len(batch)
+            logger.info(
+                "Batch %d/%d: uploaded %d runs to %s/%s (%d of %d): %s.",
+                number,
+                len(groups),
+                len(batch),
+                remote,
+                branch,
+                uploaded,
+                len(new),
+                names,
+            )
+        return uploaded
 
 
 def download(
@@ -218,7 +353,7 @@ def download(
 ) -> int:
     """Copies the runs of the branch that `results` lacks; returns how many."""
     root = repository_root()
-    with worktree_lock(root):
+    with worktree_lock(root, branch):
         if not remote_has_branch(root, remote, branch):
             raise RuntimeError(
                 f"{remote} has no branch {branch}: nothing uploaded yet."
@@ -262,13 +397,21 @@ def main() -> int:
     parser.add_argument("--results", type=Path, default=Path(RESULTS_DIR))
     parser.add_argument("--remote", default=REMOTE)
     parser.add_argument("--branch", default=BRANCH)
+    parser.add_argument(
+        "--batch-mb",
+        type=int,
+        default=BATCH_MB,
+        help="most MB of runs per commit and push (default: %(default)s)",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     try:
         if args.download:
             download(args.results, args.remote, args.branch)
         else:
-            count = upload(args.results, args.remote, args.branch)
+            count = upload(
+                args.results, args.remote, args.branch, batch_mb=args.batch_mb
+            )
             if not count:
                 logger.info("Nothing to upload: the branch has every finished run.")
     except RuntimeError as error:

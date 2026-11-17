@@ -33,7 +33,7 @@ Of the 2,057 mined rules, 84 have std confidence 1 and 33 are left after cycle r
 
 `scripts/check_outputs.py` finds 22 of the 24 copies equal to their source in every relation: the triple count, each entity's in- and out-degree and the number of self-loops. `french` is 47 `parent` triples short (1,192 of 1,239), because only the fill step adds the `parent` triples that its rules don't derive. `family` has 86,649 triples against 28,358, with `nephew` at 43,100 against 3,633, and 104 self-loops that its source doesn't have, because completion has no cap.
 
-A first batch ran on 9 November at commit `bbb358c`, before the self-loop fix, one dataset at a time. Its copies were in `exp_datasets/ours-no-reflexivity-09-11/`, removed on 16 November 2026 and still in commit `2b9edf9`, and the main tables of [`generation-times.md`](generation-times.md) use its times because every dataset ran alone. Checking it on 10 November showed that self-loops were not preserved, for example 122 in french's `name` became 0, and 0 in YAGO3-10 became 65. That led to the fix.
+A first batch ran on 9 November at commit `bbb358c`, before the self-loop fix, one dataset at a time. Its copies are archived in `exp_datasets/ours-no-reflexivity-09-11/`, and the main tables of [`generation-times.md`](generation-times.md) use its times because every dataset ran alone. Checking it on 10 November showed that self-loops were not preserved, for example 122 in french's `name` became 0, and 0 in YAGO3-10 became 65. That led to the fix.
 
 ## kbgen (`_kbgen`)
 
