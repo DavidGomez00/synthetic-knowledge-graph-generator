@@ -211,6 +211,13 @@ python scripts/results_table.py
 python scripts/rule_set_table.py
 ```
 
+`scripts/rule_confidence.py` (needs `skgg`, reuses `rule_set_table.py`'s rule grounding) measures how each generator changes the confidence of the mined rules. For each dataset under `--root` with a `<folder>.unified.tsv` and `<folder>.csv` (or those of `--families`), it counts every mined rule's support, body size and PCA body size, and from them its std and PCA confidence, on the source and on each copy: `<folder>_ours_<level>` and `<folder>_kbgen_<level>` for every level of `rule_levels.tsv` with a copy of its own (`--levels` to pick some), and `<folder>_pygraft` at each of those levels. Each rule's role at a level is `used` (in `<folder>_ours_<level>_used.csv`, the rules both generators were given), `removed` (kept by the level's threshold, dropped by cycle removal) or `not_given`, and a used rule is `complete` or `partial`. It raises `ValueError` unless every source count equals the rules CSV's `positive_examples`, `body_size` and `pca_body_size` on the triples as AMIE read them (`as_amie_reads`), and `--check-logs` compares this generator's copies with the summaries in `runs/rule-levels/ours/<copy>.log` to 3 decimals and exits with status 1 on a mismatch. It writes `exp_analysis/rule_confidence/` (`--output-dir`): `rules.csv` (one row per dataset, level, generator and rule), `summary.csv` (per dataset, level, generator and group of rules, for std and PCA confidence: rules with no confidence on the copy, rules within 0.05 of the source, median and mean absolute difference, mean difference, RMSE and Spearman's rho), `summary_<level>.md`/`.tex`/`.csv` (the given rules, generators as columns, the closest in bold) and `plots/<dataset>_<level>.png` (source against copy PCA confidence, one panel per generator; `--no-plots` skips them). `--workers N` counts N graphs at once; all 219 graphs take about 2.5 minutes with 6 workers. The results are in `docs/rule-confidence.md`.
+
+```bash
+python scripts/rule_confidence.py --workers 6 --check-logs
+python scripts/rule_confidence.py --families french french1_1 --levels r25
+```
+
 ```bash
 python -m skgg.cli.generate_datasets                                    # every dataset under exp_datasets/ that has no copy yet
 python -m skgg.cli.generate_datasets --datasets french WN18RR --force

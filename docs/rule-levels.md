@@ -94,17 +94,7 @@ python scripts/check_outputs.py --suffix _ours_r25 --datasets french
 
 french's copies were made again on 16 November 2026 on Hefesto, at all six levels, each with the rules it used (`runs/rule-levels/` has the commands, logs and times). The copies of french1_1, french1_N, frenchN_1 and frenchN_M were made earlier that day on the development laptop, at the five levels other than `std1` and without their used rules, in 1 to 22 s each (logs in `logs/ours-levels/`, ignored by git), and split with `split_copies.py --suffix _ours_<level>`. `check_outputs.py` finds them well formed, with the source's entities, relations and self-loops. Every relation keeps its source frequency and degrees except `parent`, which the complete rules derive in completion. french's copies of Hefesto match the source exactly at `r0`; `parent` ends 47 triples short at `std1`, as in `french_ours`, 1 short at `r25` and `r75`, 3 short at `r100`, and has the right count but other degrees at `r50`. On the laptop's copies, frenchN_1 ends one `predecessor` triple short at r25.
 
-Partial rules within 0.05 of their source PCA confidence, of the partial rules of each copy, and the median absolute difference:
-
-| Dataset | r25 | r50 | r75 | r100 |
-|---|---|---|---|---|
-| french | 25 of 48 (0.029) | 38 of 108 (0.138) | 44 of 168 (0.240) | 58 of 228 (0.225) |
-| french1_1 | 23 of 50 (0.068) | 30 of 106 (0.237) | 33 of 162 (0.260) | 43 of 217 (0.243) |
-| french1_N | 0 of 4 (0.210) | 1 of 8 (0.214) | 1 of 12 (0.204) | 1 of 15 (0.196) |
-| frenchN_1 | 4 of 31 (0.252) | 2 of 64 (0.255) | 6 of 100 (0.237) | 4 of 130 (0.215) |
-| frenchN_M | 0 of 14 (0.214) | 5 of 27 (0.218) | 2 of 41 (0.214) | 1 of 54 (0.194) |
-
-The rules of french1_N, frenchN_1 and frenchN_M have lower PCA confidences (their r25 thresholds are 0.47, 0.61 and 0.5), so even their r25 rules lose about 0.2 (section 8 of `algorithm.md`, item 11).
+How far each copy moves the confidence of its rules, for all three generators, is in [`rule-confidence.md`](rule-confidence.md).
 
 kbgen: the driver in `~/GitHub/kbgen` (local branch `exp-datasets`) takes `--levels`. For each dataset it makes the N-Triples file, tensor, M1 and M2 once in `work/<dataset>/`, which already holds them from the `_kbgen` copies, and links the tensor and M2 into `work/rule-levels/<dataset>-<level>/`. There it learns M3 from the rules of the level only and synthesizes the copy, so every level uses the M2 of the existing copy. It skips a row with `kbgen_same_as` and a level that keeps every rule, checks each level's rule count against `rules_kept`, writes each copy to `exp_datasets/<dataset>_kbgen_<level>/` (`--level-root` picks another folder), and writes its summary to `results/rule-levels/`, where a copy's row is named `<dataset>-<level>`. A test on french1_N gave the expected rule counts (0, 4, 8 and 12 parsed) and 881 facts at each level, as many as kbgen keeps from the dataset. `baselines/kbgen.patch` rebuilds that code from the authors' repository, and [`generate-kbgen-levels.md`](generate-kbgen-levels.md) gives the steps to make the copies on another machine, which datasets each machine makes, and `scripts/check_kbgen_levels.py`, which checks the copies against `rule_levels.tsv`. The 19 datasets other than YAGO3-10, on the development laptop:
 
@@ -135,3 +125,7 @@ python scripts/train_kge.py --set kbgen-levels --skip-models CompGCN --workers 4
 ## Reading the results
 
 For each dataset and generator, the metrics of its copies (MRR, Hits@1, Hits@10) are compared across `share_kept`, from `std1` to `r100`, with the source dataset's own results as reference, and a second view against `rules_ours` and `rules_kbgen`. A level that is not generated takes the results of the level it names in `ours_same_as` or `kbgen_same_as`. The thresholds keep the rules of highest PCA confidence first, so the amount of rules and their confidence change together: a lower level has fewer rules and more confident ones.
+
+## Rule confidence on the copies
+
+[`rule-confidence.md`](rule-confidence.md) compares the PCA and std confidence of the mined rules on each original graph and on this generator's, kbgen's and PyGraft's copies at every level, measured by `scripts/rule_confidence.py`.

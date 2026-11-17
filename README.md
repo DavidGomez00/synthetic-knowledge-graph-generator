@@ -171,6 +171,7 @@ logs/              # per-run logs (gitignored)
 - [`docs/generate-benchmarks.md`](docs/generate-benchmarks.md): generating the benchmark copies on another machine.
 - [`docs/benchmark-copies.md`](docs/benchmark-copies.md): how the benchmark copies of this generator, kbgen and PyGraft were made: code, settings, commands and checks.
 - [`docs/generation-times.md`](docs/generation-times.md): time to make each benchmark copy with this generator, kbgen and PyGraft.
+- [`docs/rule-confidence.md`](docs/rule-confidence.md): how the std and PCA confidence of the mined rules change on the copies of this generator, kbgen and PyGraft.
 - [`docs/kge_training.md`](docs/kge_training.md): training the KGE models on the benchmark, in parallel and resumably, with the measured run times.
 - [`docs/training-protocol.md`](docs/training-protocol.md): every detail of how the models are trained and evaluated, and how the copies are compared with their originals.
 - [`docs/architecture.md`](docs/architecture.md): components and data flow, with diagrams.
