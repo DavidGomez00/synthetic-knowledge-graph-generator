@@ -39,6 +39,17 @@ metric between the original and kbgen's and our copy at that threshold, computed
 metric by metric over the models trained on both; a threshold without copies yet
 shows "-".
 
+With `--summary NAME`, it also writes `<analysis>/results_tables/<NAME>_summary/`,
+the comparison of KBgen's and NAME's copies with the original over every family
+of `--family` and every rule threshold of MSE_THRESHOLDS where both have runs,
+one row per family and threshold, PyGraft left out: `agreement` (Spearman's rho
+of each metric, the higher of the two in bold, $^*$ for p < 0.005) and `mse` (the
+mean squared error of each metric, the smaller in bold), each as LaTeX, Markdown
+and CSV.
+
+    python scripts/compare_results.py --family french french1_1 french1_N \
+        frenchN_1 frenchN_M --summary french
+
 The LaTeX tables are built by scripts/results_table.py's own functions, in the
 format of its tables: columns Original, then the copies under its generator names
 (PyGraft, KBgen, NAME), the best value of each column or metric in bold, $^*$ for
@@ -263,6 +274,196 @@ def graph_mse_latex(analysis: Path, family: str, caption: str) -> str:
     return header + "\n" + table.split("\n", 1)[1]
 
 
+# The caption text of the rule thresholds, for the tables of several thresholds.
+THRESHOLD_LEGEND = (
+    "std1: the rules with std confidence 1; r25 to r100: about 25 to 100\\% of the "
+    "mined rules, those of highest PCA confidence; both generators were given the "
+    "same rules"
+)
+
+
+def summary_rows(scores: pd.DataFrame, families: list[str]) -> list[tuple[str, str]]:
+    """(family, threshold) of every family of `families` and threshold of
+    MSE_THRESHOLDS where every generator of MSE_GENERATORS has runs."""
+    variants = scores.groupby("family")["variant"].agg(set)
+    return [
+        (family, t)
+        for family in families
+        for t in MSE_THRESHOLDS
+        if all(mse_variant(k, t) in variants.get(family, set()) for k in MSE_GENERATORS)
+    ]
+
+
+def summary_frames(
+    analysis: Path, rows: list[tuple[str, str]]
+) -> dict[str, pd.DataFrame]:
+    """The agreement and MSE of every (family, threshold) of `rows`, one row per
+    family, threshold, copy and metric."""
+    metrics = results_table.read_metrics(analysis / "metrics.csv")
+    results_table.AGREEMENT_GRAPHS = (tuple(dict.fromkeys(f for f, _ in rows)),)
+    agreement = results_table.read_agreement(analysis)
+    rho, mse = [], []
+    for family, t in rows:
+        for key in MSE_GENERATORS:
+            variant = mse_variant(key, t)
+            for name, metric in METRICS:
+                base = {"graph": family, "threshold": t, "copy": LABELS[key]}
+                found = agreement.get((family, variant, metric))
+                rho.append(
+                    {
+                        **base,
+                        "metric": name,
+                        "spearman_rho": results_table.rho_value(found)
+                        if found
+                        else None,
+                        "spearman_p": float(found["spearman_p"])
+                        if found and found["spearman_p"]
+                        else None,
+                        "models": int(found["models"]) if found else 0,
+                    }
+                )
+                value = results_table.metric_mse(metrics, family, variant, metric)
+                mse.append(
+                    {
+                        **base,
+                        "metric": name,
+                        "mse": value[0] if value else None,
+                        "models": value[1] if value else 0,
+                    }
+                )
+    return {"agreement": pd.DataFrame(rho), "mse": pd.DataFrame(mse)}
+
+
+def summary_markdown(frame: pd.DataFrame, value: str, title: str) -> str:
+    """A summary frame as a wide Markdown table, one row per graph and threshold,
+    the closer copy of each metric in bold: the higher rho or the smaller MSE."""
+    decimals = DECIMALS if value == "spearman_rho" else results_table.MSE_DECIMALS
+    better = max if value == "spearman_rho" else min
+    copies = [LABELS[k] for k in MSE_GENERATORS]
+    table = []
+    for (graph, t), group in frame.groupby(["graph", "threshold"], sort=False):
+        row = {"graph": graph, "threshold": t}
+        for name, _ in METRICS:
+            cells = group[group["metric"] == name].set_index("copy")
+            shown = {
+                c: round(float(cells.at[c, value]), decimals)
+                for c in copies
+                if c in cells.index and pd.notna(cells.at[c, value])
+            }
+            best = better(shown.values()) if shown else None
+            for c in copies:
+                if c not in shown:
+                    row[f"{c} {name}"] = ""
+                    continue
+                text = f"{shown[c]:.{decimals}f}"
+                if value == "spearman_rho":
+                    p = cells.at[c, "spearman_p"]
+                    text += "*" if pd.notna(p) and p < SIGNIFICANCE else ""
+                row[f"{c} {name}"] = f"**{text}**" if shown[c] == best else text
+        table.append(row)
+    return f"## {title}\n\n{pd.DataFrame(table).to_markdown(index=False)}\n"
+
+
+def summary_latex(
+    analysis: Path, name: str, rows: list[tuple[str, str]]
+) -> dict[str, str]:
+    """The agreement and MSE tables of the summary, made by results_table, one
+    row group per family."""
+    results_table.GENERATORS = (
+        ("Original", REFERENCE),
+        *((n, key) for n, key in GENERATORS if key in MSE_GENERATORS),
+    )
+    results_table.AGREEMENT_METRICS = METRICS
+    keys = [key for _, key in results_table.GENERATORS if key != REFERENCE]
+    grouped: dict[str, list[results_table.MseRow]] = {}
+    for family, t in rows:
+        grouped.setdefault(family, []).append(
+            (
+                f"{results_table.latex_name(family)} {t}",
+                family,
+                [mse_variant(k, t) for k in keys],
+            )
+        )
+    table_rows = list(grouped.values())
+    metrics = results_table.read_metrics(analysis / "metrics.csv")
+    results_table.AGREEMENT_GRAPHS = (tuple(grouped),)
+    stem = name.replace("_", "-")
+    names = results_table.metric_list(METRICS)
+    agreement, _, _ = results_table.build_agreement_table(
+        results_table.read_agreement(analysis),
+        table_rows,
+        header="Graph and level",
+        caption=(
+            "Spearman's $\\rho$ between the ranking of the models on each original "
+            "graph and on KBgen's and NAME's copy at each rule level "
+            f"({THRESHOLD_LEGEND}), for metrics {names}. The higher $\\rho$ of each "
+            f"row and metric is in bold, and $^*$ means a p-value of less than "
+            f"{SIGNIFICANCE}."
+        ),
+        label=f"tab:{stem}-summary-agreement",
+    )
+    mse, _, _ = results_table.build_mse_table(
+        metrics,
+        table_rows,
+        header="Graph and level",
+        caption=(
+            f"Mean squared error of {names} between each original graph and KBgen's "
+            f"and NAME's copy at each rule level ({THRESHOLD_LEGEND}), computed metric "
+            f"by metric over the models trained on both (all {len(MODELS)} unless "
+            "marked $^\\dagger$). The smaller error of each row and metric is in bold."
+        ),
+        label=f"tab:{stem}-summary-mse",
+    )
+    header = (
+        f"% Generated by scripts/compare_results.py --summary {name} from {analysis}"
+    )
+    # Twelve columns of numbers need the width of the page.
+    return {
+        table_name: header
+        + "\n"
+        + table.split("\n", 1)[1]
+        .replace("\\begin{table}[t]", "\\begin{table*}[t]")
+        .replace("\\end{table}", "\\end{table*}")
+        .replace("\\resizebox{\\columnwidth}", "\\resizebox{\\textwidth}")
+        for table_name, table in (("agreement", agreement), ("mse", mse))
+    }
+
+
+def write_summary(
+    analysis: Path,
+    output: Path,
+    name: str,
+    scores: pd.DataFrame,
+    families: list[str],
+    latex: bool,
+) -> tuple[list[Path], list[str]]:
+    """Writes `<output>/<name>_summary/` (see the module docstring) and returns the
+    files written and the tables to print."""
+    rows = summary_rows(scores, families)
+    if not rows:
+        return [], []
+    folder = output / f"{name}_summary"
+    folder.mkdir(parents=True, exist_ok=True)
+    frames = summary_frames(analysis, rows)
+    tex = summary_latex(analysis, name, rows)
+    values = {"agreement": "spearman_rho", "mse": "mse"}
+    titles = {
+        "agreement": f"{name}: Spearman's rho of KBgen's and our copies with the "
+        "original, by graph and rule level",
+        "mse": f"{name}: mean squared error of KBgen's and our copies with the "
+        "original, by graph and rule level",
+    }
+    written, printed = [], []
+    for table, frame in frames.items():
+        frame.to_csv(folder / f"{table}.csv", index=False)
+        text = summary_markdown(frame, values[table], titles[table])
+        (folder / f"{table}.md").write_text(text, encoding="utf-8")
+        (folder / f"{table}.tex").write_text(tex[table], encoding="utf-8")
+        written += [folder / f"{table}.{ext}" for ext in ("csv", "md", "tex")]
+        printed.append(tex[table] if latex else text)
+    return written, printed
+
+
 def bump_chart(
     frame: pd.DataFrame, versions: list[str], title: str, path: Path
 ) -> None:
@@ -368,6 +569,12 @@ def main() -> int:
         help="root of the table folders (default: <analysis>/results_tables)",
     )
     parser.add_argument(
+        "--summary",
+        metavar="NAME",
+        help="also write <output-dir>/NAME_summary/: KBgen's and NAME's copies "
+        "against the original over every family and rule threshold",
+    )
+    parser.add_argument(
         "--latex",
         action="store_true",
         help="print the LaTeX tables instead of the Markdown ones",
@@ -469,6 +676,13 @@ def main() -> int:
             (folder / "mse.tex").write_text(tex, encoding="utf-8")
             written += [folder / f"mse.{ext}" for ext in ("csv", "md", "tex")]
             printed.append(tex if args.latex else text)
+
+    if args.summary:
+        files, tables = write_summary(
+            args.analysis, output, args.summary, scores, families, args.latex
+        )
+        written += files
+        printed += tables
 
     print("\n".join(printed), end="")
     print(f"\nWrote {len(written)} files under {output}", file=sys.stderr)

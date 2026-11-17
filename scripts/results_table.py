@@ -334,10 +334,36 @@ def rho_cell(row: dict[str, str] | None, best: float | None) -> str:
     return text
 
 
-def build_agreement_table(agreement: Agreement) -> tuple[str, int, int]:
+# A row of an agreement or MSE table: its label, the graph, and the variant of each
+# copy column.
+MseRow = tuple[str, str, list[str]]
+
+
+def build_agreement_table(
+    agreement: Agreement,
+    rows: list[list[MseRow]] | None = None,
+    header: str = HEADER,
+    caption: str | None = None,
+    label: str = "tab:ranking_agreement",
+) -> tuple[str, int, int]:
     """The table of Spearman's rho between the model rankings of each graph
-    and of each generator's copy, with the number of rhos filled and in all."""
+    and of each generator's copy, with the number of rhos filled and in all. One
+    column group per generator of GENERATORS; `rows` gives the rows in groups
+    separated by a rule, each with the variant of every column group, by default
+    one row per graph of AGREEMENT_GRAPHS with the generators' own variants."""
     copies = [(name, variant) for name, variant in GENERATORS if variant != "original"]
+    if rows is None:
+        rows = [
+            [(latex_name(graph), graph, [v for _, v in copies]) for graph in graphs]
+            for graphs in AGREEMENT_GRAPHS
+        ]
+    if caption is None:
+        caption = (
+            "Spearman's $\\rho$ between the ranking of the models on each original "
+            "graph and on the synthetic copy of each generator for metrics "
+            f"{metric_list(AGREEMENT_METRICS)}. The highest $\\rho$ of each metric is "
+            f"in bold, and $^*$ means a p-value of less than {SIGNIFICANCE}."
+        )
     n = len(AGREEMENT_METRICS)
     groups = [
         f"\\multicolumn{{{n}}}{{c{'||' if i < len(copies) - 1 else ''}}}{{{name}}}"
@@ -351,28 +377,25 @@ def build_agreement_table(agreement: Agreement) -> tuple[str, int, int]:
         "\\centering",
         "\\setlength{\\tabcolsep}{3pt}",
         "\\renewcommand{\\arraystretch}{0.8}",
-        "\\caption{Spearman's $\\rho$ between the ranking of the models on each "
-        "original graph and on the synthetic copy of each generator for metrics "
-        f"{metric_list(AGREEMENT_METRICS)}. The highest $\\rho$ of each metric is in "
-        f"bold, and $^*$ means a p-value of less than {SIGNIFICANCE}.}}",
-        "\\label{tab:ranking_agreement}",
+        f"\\caption{{{caption}}}",
+        f"\\label{{{label}}}",
         "\\resizebox{\\columnwidth}{!}{%",
         f"\\begin{{tabular}}{{l||{columns}}}",
         "\\hline",
-        f"\\multirow{{2}}{{*}}{{{HEADER}}} & " + "\n & ".join(groups) + " \\\\",
+        f"\\multirow{{2}}{{*}}{{{header}}} & " + "\n & ".join(groups) + " \\\\",
         " & "
-        + " & ".join(label for _ in copies for label, _ in AGREEMENT_METRICS)
+        + " & ".join(name for _ in copies for name, _ in AGREEMENT_METRICS)
         + " \\\\",
         "\\hline\\hline",
     ]
     filled = total = 0
-    for graphs in AGREEMENT_GRAPHS:
-        for graph in graphs:
+    for group in rows:
+        for row_label, graph, variants in group:
             best = {
                 metric: max(
                     (
                         v
-                        for _, variant in copies
+                        for variant in variants
                         if (v := rho_value(agreement.get((graph, variant, metric))))
                         is not None
                     ),
@@ -380,8 +403,8 @@ def build_agreement_table(agreement: Agreement) -> tuple[str, int, int]:
                 )
                 for _, metric in AGREEMENT_METRICS
             }
-            row = [latex_name(graph)]
-            for _, variant in copies:
+            row = [row_label]
+            for variant in variants:
                 for _, metric in AGREEMENT_METRICS:
                     cell = rho_cell(
                         agreement.get((graph, variant, metric)), best[metric]
@@ -416,10 +439,6 @@ def metric_mse(
         return None
     originals, copies = zip(*pairs, strict=True)
     return float(mean_squared_error(originals, copies)), len(pairs)
-
-
-# A row of an MSE table: its label, the graph, and the variant of each copy column.
-MseRow = tuple[str, str, list[str]]
 
 
 def build_mse_table(
