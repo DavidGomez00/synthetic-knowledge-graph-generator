@@ -232,7 +232,7 @@ def unpushed_commits(root: Path, remote: str, branch: str, results: Path) -> int
     return count
 
 
-def push(root: Path, remote: str, branch: str) -> None:
+def push(root: Path, remote: str, branch: str, machine: str) -> None:
     for attempt in range(1, PUSH_ATTEMPTS + 1):
         try:
             git("push", "-q", remote, f"{branch}:refs/heads/{branch}", cwd=root)
@@ -242,7 +242,17 @@ def push(root: Path, remote: str, branch: str) -> None:
                 raise
             # Another machine pushed first: put these commits on top of theirs.
             try:
-                git("pull", "--rebase", "--autostash", "-q", remote, branch, cwd=root)
+                # Replaying the commits needs an identity, as committing does.
+                git(
+                    *identity_args(root, machine),
+                    "pull",
+                    "--rebase",
+                    "--autostash",
+                    "-q",
+                    remote,
+                    branch,
+                    cwd=root,
+                )
             except RuntimeError:
                 # A conflict, as when two machines trained the same run: leave the
                 # checkout as it was, so training and later uploads go on.
@@ -283,7 +293,7 @@ def upload(
             return 0
         branch = current_branch(root)
         if unpushed_commits(root, remote, branch, results):
-            push(root, remote, branch)
+            push(root, remote, branch, machine)
             logger.info("Pushed the runs a failed push had left.")
         new = pending_runs(root, results)
         if not new:
@@ -310,7 +320,7 @@ def upload(
                 *paths,
                 cwd=root,
             )
-            push(root, remote, branch)
+            push(root, remote, branch, machine)
             uploaded += len(batch)
             logger.info(
                 "Batch %d/%d: uploaded %d runs to %s/%s (%d of %d): %s.",
