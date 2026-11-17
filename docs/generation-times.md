@@ -136,7 +136,7 @@ The table below is rewritten by `runs/rule-levels/make_report.py` (step `report`
 
 <!-- rule-level times: written by runs/rule-levels/make_report.py -->
 
-Last written on 2026-11-16 23:46. Each cell is ours / kbgen. *Pending*: the copy is not made yet, or was made before its run recorded what `check_copies.py` checks. *No rule*: our generator uses no rule at that level, so neither method makes a copy. *As r100*: the level has the rules of `r100`, whose copy stands for it.
+Last written on 2026-11-17 06:13. Each cell is ours / kbgen. *Pending*: the copy is not made yet, or was made before its run recorded what `check_copies.py` checks. *No rule*: our generator uses no rule at that level, so neither method makes a copy. *As r100*: the level has the rules of `r100`, whose copy stands for it.
 
 | Dataset | std1 | r25 | r50 | r75 | r100 | Ours, sum | kbgen, sum | kbgen shared steps |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -159,12 +159,12 @@ Last written on 2026-11-16 23:46. Each cell is ours / kbgen. *Pending*: the copy
 | WN18RR1_N | no rule | 1 min 10 s / 15 s | 1 min 4 s / 23 s | 51 s / 27 s | 40 s / 29 s | 3 min 45 s | 1 min 34 s | 9 s |
 | WN18RRN_1 | no rule | 6 min 39 s / 7 min 53 s | 5 min 50 s / 12 min 21 s | 6 min 10 s / 12 min 28 s | 6 min 18 s / 12 min 28 s | 24 min 57 s | 45 min 11 s | 14 s |
 | WN18RRN_M | 13 min 7 s / 3 min 30 s | 12 min 40 s / 9 min 50 s | 9 min 46 s / 20 min 17 s | 9 min 31 s / 33 min 19 s | 8 min 31 s / 33 min 36 s | 53 min 36 s | 1 h 40 min | 18 s |
-| YAGO3-10 | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending |  |
-| YAGO3-10_1_1 | no rule | pending / pending | 56 min 42 s / pending | 1 h 2 min / pending | 56 min 50 s / pending | pending | pending | 1 min 2 s |
-| YAGO3-10_1_N | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending |  |
-| YAGO3-10_N_1 | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 2 min 5 s |
-| YAGO3-10_N_M | no rule | pending / pending | 1 h 22 min / pending | 1 h 12 min / pending | pending / pending | pending | pending |  |
-| All | | | | | | pending (8 h 56 min so far) | pending (9 h 26 min so far) | |
+| YAGO3-10 | no rule | pending / pending | pending / pending | pending / pending | pending / pending | pending | pending | 7 min 2 s |
+| YAGO3-10_1_1 | no rule | 3 h 23 min / 2 h 26 min | 56 min 42 s / 2 h 44 min | 1 h 2 min / 3 h 11 min | 56 min 50 s / 3 h 27 min | 6 h 19 min | 11 h 49 min | 1 min 2 s |
+| YAGO3-10_1_N | no rule | 1 h 29 min / 54 min 1 s | 3 h 22 min / 1 h 37 min | pending / 2 h 8 min | pending / 2 h 19 min | pending | 7 h 0 min | 2 min 38 s |
+| YAGO3-10_N_1 | no rule | 4 h 22 min / 2 h 58 min | pending / 3 h 41 min | pending / 4 h 0 min | pending / pending | pending | pending | 2 min 5 s |
+| YAGO3-10_N_M | no rule | 4 h 12 min / pending | 1 h 22 min / pending | 1 h 12 min / pending | pending / pending | pending | pending | 3 min 3 s |
+| All | | | | | | pending (25 h 46 min so far) | pending (38 h 56 min so far) | |
 
 <!-- end of rule-level times -->
 

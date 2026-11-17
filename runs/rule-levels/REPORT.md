@@ -1,6 +1,6 @@
 # Rule-level copies: results
 
-Written by `make_report.py` on 2026-11-16 23:46 from `status.tsv`, `ours/times.tsv`, `kbgen-results/rule-levels/summary.csv` and `kbgen-work/<dataset>/timings.json`. README.md says how the copies were made.
+Written by `make_report.py` on 2026-11-17 06:13 from `status.tsv`, `ours/times.tsv`, `kbgen-results/rule-levels/summary.csv` and `kbgen-work/<dataset>/timings.json`. README.md says how the copies were made.
 
 ## Machine
 
@@ -124,22 +124,22 @@ kbgen: upstream e5d06bc + baselines/kbgen.patch, driver sha256 1a5f71dbbda1a74ef
 | YAGO3-10 | r75 | PCA ≥ 0.19 | 112 | 109 |  |  |  |  | 530,841 |  |
 | YAGO3-10 | r100 | PCA ≥ 0 | 149 | 146 |  |  |  |  |  |  |
 | YAGO3-10_1_1 | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
-| YAGO3-10_1_1 | r25 | PCA ≥ 0.58 | 22 | 22 | 15 | 340,991 | 340,991 | 51 min 4 s | 188,150 | 1 h 10 min |
-| YAGO3-10_1_1 | r50 | PCA ≥ 0.397 | 44 | 44 | 33 | 340,991 | 340,987 | 56 min 42 s | 188,150 | 1 h 22 min |
-| YAGO3-10_1_1 | r75 | PCA ≥ 0.25 | 66 | 66 | 54 | 340,991 | 340,988 | 1 h 2 min | 188,150 | 1 h 37 min |
-| YAGO3-10_1_1 | r100 | PCA ≥ 0 | 88 | 88 |  | 340,991 | 340,986 | 56 min 50 s |  |  |
+| YAGO3-10_1_1 | r25 | PCA ≥ 0.58 | 22 | 22 | 15 | 340,991 | 340,990 | 3 h 23 min | 188,150 | 2 h 26 min |
+| YAGO3-10_1_1 | r50 | PCA ≥ 0.397 | 44 | 44 | 33 | 340,991 | 340,987 | 56 min 42 s | 188,150 | 2 h 44 min |
+| YAGO3-10_1_1 | r75 | PCA ≥ 0.25 | 66 | 66 | 54 | 340,991 | 340,988 | 1 h 2 min | 188,150 | 3 h 11 min |
+| YAGO3-10_1_1 | r100 | PCA ≥ 0 | 88 | 88 | 74 | 340,991 | 340,986 | 56 min 50 s | 188,150 | 3 h 27 min |
 | YAGO3-10_1_N | std1 | std = 1 | 1 | 0 | | | no rule: no copy | | | |
-| YAGO3-10_1_N | r25 | PCA ≥ 0.362 | 20 | 19 |  |  |  |  | 192,150 |  |
-| YAGO3-10_1_N | r50 | PCA ≥ 0.28 | 40 | 39 |  |  |  |  | 192,150 |  |
-| YAGO3-10_1_N | r75 | PCA ≥ 0.18 | 60 | 59 |  |  |  |  | 192,151 |  |
-| YAGO3-10_1_N | r100 | PCA ≥ 0 | 79 | 78 |  |  |  |  |  |  |
+| YAGO3-10_1_N | r25 | PCA ≥ 0.362 | 20 | 19 | 17 | 915,478 | 915,227 | 1 h 29 min | 192,150 | 54 min 1 s |
+| YAGO3-10_1_N | r50 | PCA ≥ 0.28 | 40 | 39 | 33 | 915,478 | 915,212 | 3 h 22 min | 192,150 | 1 h 37 min |
+| YAGO3-10_1_N | r75 | PCA ≥ 0.18 | 60 | 59 | 48 | 915,478 |  |  | 192,162 | 2 h 8 min |
+| YAGO3-10_1_N | r100 | PCA ≥ 0 | 79 | 78 | 66 | 915,478 |  |  | 192,150 | 2 h 19 min |
 | YAGO3-10_N_1 | std1 | std = 1 | 0 | 0 | | | no rule: no copy | | | |
-| YAGO3-10_N_1 | r25 | PCA ≥ 0.5 | 30 | 30 | 21 | 1,042,791 |  |  | 478,137 | 1 h 22 min |
-| YAGO3-10_N_1 | r50 | PCA ≥ 0.298 | 60 | 60 | 50 | 1,042,791 |  |  | 478,137 | 2 h 0 min |
-| YAGO3-10_N_1 | r75 | PCA ≥ 0.172 | 90 | 90 | 71 | 1,042,791 |  |  | 478,138 | 2 h 13 min |
+| YAGO3-10_N_1 | r25 | PCA ≥ 0.5 | 30 | 30 | 21 | 1,042,791 | 1,042,560 | 4 h 22 min | 478,137 | 2 h 58 min |
+| YAGO3-10_N_1 | r50 | PCA ≥ 0.298 | 60 | 60 | 50 | 1,042,791 |  |  | 478,137 | 3 h 41 min |
+| YAGO3-10_N_1 | r75 | PCA ≥ 0.172 | 90 | 90 | 71 | 1,042,791 |  |  | 478,138 | 4 h 0 min |
 | YAGO3-10_N_1 | r100 | PCA ≥ 0 | 119 | 119 |  |  |  |  |  |  |
 | YAGO3-10_N_M | std1 | std = 1 | 3 | 0 | | | no rule: no copy | | | |
-| YAGO3-10_N_M | r25 | PCA ≥ 0.46 | 34 | 31 |  | 1,002,950 | 1,002,687 | 1 h 8 min | 532,315 |  |
+| YAGO3-10_N_M | r25 | PCA ≥ 0.46 | 34 | 31 |  | 1,002,950 | 1,002,707 | 4 h 12 min | 532,315 |  |
 | YAGO3-10_N_M | r50 | PCA ≥ 0.308 | 67 | 64 |  | 1,002,950 | 1,002,548 | 1 h 22 min | 532,316 |  |
 | YAGO3-10_N_M | r75 | PCA ≥ 0.177 | 100 | 97 |  | 1,002,950 | 1,002,245 | 1 h 12 min | 532,315 |  |
 | YAGO3-10_N_M | r100 | PCA ≥ 0 | 133 | 130 |  |  |  |  |  |  |
@@ -222,19 +222,19 @@ Our generator: *derived* is what completion forward-chained from the complete ru
 | YAGO3-10 | r50 |  |  |  |  |  | 530,838 |  |  |
 | YAGO3-10 | r75 |  |  |  |  |  | 530,841 |  |  |
 | YAGO3-10 | r100 |  |  |  |  |  |  |  |  |
-| YAGO3-10_1_1 | r25 | 340,991 |  |  |  |  | 188,150 |  |  |
-| YAGO3-10_1_1 | r50 | 340,987 | 0 (0.0%) | 5,895 (1.7%) | 5,895 (1.7%) | 335,092 (98.3%) | 188,150 |  |  |
-| YAGO3-10_1_1 | r75 | 340,988 | 0 (0.0%) | 6,347 (1.9%) | 6,347 (1.9%) | 334,641 (98.1%) | 188,150 |  |  |
-| YAGO3-10_1_1 | r100 | 340,986 | 0 (0.0%) | 6,870 (2.0%) | 6,870 (2.0%) | 334,116 (98.0%) |  |  |  |
-| YAGO3-10_1_N | r25 |  |  |  |  |  | 192,150 |  |  |
-| YAGO3-10_1_N | r50 |  |  |  |  |  | 192,150 |  |  |
-| YAGO3-10_1_N | r75 |  |  |  |  |  | 192,151 |  |  |
-| YAGO3-10_1_N | r100 |  |  |  |  |  |  |  |  |
-| YAGO3-10_N_1 | r25 |  |  |  |  |  | 478,137 |  |  |
-| YAGO3-10_N_1 | r50 |  |  |  |  |  | 478,137 |  |  |
-| YAGO3-10_N_1 | r75 |  |  |  |  |  | 478,138 |  |  |
+| YAGO3-10_1_1 | r25 | 340,990 | 0 (0.0%) | 5,608 (1.6%) | 5,608 (1.6%) | 335,382 (98.4%) | 188,150 | 1,999 (1.1%) | 186,151 (98.9%) |
+| YAGO3-10_1_1 | r50 | 340,987 | 0 (0.0%) | 5,895 (1.7%) | 5,895 (1.7%) | 335,092 (98.3%) | 188,150 | 2,668 (1.4%) | 185,482 (98.6%) |
+| YAGO3-10_1_1 | r75 | 340,988 | 0 (0.0%) | 6,347 (1.9%) | 6,347 (1.9%) | 334,641 (98.1%) | 188,150 | 6,068 (3.2%) | 182,082 (96.8%) |
+| YAGO3-10_1_1 | r100 | 340,986 | 0 (0.0%) | 6,870 (2.0%) | 6,870 (2.0%) | 334,116 (98.0%) | 188,150 | 10,003 (5.3%) | 178,147 (94.7%) |
+| YAGO3-10_1_N | r25 | 915,227 | 0 (0.0%) | 287,760 (31.4%) | 287,760 (31.4%) | 627,467 (68.6%) | 192,150 | 39,913 (20.8%) | 152,237 (79.2%) |
+| YAGO3-10_1_N | r50 | 915,212 | 0 (0.0%) | 288,476 (31.5%) | 288,476 (31.5%) | 626,736 (68.5%) | 192,150 | 42,373 (22.1%) | 149,777 (77.9%) |
+| YAGO3-10_1_N | r75 |  |  |  |  |  | 192,162 | 64,907 (33.8%) | 127,255 (66.2%) |
+| YAGO3-10_1_N | r100 |  |  |  |  |  | 192,150 | 64,588 (33.6%) | 127,562 (66.4%) |
+| YAGO3-10_N_1 | r25 | 1,042,560 | 0 (0.0%) | 289,060 (27.7%) | 289,060 (27.7%) | 753,500 (72.3%) | 478,137 | 125,918 (26.3%) | 352,219 (73.7%) |
+| YAGO3-10_N_1 | r50 |  |  |  |  |  | 478,137 | 130,470 (27.3%) | 347,667 (72.7%) |
+| YAGO3-10_N_1 | r75 |  |  |  |  |  | 478,138 | 140,171 (29.3%) | 337,967 (70.7%) |
 | YAGO3-10_N_1 | r100 |  |  |  |  |  |  |  |  |
-| YAGO3-10_N_M | r25 | 1,002,687 |  |  |  |  | 532,315 |  |  |
+| YAGO3-10_N_M | r25 | 1,002,707 | 0 (0.0%) | 290,768 (29.0%) | 290,768 (29.0%) | 711,939 (71.0%) | 532,315 |  |  |
 | YAGO3-10_N_M | r50 | 1,002,548 | 0 (0.0%) | 293,343 (29.3%) | 293,343 (29.3%) | 709,205 (70.7%) | 532,316 |  |  |
 | YAGO3-10_N_M | r75 | 1,002,245 | 0 (0.0%) | 302,077 (30.1%) | 302,077 (30.1%) | 700,168 (69.9%) | 532,315 |  |  |
 | YAGO3-10_N_M | r100 |  |  |  |  |  |  |  |  |
@@ -245,8 +245,8 @@ Sum of the copies' times; levels of kbgen ran several at a time, so its sum is C
 
 | Method | Copies | Sum of times |
 |---|---:|---:|
-| ours | 73 | 8 h 56 min |
-| kbgen | 65 | 9 h 26 min |
+| ours | 78 | 25 h 46 min |
+| kbgen | 76 | 38 h 56 min |
 
 ## kbgen's shared steps
 
@@ -273,8 +273,11 @@ Made once per dataset and shared by its levels: the N-Triples file, the tensor a
 | WN18RR1_N | 9 s | 2026-11-16 13:20 |
 | WN18RRN_1 | 14 s | 2026-11-16 13:20 |
 | WN18RRN_M | 18 s | 2026-11-16 13:21 |
+| YAGO3-10 | 7 min 2 s | 2026-11-17 02:15 |
 | YAGO3-10_1_1 | 1 min 2 s | 2026-11-16 13:31 |
+| YAGO3-10_1_N | 2 min 38 s | 2026-11-17 01:10 |
 | YAGO3-10_N_1 | 2 min 5 s | 2026-11-16 13:32 |
+| YAGO3-10_N_M | 3 min 3 s | 2026-11-17 00:17 |
 
 ## Provenance
 
@@ -350,23 +353,23 @@ When each copy was finished, from which commit of this repository (ours; `+dirty
 | WN18RRN_M | r50 | 2026-11-16 22:35 | d34f407b | valid | 2026-11-16 23:20 | valid |
 | WN18RRN_M | r75 | 2026-11-16 22:45 | d34f407b | valid | 2026-11-16 23:33 | valid |
 | WN18RRN_M | r100 | 2026-11-16 22:54 | d850e7c0 | valid | 2026-11-16 23:33 | valid |
-| YAGO3-10 | r25 |  |  | missing |  | invalid:no run record |
-| YAGO3-10 | r50 |  |  | missing |  | invalid:no run record |
-| YAGO3-10 | r75 |  |  | missing |  | invalid:no run record |
-| YAGO3-10 | r100 |  |  | missing |  | missing |
-| YAGO3-10_1_1 | r25 | 2026-11-16 20:42 | ecce66e7 | invalid:log lacks the partial head count | 2026-11-16 16:03 | invalid:no count of rule facts |
-| YAGO3-10_1_1 | r50 | 2026-11-16 21:39 | bd509c53 | valid | 2026-11-16 14:53 | invalid:no count of rule facts |
-| YAGO3-10_1_1 | r75 | 2026-11-16 22:41 | d34f407b | valid | 2026-11-16 15:08 | invalid:no count of rule facts |
-| YAGO3-10_1_1 | r100 | 2026-11-16 23:38 | d850e7c0 | valid |  | missing |
-| YAGO3-10_1_N | r25 |  |  | missing |  | invalid:no run record |
-| YAGO3-10_1_N | r50 |  |  | missing |  | invalid:no run record |
-| YAGO3-10_1_N | r75 |  |  | missing |  | invalid:no run record |
-| YAGO3-10_1_N | r100 |  |  | missing |  | missing |
-| YAGO3-10_N_1 | r25 |  |  | missing | 2026-11-16 16:55 | invalid:no count of rule facts |
-| YAGO3-10_N_1 | r50 |  |  | missing | 2026-11-16 15:32 | invalid:no count of rule facts |
-| YAGO3-10_N_1 | r75 |  |  | missing | 2026-11-16 15:45 | invalid:no count of rule facts |
-| YAGO3-10_N_1 | r100 |  |  | missing |  | missing |
-| YAGO3-10_N_M | r25 | 2026-11-16 20:59 | 986c4c8e | invalid:log lacks the partial head count |  | invalid:no run record |
-| YAGO3-10_N_M | r50 | 2026-11-16 22:22 | ca52c2de | valid |  | invalid:no run record |
-| YAGO3-10_N_M | r75 | 2026-11-16 23:35 | d850e7c0 | valid |  | invalid:no run record |
-| YAGO3-10_N_M | r100 |  |  | missing |  | missing |
+| YAGO3-10 | r25 |  |  | missing |  | running |
+| YAGO3-10 | r50 |  |  | missing |  | running |
+| YAGO3-10 | r75 |  |  | missing |  | running |
+| YAGO3-10 | r100 |  |  | missing |  | running |
+| YAGO3-10_1_1 | r25 | 2026-11-17 04:57 | 7c1cb098 | valid | 2026-11-17 04:01 | valid |
+| YAGO3-10_1_1 | r50 | 2026-11-16 21:39 | bd509c53 | valid | 2026-11-17 04:19 | valid |
+| YAGO3-10_1_1 | r75 | 2026-11-16 22:41 | d34f407b | valid | 2026-11-17 04:46 | valid |
+| YAGO3-10_1_1 | r100 | 2026-11-16 23:38 | d850e7c0 | valid | 2026-11-17 05:02 | valid |
+| YAGO3-10_1_N | r25 | 2026-11-17 01:07 | 7c1cb098 | valid | 2026-11-17 02:29 | valid |
+| YAGO3-10_1_N | r50 | 2026-11-17 04:56 | 7c1cb098 | valid | 2026-11-17 03:47 | valid |
+| YAGO3-10_1_N | r75 |  |  | missing | 2026-11-17 04:18 | valid |
+| YAGO3-10_1_N | r100 |  |  | missing | 2026-11-17 04:29 | valid |
+| YAGO3-10_N_1 | r25 | 2026-11-17 05:55 | 7c1cb098 | valid | 2026-11-17 05:07 | valid |
+| YAGO3-10_N_1 | r50 |  |  | missing | 2026-11-17 05:50 | valid |
+| YAGO3-10_N_1 | r75 |  |  | missing | 2026-11-17 06:09 | valid |
+| YAGO3-10_N_1 | r100 |  |  | missing |  | running |
+| YAGO3-10_N_M | r25 | 2026-11-17 05:46 | 7c1cb098 | valid |  | running |
+| YAGO3-10_N_M | r50 | 2026-11-16 22:22 | ca52c2de | valid |  | running |
+| YAGO3-10_N_M | r75 | 2026-11-16 23:35 | d850e7c0 | valid |  | running |
+| YAGO3-10_N_M | r100 |  |  | missing |  | running |
