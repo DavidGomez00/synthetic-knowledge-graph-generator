@@ -13,7 +13,7 @@ This page describes how every knowledge graph embedding model of the benchmark i
 
 ## 1. Data and splits
 
-The benchmark has 133 datasets in `exp_datasets/`: 24 original graphs (French Royalty, Family, SGKG, WN18RR, YAGO3-10 and their 1:1, 1:N, N:1 and N:M sub-graphs) and 109 synthetic copies made by this project's generator, kbgen and PyGraft, including copies at several rule thresholds. The 24 archived copies in `exp_datasets/ours-no-reflexivity-09-11/` are split the same way. The copies come from the branch `pca-partial-rules` (up to commit `ecce66e`), which records how the rule-level copies were made in `runs/rule-levels/`; only their triples files and used rules are taken from it, with `exp_datasets/rule_levels.tsv`, the thresholds of each level.
+The benchmark has 133 datasets in `exp_datasets/`: 24 original graphs (French Royalty, Family, SGKG, WN18RR, YAGO3-10 and their 1:1, 1:N, N:1 and N:M sub-graphs) and 109 synthetic copies made by this project's generator, kbgen and PyGraft, including copies at several rule thresholds. The copies come from the branch `pca-partial-rules` (up to commit `ecce66e`), which records how the rule-level copies were made in `runs/rule-levels/`; only their triples files and used rules are taken from it, with `exp_datasets/rule_levels.tsv`, the thresholds of each level.
 
 ### Split procedure
 

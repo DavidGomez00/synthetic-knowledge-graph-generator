@@ -89,8 +89,7 @@ def main() -> int:
     parser.add_argument(
         "--sources",
         type=Path,
-        help="folder with the source datasets, for copies kept elsewhere such as "
-        "exp_datasets/ours-no-reflexivity-09-11 (default: --root)",
+        help="folder with the source datasets, for copies kept elsewhere (default: --root)",
     )
     parser.add_argument(
         "--suffix",
