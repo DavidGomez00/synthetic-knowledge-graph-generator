@@ -52,8 +52,9 @@ def share(part: int, whole: str) -> str:
     return f"{part:,} ({100 * part / int(whole):.1f}%)" if whole else f"{part:,}"
 
 
-def produced_row(d: str, level: str, r: dict[str, str]) -> str:
-    """A row of the table of triples produced by rules, from a status.tsv row."""
+def produced_row(d: str, level: str, r: dict[str, str], source: str | None) -> str:
+    """A row of the table of triples produced by rules, from a status.tsv row and the
+    triples of the original graph."""
     ours = kbgen = ["", "", "", ""]
     if r["ours"] == "valid" and r["ours_derived"] and r["ours_partial_heads"]:
         derived, heads = int(r["ours_derived"]), int(r["ours_partial_heads"])
@@ -73,7 +74,7 @@ def produced_row(d: str, level: str, r: dict[str, str]) -> str:
     else:
         kbgen = ["", ""]
     return (
-        f"| {d} | {level} | {number(r['ours_triples'])} | {' | '.join(ours)} | "
+        f"| {d} | {level} | {number(source)} | {number(r['ours_triples'])} | {' | '.join(ours)} | "
         f"{number(r['kbgen_triples'])} | {' | '.join(kbgen)} |"
     )
 
@@ -218,6 +219,8 @@ def main() -> None:
             continue
         t = times.get((d, level), {})
         k = kbgen.get(f"{d}-{level}", {})
+        # The original graph: the triples our generator read, else those kbgen read
+        # (kbgen drops the triples whose object is never a subject).
         source = t.get("source_triples") or k.get("input_triples")
         out.append(
             f"| {d} | {level} | {filt} | {r['rules_kept']} | {r['rules_used']} | {r['kbgen_parsed']} | {number(source)} | "
@@ -231,7 +234,7 @@ def main() -> None:
             if valid == "valid" and seconds:
                 totals[method][0] += 1
                 totals[method][1] += float(seconds)
-        produced.append(produced_row(d, level, r))
+        produced.append(produced_row(d, level, r, source))
         stats = HERE / "kbgen-work" / "rule-levels" / f"{d}-{level}" / "stats.json"
         provenance.append(
             f"| {d} | {level} | {t.get('finished', '')[:16]} | {t.get('commit', '')} | {r['ours']} | "
@@ -247,10 +250,11 @@ def main() -> None:
         "placed` in the copy's log). *By rules* is their sum, and *instantiated* the rest of the copy: random triples, the bodies "
         "of the rules' groundings and the undirected edges. kbgen: *by rules* is the facts added by a rule firing during "
         "synthesis, each with the rule's PCA confidence as probability (`count_rule_facts` of model M3), and *sampled* the rest. "
-        "A cell is empty when the copy's run did not record the count.",
+        "*Original triples* is the number of triples of the source dataset, `<dataset>.unified.tsv`. A cell is empty when the "
+        "copy's run did not record the count.",
         "",
-        "| Dataset | Level | Ours triples | Ours derived | Ours partial heads | Ours by rules | Ours instantiated | kbgen triples | kbgen by rules | kbgen sampled |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| Dataset | Level | Original triples | Ours triples | Ours derived | Ours partial heads | Ours by rules | Ours instantiated | kbgen triples | kbgen by rules | kbgen sampled |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
         *produced,
         "",
         "## Totals",
