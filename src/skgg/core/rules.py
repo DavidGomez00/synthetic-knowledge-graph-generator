@@ -12,13 +12,18 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
 import pandas as pd
 
 from skgg.core.utils import format_term
 
 logger = logging.getLogger(__name__)
+
+# The confidence that makes a rule complete (`HornRule.is_complete`): std confidence
+# in the std setting, the default, and PCA confidence in the PCA setting.
+Completeness = Literal["std", "pca"]
+COMPLETENESS: tuple[Completeness, ...] = ("std", "pca")
 
 
 # ---------------------------------------------------------------------------
@@ -133,6 +138,8 @@ class HornRule:
         head_coverage: Head coverage of the rule.
         functional_variable: The head variable AMIE computed the PCA confidence
             on (e.g. `?b`), or None if the rules CSV doesn't give it.
+        completeness: The setting the rule was parsed under, which picks the
+            confidence that makes it complete (see `is_complete`).
     """
 
     signature: RuleSignature
@@ -143,6 +150,7 @@ class HornRule:
     functional_variable: str | None = None
     classification: str = "UNKNOWN"
     closed: bool = False
+    completeness: Completeness = "std"
 
     @property
     def head(self) -> Atom:
@@ -189,11 +197,19 @@ class HornRule:
 
     @property
     def is_complete(self) -> bool:
-        """Whether the rule holds for every body grounding of the source: std
-        confidence >= `DEFAULT_STD_THRESHOLD` (1). Completion forward-chains the
-        complete rules only; the others are partial rules, whose groundings the EDB
-        builds together with their heads (see `grounding_target`)."""
-        return (self.std_confidence or 0.0) >= DEFAULT_STD_THRESHOLD
+        """Whether the rule is complete: the confidence of its setting
+        (`completeness`) is >= `DEFAULT_STD_THRESHOLD` (1). In the std setting that is
+        std confidence, so the rule holds for every body grounding of the source; in
+        the PCA setting it is PCA confidence, so the rule holds for every body
+        grounding whose functional variable has a value for the head relation.
+        Since PCA confidence is never below std confidence, the PCA setting only
+        adds complete rules. Completion forward-chains the complete rules only; the
+        others are partial rules, whose groundings the EDB builds together with
+        their heads (see `grounding_target`)."""
+        confidence = (
+            self.pca_confidence if self.completeness == "pca" else self.std_confidence
+        )
+        return (confidence or 0.0) >= DEFAULT_STD_THRESHOLD
 
     @property
     def grounding_target(self) -> int:
@@ -222,7 +238,8 @@ class HornRule:
 # Rule parsing.
 # ---------------------------------------------------------------------------
 ATOM_PATTERN = re.compile(r"(\?\w+)\s+(\S+)\s+(\S+)")
-# Std confidence a rule needs to be kept when no PCA threshold is given.
+# Confidence a rule needs to be complete, and to be kept when no PCA threshold is
+# given: std confidence in the std setting, PCA confidence in the PCA setting.
 DEFAULT_STD_THRESHOLD = 1.0
 
 
@@ -274,12 +291,14 @@ def _parse_head(head_str: str, term_mapping: dict[str, str]) -> Atom:
 def _parse_horn_rule(
     row: _RuleRow,
     term_mapping: dict[str, str],
+    completeness: Completeness = "std",
 ) -> HornRule:
     """Extracts a HornRule object from a pandas DataFrame row.
 
     Args:
         row: A named tuple representing a row form the rules DataFrame. Its
             `rule_id` becomes the rule's identifier.
+        completeness: The setting that decides whether the rule is complete.
 
     Returns:
         A populated HornRule instance.
@@ -308,6 +327,7 @@ def _parse_horn_rule(
             else str(functional_variable).strip() or None
         ),
         classification=row.classification,
+        completeness=completeness,
     )
 
     return rule
@@ -328,6 +348,7 @@ def parse_rule_set(
     term_mapping: dict[str, str],
     pca_threshold: float | None = None,
     std_threshold: float | None = None,
+    completeness: Completeness = "std",
 ) -> dict[str, HornRule]:
     """Parse a rules CSV into a dict of HornRules identified by rule_id.
 
@@ -341,6 +362,9 @@ def parse_rule_set(
             None to not filter on PCA confidence.
         std_threshold: Minimum std confidence a rule must have to be kept, or
             None to not filter on std confidence.
+        completeness: The setting of the rules (`HornRule.completeness`): "std"
+            makes the rules with std confidence 1 complete, "pca" those with PCA
+            confidence 1. It doesn't filter any rule.
 
     A rule that meets every threshold given is classified "POSITIVE" and kept.
     A rule missing one of the confidences filtered on is classified "UNKNOWN",
@@ -354,6 +378,8 @@ def parse_rule_set(
         ValueError: If the CSV has no `rule_id` column, or a rule_id is empty
             or repeated.
     """
+    if completeness not in COMPLETENESS:
+        raise ValueError(f"Unknown completeness setting {completeness!r}.")
     rule_dataframe = pd.read_csv(rules_file, dtype={"rule_id": str})
 
     if "rule_id" not in rule_dataframe.columns:
@@ -408,6 +434,7 @@ def parse_rule_set(
         rule = _parse_horn_rule(
             row=row,
             term_mapping=term_mapping,
+            completeness=completeness,
         )
 
         rules[rule.rule_id] = rule
@@ -415,11 +442,34 @@ def parse_rule_set(
     return rules
 
 
-def rule_filter_label(pca_threshold: float | None) -> str:
+def rule_thresholds(
+    completeness: Completeness, pca_threshold: float | None
+) -> dict[str, float]:
+    """The thresholds `parse_rule_set` keeps a run's rules with: the PCA threshold
+    if one is given, in either setting, or else the rules that are complete in the
+    setting, std confidence >= `DEFAULT_STD_THRESHOLD` (1) in the std setting and
+    PCA confidence >= 1 in the PCA setting."""
+    if pca_threshold is not None:
+        return {"pca_threshold": pca_threshold}
+    if completeness == "pca":
+        return {"pca_threshold": DEFAULT_STD_THRESHOLD}
+    return {"std_threshold": DEFAULT_STD_THRESHOLD}
+
+
+def rule_filter_label(
+    pca_threshold: float | None, completeness: Completeness = "std"
+) -> str:
     """Labels the confidence filter of a run for its graph URIs (see
-    `GraphConfig`): `pca=0.9` for a PCA threshold, or `std=1` for the
-    `DEFAULT_STD_THRESHOLD` kept when there is none. Thresholds are written
-    without trailing zeros, so 1 and 1.0 give the same label."""
+    `GraphConfig`). In the std setting: `pca=0.9` for a PCA threshold, or `std=1`
+    for the `DEFAULT_STD_THRESHOLD` kept when there is none. In the PCA setting the
+    label starts with `pca/`: `pca/pca=0.9`, or `pca/pca=1` without a threshold.
+    The prefix keeps a PCA-setting run apart from a std-setting run at the same
+    threshold, which keeps the same rules but makes fewer of them complete.
+    Thresholds are written without trailing zeros, so 1 and 1.0 give the same
+    label."""
+    if completeness == "pca":
+        threshold = DEFAULT_STD_THRESHOLD if pca_threshold is None else pca_threshold
+        return f"pca/pca={threshold:g}"
     if pca_threshold is not None:
         return f"pca={pca_threshold:g}"
     return f"std={DEFAULT_STD_THRESHOLD:g}"
@@ -471,11 +521,11 @@ def get_impacted_rules(
 
 
 def get_intensional_preds(rules: dict[str, HornRule]) -> set[str]:
-    """Returns the head predicates of the complete rules that are not symmetric,
-    the ones completion derives. A symmetric rule can't produce the first triple of
-    its relation, so a relation that only its symmetric rule derives is extensional,
-    and so is the head of a partial rule, whose heads the EDB places itself (see
-    `HornRule.is_complete`)."""
+    """Returns the head predicates of the complete rules (`HornRule.is_complete`,
+    in the rules' setting) that are not symmetric, the ones completion derives. A
+    symmetric rule can't produce the first triple of its relation, so a relation
+    that only its symmetric rule derives is extensional, and so is the head of a
+    partial rule, whose heads the EDB places itself."""
     return {
         rule.head.predicate
         for rule in rules.values()

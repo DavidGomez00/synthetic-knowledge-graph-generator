@@ -105,6 +105,21 @@ python synthesize_exp_datasets.py --levels r0 r25 r50 r75 --jobs 4 --datasets fa
 
 kbgen's time grows with the rules per relation (see "Times" in [`benchmark-copies.md`](benchmark-copies.md)), so each level should take less than the 10 h 58 min the all-rules copies of these 19 datasets took, summed over datasets.
 
+## PCA setting
+
+In the PCA setting of this generator (`cli/main.py --completeness pca`), the rules with PCA confidence 1 are complete instead of those with std confidence 1 (see "Complete and partial rules" in [`concepts.md`](concepts.md)). Its levels are written by `cli/rule_levels.py --completeness pca` to `exp_datasets_pca/rule_levels.tsv`. The level `pca1`, the rules with PCA confidence 1 (`pca_threshold` 1), takes the place of `std1`, and `r0` and `r25` to `r100` keep the thresholds of `exp_datasets/rule_levels.tsv`. `rules_ours` and `ours_same_as` count the rules the PCA setting uses. The file has two more columns: `completeness` (`pca`; empty in the std file) and `complete_changed`, the rules kept at that level whose completeness differs from the std setting. A row with 0 gives the generator the same input as the std setting, so its copy would match the std copy of `exp_datasets/` up to chance.
+
+On 17 November 2026, `complete_changed` is above 0 only for family (11 rules at every level), french1_1 (5), french (4) and YAGO3-10_N_1 (1). In french1_1 and YAGO3-10_N_1, cycle removal leaves no rule at `pca1`, which stands in as `r0`. `rules_ours` goes from 18 at `std1` to 26 at `pca1` in family, and drops by 1 to 5 rules at `r25` to `r100` in the four datasets, since the rules that become complete go through cycle removal.
+
+`cli/generate_datasets.py --completeness pca --levels ...` makes the copies with `cli/main.py --completeness pca`, from `exp_datasets_pca/rule_levels.tsv`, and writes them to `exp_datasets_pca/<dataset>_ours_<level>/` (`--output-root` picks another folder), so the std copies in `exp_datasets/` are left alone. It refuses a levels file written for the other setting, names its GraphDB repositories `skgg_ours_<dataset>_<level>_pca` and logs to `logs/ours_pca` by default, so it can run next to a std batch.
+
+```bash
+python -m skgg.cli.rule_levels --completeness pca                    # -> exp_datasets_pca/rule_levels.tsv
+python -m skgg.cli.generate_datasets --completeness pca --levels pca1 r25 r50 r75 r100 --datasets family french french1_1 YAGO3-10_N_1
+```
+
+kbgen's copies, the splits, training and the analysis scripts don't read `exp_datasets_pca/` yet.
+
 ## Splits and training
 
 The machine that trains splits each copy with VANILLA's 80/20 split, as for every other dataset (`scripts/split_vanilla.py`, see `AGENTS.md`), so the levels of a dataset differ only in their graph:

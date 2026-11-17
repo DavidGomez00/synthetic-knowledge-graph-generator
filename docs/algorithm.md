@@ -116,6 +116,8 @@ Mechanism 2 instead builds groundings of a partial rule $r$, body and head toget
 
 The facts that Mechanism 3 spends afterwards add more body groundings without a head, which brings the rule's confidence below 1, as in the source. The aim is that the synthetic graph keeps each rule's PCA confidence; Section 8 reports how close it comes, and the other targets that were tried.
 
+**PCA setting.** Under the partial completeness assumption, a body grounding whose functional variable has no value for the head relation is not a counterexample, so a rule with PCA confidence 1 has none in the source. The PCA setting (`--completeness pca`) makes those rules complete, in place of the rules with standard confidence 1: they are grounded, forward-chained and put through cycle removal (Section 5) as the complete rules above, and a rule is partial only if its PCA confidence is below 1. Without a PCA threshold the run keeps the rules with PCA confidence 1. Since PCA confidence is never below standard confidence, every complete rule of the standard setting is complete in the PCA setting too. The fixpoint gives each body grounding of such a rule its head, so the synthetic graph has standard confidence 1 for it, while the source may not.
+
 ### 3.3 Resulting EDB
 
 Whenever the EDB generation terminates, for every extensional relation the base facts reproduce the source degree maps and number of self-loops exactly. The joint structure of rule bodies is approximated by the groundings of Mechanism 2. Intensional relations are still not generated in the EDB$^{[2]}$, apart from the facts of partial-rule groundings (Section 3.2.4).

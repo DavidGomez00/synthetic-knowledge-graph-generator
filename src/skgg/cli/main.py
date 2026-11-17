@@ -24,14 +24,16 @@ from skgg.core.queries import (
     get_triple_count,
 )
 from skgg.core.rules import (
-    DEFAULT_STD_THRESHOLD,
+    COMPLETENESS,
     Atom,
+    Completeness,
     HornRule,
     get_impacted_rules,
     get_intensional_preds,
     parse_rule_set,
     rule_filter_label,
     rule_sort_key,
+    rule_thresholds,
     write_used_rules,
 )
 from skgg.core.utils import (
@@ -427,6 +429,7 @@ def run_synthetic_graph_experiment(
     base_uri: str | None = None,
     namespace: str | None = None,
     skip_reflexivity: bool = False,
+    completeness: Completeness | None = None,
 ) -> None:
     """Runs a Synthetic Graph generation experiment.
 
@@ -437,10 +440,18 @@ def run_synthetic_graph_experiment(
 
     `log_level`, if given, overrides `config.logging.level` for this run.
     `pca_threshold`, if given, overrides `config.rules.pca_threshold` for
-    this run's rule filtering only. If neither is set, the rules with std
-    confidence >= `DEFAULT_STD_THRESHOLD` (1) are kept instead.
+    this run's rule filtering only. If neither is set, the rules that are complete
+    in the run's setting are kept instead (`rule_thresholds`).
 
-    The kept rules with std confidence 1 are complete (`HornRule.is_complete`):
+    `completeness`, if given, overrides `config.rules.completeness`: the setting
+    that picks the confidence that makes a rule complete, std confidence 1 in the
+    std setting (the default) and PCA confidence 1 in the PCA setting. The PCA
+    setting treats the rules with PCA confidence 1 as the std setting treats the
+    rules with std confidence 1, and its graph labels start with `pca/`
+    (`pca/pca=1` without a threshold).
+
+    The kept rules whose confidence of the setting is 1 are complete
+    (`HornRule.is_complete`):
     the EDB builds the groundings of their extensional body up to their support and
     completion forward-chains them. The others are partial: the EDB builds
     round(PCA confidence x support) groundings of their body together with their
@@ -500,7 +511,9 @@ def run_synthetic_graph_experiment(
 
     if pca_threshold is None:
         pca_threshold = config.rules.pca_threshold
-    rule_filter = rule_filter_label(pca_threshold)
+    if completeness is None:
+        completeness = config.rules.completeness
+    rule_filter = rule_filter_label(pca_threshold, completeness)
     if synthetic_uri is None:
         synthetic_uri = config.graph.synthetic_uri(rule_filter)
     edb_uri = config.graph.edb_uri(synthetic_uri)
@@ -510,8 +523,9 @@ def run_synthetic_graph_experiment(
     if base_uri in (edb_uri, synthetic_uri, filled_uri):
         raise ValueError(f"The run's graphs can't include the base graph <{base_uri}>.")
     logger.info(
-        "Rule filter %s: EDB at <%s>, synthetic graph at <%s>%s.",
+        "Rule filter %s (%s setting): EDB at <%s>, synthetic graph at <%s>%s.",
         rule_filter,
+        "PCA" if completeness == "pca" else "std",
         edb_uri,
         synthetic_uri,
         f", filled graph at <{filled_uri}>" if fill else "",
@@ -524,18 +538,12 @@ def run_synthetic_graph_experiment(
         namespace = config.graph.namespace
     term_mapping = build_term_mapping(config.graph.term_namespaces, namespace)
 
-    if pca_threshold is not None:
-        rules = parse_rule_set(
-            rules_file=rules_file,
-            term_mapping=term_mapping,
-            pca_threshold=pca_threshold,
-        )
-    else:
-        rules = parse_rule_set(
-            rules_file=rules_file,
-            term_mapping=term_mapping,
-            std_threshold=DEFAULT_STD_THRESHOLD,
-        )
+    rules = parse_rule_set(
+        rules_file=rules_file,
+        term_mapping=term_mapping,
+        completeness=completeness,
+        **rule_thresholds(completeness, pca_threshold),
+    )
     unprofiled = (
         set().union(*(r.get_predicates() for r in rules.values()))
         - graph_metrics.profiles.keys()
@@ -552,10 +560,11 @@ def run_synthetic_graph_experiment(
     complete_rules = {r_id: r for r_id, r in rules.items() if r.is_complete}
     partial_rules = {r_id: r for r_id, r in rules.items() if not r.is_complete}
     logger.info(
-        "%d rules: %d complete (std confidence 1, forward-chained), %d partial "
+        "%d rules: %d complete (%s confidence 1, forward-chained), %d partial "
         "(grounded round(PCA confidence x support) times in the EDB, after the "
         "complete rules).",
         len(rules),
+        "PCA" if completeness == "pca" else "std",
         len(complete_rules),
         len(partial_rules),
     )
@@ -766,11 +775,23 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Keep the rules with at least this PCA confidence, overriding the "
         "config file's rules.pca_threshold for this run only. Without either, the "
-        "rules with std confidence 1 are kept. A kept rule with std confidence "
-        "below 1 is partial: the EDB builds round(PCA confidence x support) of its "
+        "rules that are complete in the run's setting are kept (std confidence 1, "
+        "or PCA confidence 1 with --completeness pca). A kept rule that isn't "
+        "complete is partial: the EDB builds round(PCA confidence x support) of its "
         "groundings with their head, and completion doesn't apply it. The rule "
         "filter names the run's graphs, e.g. http://FrenchRoyalty.org/skgg/pca=0.9 "
-        "or .../skgg/std=1.",
+        "or .../skgg/std=1, and .../skgg/pca/pca=0.9 in the PCA setting.",
+    )
+    parser.add_argument(
+        "--completeness",
+        choices=COMPLETENESS,
+        default=None,
+        help="The confidence that makes a rule complete (forward-chained in "
+        "completion): std (std confidence 1) or pca (PCA confidence 1), "
+        "overriding the config file's rules.completeness (default std) for this "
+        "run only. In the PCA setting the rules with PCA confidence 1 are kept "
+        "when no PCA threshold is set, and the graphs are under .../skgg/pca/, "
+        "e.g. http://FrenchRoyalty.org/skgg/pca/pca=1.",
     )
     parser.add_argument(
         "--synthetic-uri",
@@ -816,4 +837,5 @@ if __name__ == "__main__":
         base_uri=args.base_uri,
         namespace=args.namespace,
         skip_reflexivity=args.skip_reflexivity,
+        completeness=args.completeness,
     )

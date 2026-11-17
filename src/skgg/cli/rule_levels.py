@@ -28,6 +28,17 @@ rules whose relations all keep a triple once kbgen's `load_tensor.py` has droppe
 every triple whose object is never a subject. The profiles both need are read from
 `<folder>.unified.tsv`, so no graph database is used.
 
+With `--completeness pca` the levels are those of this generator's PCA setting
+(`cli/main.py --completeness pca`), where the rules with PCA confidence 1 are
+complete instead of those with std confidence 1. The level `pca1` (PCA threshold 1)
+replaces `std1`, the other levels keep their thresholds, and `rules_ours` counts the
+rules the PCA setting uses. The column `complete_changed` gives how many of the
+rules kept at that level have another completeness than in the std setting: a row
+with 0 gives the generator the same input as the std setting. The
+file goes to `exp_datasets_pca/rule_levels.tsv` by default, next to the PCA-setting
+copies, while `--root` still names the source datasets. kbgen's columns don't
+depend on the setting.
+
 A level whose rules, for one generator, equal those of another level gets that
 level's name in `ours_same_as` or `kbgen_same_as`: its copy would be generated from
 the same rules, so it is neither generated nor trained, and the named level's copy
@@ -38,6 +49,7 @@ was removed on 17 November 2026).
     python -m skgg.cli.rule_levels          # -> exp_datasets/rule_levels.tsv
     python -m skgg.cli.rule_levels --datasets french family -o /tmp/levels.tsv
     python -m skgg.cli.rule_levels --shares 0.1 0.25 0.5 0.75 0.9
+    python -m skgg.cli.rule_levels --completeness pca  # in exp_datasets_pca/
 """
 
 import argparse
@@ -52,7 +64,7 @@ from decimal import ROUND_FLOOR, Decimal
 from pathlib import Path
 
 from skgg.core.cycles import remove_minimal_cyclic_rules
-from skgg.core.rules import parse_rule_set, rule_sort_key
+from skgg.core.rules import COMPLETENESS, Completeness, parse_rule_set, rule_sort_key
 from skgg.core.utils import build_term_mapping, format_term, setup_logging
 from skgg.engine.edb import get_undirected_rule_ids
 from skgg.engine.metrics import PredicateProfile
@@ -64,10 +76,16 @@ DEFAULT_SHARES = (0.25, 0.5, 0.75)
 # cli/main.py does without --pca-conf.
 STD_LEVEL = "std1"
 STD_THRESHOLD = Decimal(1)
+# The level of the PCA setting that keeps only the rules with PCA confidence >=
+# PCA_LEVEL_THRESHOLD, as cli/main.py --completeness pca does without --pca-conf.
+PCA_LEVEL = "pca1"
+PCA_LEVEL_THRESHOLD = Decimal(1)
+# Default folder of the PCA-setting copies and their rule levels.
+PCA_ROOT = Path("exp_datasets_pca")
 # Suffixes of the copies' folders, which hold no rules of their own.
 COPY_SUFFIXES = ("_ours", "_kbgen", "_pygraft")
 # The rule-level copies, e.g. `french_kbgen_r25` (see docs/rule-levels.md).
-LEVEL_COPY = re.compile(r"_(ours|kbgen|pygraft)_(r\d+|std1)$")
+LEVEL_COPY = re.compile(r"_(ours|kbgen|pygraft)_(r\d+|std1|pca1)$")
 # Namespace of a dataset's graphs in cli/generate_datasets.py.
 NAMESPACE = "http://skgg.org/{folder}/"
 COLUMNS = (
@@ -83,6 +101,8 @@ COLUMNS = (
     "rules_kbgen",
     "ours_same_as",
     "kbgen_same_as",
+    "completeness",
+    "complete_changed",
 )
 
 
@@ -101,6 +121,9 @@ class Level:
     kbgen_same_as: str = ""
     # Std confidence threshold, set only for std1.
     std_threshold: Decimal | None = None
+    # Kept rules whose completeness differs from the std setting's; None in the std
+    # setting.
+    complete_changed: int | None = None
 
 
 def level_name(share: float) -> str:
@@ -178,12 +201,14 @@ def read_graph(
     return profiles, kbgen_preds
 
 
-def dataset_levels(folder: Path, shares: list[float]) -> tuple[int, list[Level]]:
-    """Computes every level of one dataset.
+def dataset_levels(
+    folder: Path, shares: list[float], completeness: Completeness = "std"
+) -> tuple[int, list[Level]]:
+    """Computes every level of one dataset in a setting of this generator.
 
     Returns:
-        The number of mined rules and the levels: r0, std1, the share levels and
-        r100.
+        The number of mined rules and the levels: r0, std1 (pca1 in the PCA
+        setting), the share levels and r100.
 
     Raises:
         ValueError: If a rule uses a predicate that the graph lacks.
@@ -197,10 +222,11 @@ def dataset_levels(folder: Path, shares: list[float]) -> tuple[int, list[Level]]
         folder / f"{folder.name}.unified.tsv", term_mapping
     )
 
-    thresholds: list[tuple[str, float, Decimal | None]] = [
-        ("r0", 0.0, None),
-        (STD_LEVEL, 0.0, None),
-    ]
+    thresholds: list[tuple[str, float, Decimal | None]] = [("r0", 0.0, None)]
+    if completeness == "pca":
+        thresholds.append((PCA_LEVEL, 0.0, PCA_LEVEL_THRESHOLD))
+    else:
+        thresholds.append((STD_LEVEL, 0.0, None))
     thresholds += [
         (level_name(s), s, pick_threshold(pca, s) if pca else None) for s in shares
     ]
@@ -210,16 +236,32 @@ def dataset_levels(folder: Path, shares: list[float]) -> tuple[int, list[Level]]
     for name, share, threshold in thresholds:
         if name == STD_LEVEL:
             rules = parse_rule_set(
-                rules_file, term_mapping, std_threshold=float(STD_THRESHOLD)
+                rules_file,
+                term_mapping,
+                std_threshold=float(STD_THRESHOLD),
+                completeness=completeness,
             )
             kept = {r_id for r_id, value in std.items() if value >= STD_THRESHOLD}
             condition = f"std >= {STD_THRESHOLD}"
         elif threshold is None:
-            levels.append(Level(name, share, None, set(), set(), set()))
+            levels.append(
+                Level(
+                    name,
+                    share,
+                    None,
+                    set(),
+                    set(),
+                    set(),
+                    complete_changed=None if completeness == "std" else 0,
+                )
+            )
             continue
         else:
             rules = parse_rule_set(
-                rules_file, term_mapping, pca_threshold=float(threshold)
+                rules_file,
+                term_mapping,
+                pca_threshold=float(threshold),
+                completeness=completeness,
             )
             kept = {r_id for r_id, value in confidences.items() if value >= threshold}
             condition = f"PCA >= {threshold}"
@@ -240,22 +282,32 @@ def dataset_levels(folder: Path, shares: list[float]) -> tuple[int, list[Level]]
             for r_id, rule in rules.items()
             if rule.get_predicates() <= kbgen_preds
         }
-        # As cli/main.py: cycle removal only sees the complete rules (std confidence
-        # 1), and the partial ones are all used.
+        # As cli/main.py: cycle removal only sees the complete rules (confidence 1
+        # of the setting), and the partial ones are all used.
         complete = {r_id: rule for r_id, rule in rules.items() if rule.is_complete}
         partial = set(rules) - set(complete)
         remove_minimal_cyclic_rules(
             complete, exempt=get_undirected_rule_ids(complete, profiles)
         )
+        ours = set(complete) | partial
+        # Counted over every kept rule, before cycle removal: a rule that becomes
+        # complete can change which complete rules cycle removal drops.
+        changed = None
+        if completeness != "std":
+            changed = sum(
+                rule.is_complete != (std[r_id] >= STD_THRESHOLD)
+                for r_id, rule in rules.items()
+            )
         levels.append(
             Level(
                 name,
                 share,
                 threshold,
                 kept,
-                set(complete) | partial,
+                ours,
                 kbgen,
                 std_threshold=STD_THRESHOLD if name == STD_LEVEL else None,
+                complete_changed=changed,
             )
         )
 
@@ -335,10 +387,19 @@ def main() -> int:
         "(default: %(default)s)",
     )
     parser.add_argument(
+        "--completeness",
+        choices=COMPLETENESS,
+        default="std",
+        help="setting of this generator the levels are for: std (complete rules "
+        "have std confidence 1) or pca (PCA confidence 1, with the level pca1 "
+        "instead of std1) (default: %(default)s)",
+    )
+    parser.add_argument(
         "-o",
         "--output",
         type=Path,
-        help="output .tsv file (default: <root>/rule_levels.tsv)",
+        help="output .tsv file (default: <root>/rule_levels.tsv, or "
+        f"{PCA_ROOT}/rule_levels.tsv with --completeness pca)",
     )
     parser.add_argument("--log-level", default="INFO")
     args = parser.parse_args()
@@ -352,7 +413,9 @@ def main() -> int:
         parser.error("--shares must be between 0 and 1, both excluded.")
     if len({level_name(s) for s in shares}) != len(shares):
         parser.error("--shares must differ by at least 0.01.")
-    output = args.output or args.root / "rule_levels.tsv"
+    output = args.output or (
+        PCA_ROOT if args.completeness == "pca" else args.root
+    ) / "rule_levels.tsv"
 
     try:
         folders = find_datasets(args.root, args.datasets)
@@ -361,7 +424,7 @@ def main() -> int:
 
     rows = []
     for folder in folders:
-        n_rules, levels = dataset_levels(folder, shares)
+        n_rules, levels = dataset_levels(folder, shares, args.completeness)
         for level in levels:
             rows.append(
                 {
@@ -379,6 +442,12 @@ def main() -> int:
                     "rules_kbgen": len(level.kbgen),
                     "ours_same_as": level.ours_same_as,
                     "kbgen_same_as": level.kbgen_same_as,
+                    "completeness": ""
+                    if args.completeness == "std"
+                    else args.completeness,
+                    "complete_changed": ""
+                    if level.complete_changed is None
+                    else level.complete_changed,
                 }
             )
         logger.info(
