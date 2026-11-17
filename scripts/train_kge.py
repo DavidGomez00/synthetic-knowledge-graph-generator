@@ -132,6 +132,14 @@ LEVEL_COPY = re.compile(r"_(ours|kbgen|pygraft)_(r\d+|std1)$")
 # slice, and at 4096 the slowest model (TransD) takes about 42 minutes on YAGO3-10.
 YAGO_PREFIX = "YAGO"
 YAGO_BATCH_SIZE = 4096
+# Test triples scored at once in the evaluation. Without it PyKEEN searches the largest
+# batch that fits, which takes nearly all the free memory of the GPU: on a MIG slice
+# shared by several workers, the other runs then ran out of memory (72 YAGO3-10 runs
+# on 17 November 2026). On YAGO3-10 (123,182 entities) TransD peaks at 4 GB at 32
+# against 16 GB at 128, evaluates as fast, and gives the same metrics: the ranks don't
+# depend on how the test triples are batched. It is not a training setting, so it
+# isn't in Settings or settings.json.
+EVALUATION_BATCH_SIZE = 32
 LOG_FILE = Path("logs/train_kge.log")
 # Each training run's own log, `<output>/<dataset>/logs/<model>.log`, with every
 # message of the run: DEBUG of the loggers in RUN_LOG_DEBUG, INFO of the others.
@@ -738,8 +746,9 @@ def train_model(
     }
     if model == "CompGCN":
         kwargs["optimizer_kwargs"] = {"lr": settings.compgcn_learning_rate}
+    kwargs["evaluation_kwargs"] = {"batch_size": EVALUATION_BATCH_SIZE}
     if not progress_bars:
-        kwargs["evaluation_kwargs"] = {"use_tqdm": False}
+        kwargs["evaluation_kwargs"]["use_tqdm"] = False
     run_logger.info(
         "Pipeline arguments: %s",
         {

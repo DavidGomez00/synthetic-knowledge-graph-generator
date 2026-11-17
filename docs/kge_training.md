@@ -58,6 +58,13 @@ At batch size 32 a run is CPU-bound: it keeps one CPU core busy and uses only pa
 
 On the training machine (12 MIG 1g.24gb slices on 6 RTX PRO 6000 Blackwell GPUs, 81.6 CPUs for the container), 12 workers, one per slice, is the setting to use. 24 workers, two per slice, slow each other down, and two CompGCN runs on a YAGO3-10 dataset could run out of a slice's 24 GB together. On an RTX 3090, 4 workers filled the GPU and trained about 2.6 times as fast as one process.
 
+Memory, not compute, limits how many runs share a slice. The evaluation scores 32 test triples at a time (`EVALUATION_BATCH_SIZE`); before 17 November 2026 PyKEEN searched the largest batch that fit, which took nearly all the free memory of the slice, and on 17 November 72 YAGO3-10 runs that shared a slice with an evaluation ran out of memory, most of them at their first epoch, because each failed worker went on to the next run and failed again. On YAGO3-10, batch 32 gives the same metrics as 128 or 512 at the same speed (TransD: 14 minutes, MRR 0.09919 at all three), and TransD peaks at 4 GB instead of 16 GB. CompGCN on a YAGO3-10 dataset needs 13.5 GB to train, so two of them don't fit on one slice: train it in its own command with one worker per slice, beside the other six models with four:
+
+```bash
+python scripts/train_kge.py --datasets <...> --keep-order --skip-models CompGCN --workers 48 --threads 1 --upload
+python scripts/train_kge.py --datasets <...> --keep-order --models CompGCN --workers 12 --threads 1 --upload
+```
+
 Each run keeps its seed and settings, so parallel training gives the same results as one process: 9 runs on three small datasets, trained by 3 workers, interrupted and resumed, gave the same losses and MRR as a single process. Locks keep the runs apart: each run has `exp_checkpoints/<dataset>/<model>.lock`, and the workers training a dataset share its `.lock`, so two commands with overlapping datasets never train the same run twice.
 
 ```bash
