@@ -44,7 +44,7 @@ Update the Machine column when the work is assigned, and commit it with the copi
 
 ## 1. Update the clone of this repository
 
-The levels file, the kbgen patch and this page are on the branch `rule-levels` until it is merged into `main`. `REPO` is the path of the clone, and `KBGEN` where kbgen goes; the commands below use both.
+The levels file, the kbgen patch and this page are in this repository (the branch `rule-levels` that held them was merged on 16 November 2026). `REPO` is the path of the clone, and `KBGEN` where kbgen goes; the commands below use both.
 
 ```bash
 export REPO=~/synthetic-knowledge-graph-generator   # the clone on this machine
