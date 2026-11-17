@@ -1,4 +1,4 @@
-## FamilyM_N, r75: Hits@k and MRR (copies made from about 75% of the mined rules, those of highest PCA confidence (level r75))
+## FamilyM_N, r75: Hits@k and MRR (copies using 75% of the rules, those of highest PCA confidence)
 
 | model   |   Original Hits@1 |   Original Hits@3 |   Original Hits@5 |   Original Hits@10 |   Original Hits@15 |   Original MRR |   PyGraft Hits@1 |   PyGraft Hits@3 |   PyGraft Hits@5 |   PyGraft Hits@10 |   PyGraft Hits@15 |   PyGraft MRR |   kbgen Hits@1 |   kbgen Hits@3 |   kbgen Hits@5 |   kbgen Hits@10 |   kbgen Hits@15 |   kbgen MRR |   Ours Hits@1 |   Ours Hits@3 |   Ours Hits@5 |   Ours Hits@10 |   Ours Hits@15 |   Ours MRR |
 |:--------|------------------:|------------------:|------------------:|-------------------:|-------------------:|---------------:|-----------------:|-----------------:|-----------------:|------------------:|------------------:|--------------:|---------------:|---------------:|---------------:|----------------:|----------------:|------------:|--------------:|--------------:|--------------:|---------------:|---------------:|-----------:|

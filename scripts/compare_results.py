@@ -103,13 +103,12 @@ LABELS = {"ours": "Ours", "kbgen": "kbgen", "pygraft": "PyGraft"}
 # Caption text and order of each threshold. A threshold not listed here is
 # named in the caption as it is and comes after these.
 THRESHOLDS = {
-    "std1": "made from the rules with std confidence 1",
+    "std1": "using the rules with std confidence 1",
     **{
-        f"r{share}": f"made from about {share}\\% of the mined rules, those of highest "
-        f"PCA confidence (level r{share})"
+        f"r{share}": f"using {share}\\% of the rules, those of highest PCA confidence"
         for share in (25, 50, 75)
     },
-    "r100": "made from every mined rule (level r100)",
+    "r100": "using 100\\% of the rules",
 }
 # The tag of a copy made without a threshold: PyGraft's, which uses no rules and
 # goes in the version of every threshold.
