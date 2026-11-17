@@ -27,8 +27,8 @@ the mean squared error of Hits@1 and of MRR between the original graph and the
 copy over the models trained on both (scikit-learn's `mean_squared_error`),
 computed metric by metric, the smallest of each metric in bold. In
 `ranking_agreement.tex`, the highest rho of each metric is bold, and ties are
-all bold. A rho with p < 0.05 is marked with an asterisk, and an undefined rho
-(every model with the same value, e.g. Hits@1 = 0) is "-".
+all bold. A rho with p < 0.005 (SIGNIFICANCE) is marked with an asterisk, and an
+undefined rho (every model with the same value, e.g. Hits@1 = 0) is "-".
 
     python scripts/results_table.py
     python scripts/results_table.py --output-dir paper/tables
@@ -164,9 +164,12 @@ def build_table(
     block_header: str,
     caption: str,
     label: str,
+    bold: bool = True,
 ) -> str:
     """A table with one block of rows per (row label, dataset folder) of
-    `blocks`, under the first column's header `block_header`."""
+    `blocks`, under the first column's header `block_header`. With `bold`, the
+    best model of each metric is in bold and the caption says so; without, the
+    caption is `caption` as given."""
     n = len(METRICS)
     groups = [
         f"\\multicolumn{{{n}}}{{c{'||' if i < len(GENERATORS) - 1 else ''}}}{{{name}}}"
@@ -180,7 +183,9 @@ def build_table(
         "\\setlength{\\tabcolsep}{3pt}",
         "\\renewcommand{\\arraystretch}{0.8}",
         f"\\caption{{{caption} In each graph, the best model of each metric is "
-        "in bold, for the original graph and each generator.}",
+        "in bold, for the original graph and each generator.}"
+        if bold
+        else f"\\caption{{{caption}}}",
         f"\\label{{{label}}}",
         "\\resizebox{\\textwidth}{!}{%",
         f"\\begin{{tabular}}{{l|l||{columns}}}",
@@ -194,7 +199,7 @@ def build_table(
         "\\hline\\hline",
     ]
     for block_label, dataset in blocks:
-        best = best_values(metrics, dataset)
+        best = best_values(metrics, dataset) if bold else {}
         for i, model in enumerate(MODELS):
             first = (
                 f"\\multirow{{{len(MODELS)}}}{{*}}{{{block_label}}}" if i == 0 else ""
@@ -256,7 +261,7 @@ AGREEMENT_GRAPHS = (
 )
 AGREEMENT_METRICS = (("Hits@1", "hits_at_1"), ("MRR", "mrr"))
 # A rho with a p-value below this is marked with an asterisk.
-SIGNIFICANCE = 0.05
+SIGNIFICANCE = 0.005
 
 Agreement = dict[tuple[str, str, str], dict[str, str]]
 
@@ -314,9 +319,9 @@ def build_agreement_table(agreement: Agreement) -> tuple[str, int, int]:
         "\\setlength{\\tabcolsep}{3pt}",
         "\\renewcommand{\\arraystretch}{0.8}",
         "\\caption{Spearman's $\\rho$ between the ranking of the models on each "
-        "original graph and on the synthetic copy of each generator, by "
+        "original graph and on the synthetic copy of each generator for metrics "
         f"{metric_list(AGREEMENT_METRICS)}. The highest $\\rho$ of each metric is in "
-        f"bold. $^*$: $p < {SIGNIFICANCE}$.}}",
+        f"bold, and $^*$ means a p-value of less than {SIGNIFICANCE}.}}",
         "\\label{tab:ranking_agreement}",
         "\\resizebox{\\columnwidth}{!}{%",
         f"\\begin{{tabular}}{{l||{columns}}}",
@@ -380,11 +385,37 @@ def metric_mse(
     return float(mean_squared_error(originals, copies)), len(pairs)
 
 
-def build_mse_table(metrics: Metrics) -> tuple[str, int, int]:
+# A row of an MSE table: its label, the graph, and the variant of each copy column.
+MseRow = tuple[str, str, list[str]]
+
+
+def build_mse_table(
+    metrics: Metrics,
+    rows: list[list[MseRow]] | None = None,
+    header: str = HEADER,
+    caption: str | None = None,
+    label: str = "tab:metric_mse",
+) -> tuple[str, int, int]:
     """The table of the mean squared error of each metric of AGREEMENT_METRICS
-    between each original graph and the copy of each generator (`metric_mse`),
-    with the number of cells filled and in all."""
+    between an original graph and the copy of each generator (`metric_mse`), with
+    the number of cells filled and in all. One column group per generator of
+    GENERATORS; `rows` gives the rows in groups separated by a rule, each with the
+    variant of every column group, by default one row per graph of
+    AGREEMENT_GRAPHS with the generators' own variants. The smallest error of each
+    row and metric is in bold."""
     copies = [(name, variant) for name, variant in GENERATORS if variant != "original"]
+    if rows is None:
+        rows = [
+            [(latex_name(graph), graph, [v for _, v in copies]) for graph in graphs]
+            for graphs in AGREEMENT_GRAPHS
+        ]
+    if caption is None:
+        caption = (
+            f"Mean squared error of {metric_list(AGREEMENT_METRICS)} between each "
+            "original graph and the synthetic copy of each generator, computed metric "
+            f"by metric over the models trained on both (all {len(MODELS)} unless "
+            "marked $^\\dagger$). The smallest error of each metric is in bold."
+        )
     n = len(AGREEMENT_METRICS)
     groups = [
         f"\\multicolumn{{{n}}}{{c{'||' if i < len(copies) - 1 else ''}}}{{{name}}}"
@@ -397,27 +428,23 @@ def build_mse_table(metrics: Metrics) -> tuple[str, int, int]:
         "\\centering",
         "\\setlength{\\tabcolsep}{3pt}",
         "\\renewcommand{\\arraystretch}{0.8}",
-        f"\\caption{{Mean squared error of {metric_list(AGREEMENT_METRICS)} between "
-        "each original graph and the synthetic copy of each generator, computed "
-        f"metric by metric over the models trained on both (all {len(MODELS)} unless "
-        "marked $^\\dagger$). 0 means the copy gives every model the score it has on "
-        "the original graph. The smallest error of each metric is in bold.}",
-        "\\label{tab:metric_mse}",
+        f"\\caption{{{caption}}}",
+        f"\\label{{{label}}}",
         "\\resizebox{\\columnwidth}{!}{%",
         f"\\begin{{tabular}}{{l||{columns}}}",
         "\\hline",
-        f"\\multirow{{2}}{{*}}{{{HEADER}}} & " + "\n & ".join(groups) + " \\\\",
+        f"\\multirow{{2}}{{*}}{{{header}}} & " + "\n & ".join(groups) + " \\\\",
         " & "
-        + " & ".join(label for _ in copies for label, _ in AGREEMENT_METRICS)
+        + " & ".join(name for _ in copies for name, _ in AGREEMENT_METRICS)
         + " \\\\",
         "\\hline\\hline",
     ]
     filled = total = 0
-    for graphs in AGREEMENT_GRAPHS:
-        for graph in graphs:
+    for group in rows:
+        for row_label, graph, variants in group:
             values = {
                 (variant, key): metric_mse(metrics, graph, variant, key)
-                for _, variant in copies
+                for variant in variants
                 for _, key in AGREEMENT_METRICS
             }
             best = {
@@ -431,8 +458,8 @@ def build_mse_table(metrics: Metrics) -> tuple[str, int, int]:
                 )
                 for _, key in AGREEMENT_METRICS
             }
-            row = [latex_name(graph)]
-            for _, variant in copies:
+            row = [row_label]
+            for variant in variants:
                 for _, key in AGREEMENT_METRICS:
                     total += 1
                     value = values[variant, key]

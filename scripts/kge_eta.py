@@ -42,19 +42,26 @@ MIN_TRIPLES = 20_000
 # As in train_kge.py: the suffixes of the folders of synthetic copies.
 COPY_SETS = ("ours", "kbgen", "pygraft")
 # The rule-level copies (docs/rule-levels.md) are named after the copy set and the
-# level: `french_kbgen_r25` is kbgen's copy of `french` at level r25. They form their
-# own sets, `kbgen-levels` and `ours-levels`, apart from the full copies.
+# level: `french_kbgen_r25` is kbgen's copy of `french` at level r25. As in
+# train_kge.py, they are in the set of their generator, and `kbgen-levels` and
+# `ours-levels` keep only them.
 LEVEL_SETS = ("ours-levels", "kbgen-levels")
 LEVEL_COPY = re.compile(r"_(ours|kbgen|pygraft)_(r\d+|std1)$")
 
 
-def dataset_set(name: str) -> str:
-    if match := LEVEL_COPY.search(name):
-        return f"{match.group(1)}-levels"
+def in_set(name: str, set_name: str) -> bool:
+    """Whether a dataset folder is in a set of `--set`, as in train_kge.py."""
+    match = LEVEL_COPY.search(name)
+    if set_name in LEVEL_SETS:
+        return match is not None and f"{match.group(1)}-levels" == set_name
+    if set_name == "all":
+        return True
+    if match:
+        return match.group(1) == set_name
     for copy_set in COPY_SETS:
         if name.endswith(f"_{copy_set}"):
-            return copy_set
-    return "base"
+            return copy_set == set_name
+    return set_name == "base"
 
 
 def held_locks() -> set[tuple[int, int, int]] | None:
@@ -156,7 +163,7 @@ def main() -> int:
     rows = [
         r
         for r in all_rows
-        if (args.dataset_set == "all" or dataset_set(r["dataset"]) == args.dataset_set)
+        if in_set(r["dataset"], args.dataset_set)
         and r["dataset"] not in args.skip_datasets
     ]
 

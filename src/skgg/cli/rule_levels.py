@@ -32,7 +32,8 @@ A level whose rules, for one generator, equal those of another level gets that
 level's name in `ours_same_as` or `kbgen_same_as`: its copy would be generated from
 the same rules, so it is neither generated nor trained, and the named level's copy
 stands in for it. An empty rule set points to `r0`, any other to the highest level
-with the same rules, so for kbgen it is `r100`, the existing `<folder>_kbgen` copy.
+with the same rules, so for kbgen it is `r100` (the full `<folder>_kbgen` copy until it
+was removed on 17 November 2026).
 
     python -m skgg.cli.rule_levels          # -> exp_datasets/rule_levels.tsv
     python -m skgg.cli.rule_levels --datasets french family -o /tmp/levels.tsv

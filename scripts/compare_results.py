@@ -17,19 +17,30 @@ generator's copy at that threshold, such as `french1_N` at `r25`.
 
 For each graph version it writes the folder
 `<analysis>/results_tables/<family>_<threshold>/` (--output-dir for another root)
-with three tables, each as LaTeX (`.tex`), Markdown (`.md`) and CSV (`.csv`):
+with two tables, each as LaTeX (`.tex`), Markdown (`.md`) and CSV (`.csv`):
 
 - `metrics`: Hits@1, 3, 5, 10, 15 and MRR of every model on the original and on
   each copy;
 - `agreement`: Spearman's rho between the model rankings of the original and of
   each copy, for each metric, with its p-value and the number of models;
-- `mse`: the mean squared error of each metric between the original and each
-  copy, computed metric by metric over the models trained on both.
+
+and `ranking.png`, a bump chart of the model ranking on the original and on each
+copy: one panel per metric, the versions in table order on the x axis, the rank
+(1 = best, ties sharing the best rank) on the y axis, one line per model, with a
+fixed color and marker shape per model in every chart (style of
+kgc_benchmark/plot_style.py).
+
+For each original graph with copies at the rule thresholds (MSE_THRESHOLDS: std1,
+r25, r50, r75, r100), it writes `<analysis>/results_tables/<family>/mse`, also as
+LaTeX, Markdown and CSV: one row per threshold, with the mean squared error of each
+metric between the original and kbgen's and our copy at that threshold, computed
+metric by metric over the models trained on both; a threshold without copies yet
+shows "-".
 
 The LaTeX tables are built by scripts/results_table.py's own functions, in the
 format of its tables: columns Original, then the copies under its generator names
 (PyGraft, KBgen, NAME), the best value of each column or metric in bold, $^*$ for
-p < 0.05 and $^\\dagger$ for an error over fewer than 7 models. The Markdown and
+p < 0.005 and $^\\dagger$ for an error over fewer than 7 models. The Markdown and
 CSV tables are written from pandas DataFrames, the CSV unrounded. A run not ranked
 yet is missing ("-" in LaTeX, empty in Markdown and CSV).
 
@@ -39,10 +50,27 @@ yet is missing ("-" in LaTeX, empty in Markdown and CSV).
 
 import argparse
 import sys
+import textwrap
 from pathlib import Path
 
+import matplotlib
 import pandas as pd
 import results_table
+
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt  # noqa: E402
+
+# The plot style shared with kgc_benchmark/report_results.py.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "kgc_benchmark"))
+from plot_style import (  # noqa: E402
+    CATEGORICAL,
+    GRIDLINE,
+    INK,
+    INK_SECONDARY,
+    PLOT_DPI,
+    PX,
+    SURFACE,
+)
 
 MODELS = results_table.MODELS
 # Header and column of metrics.csv and ranking_agreement.csv of each metric.
@@ -67,6 +95,13 @@ THRESHOLDS = {
 }
 # The tag of a copy made without a threshold (`ours`, `kbgen`).
 FULL = "full"
+# The rows of each graph's MSE table, in order.
+MSE_THRESHOLDS = ("std1", "r25", "r50", "r75", "r100")
+# The generators of the MSE table's columns, in results_table's order.
+MSE_GENERATORS = ("kbgen", "ours")
+# A marker shape per model of MODELS, beside its color: in a bump chart every pair
+# of lines can cross, and past three series colors alone don't tell them apart.
+MARKERS = ("o", "s", "D", "^", "v", "P", "X")
 # Decimals shown in Markdown.
 DECIMALS = 3
 SIGNIFICANCE = results_table.SIGNIFICANCE
@@ -106,7 +141,7 @@ def caption_names() -> dict[str, str]:
 def latex_tables(
     analysis: Path, family: str, threshold: str, copies: list[str], caption: str
 ) -> dict[str, str]:
-    """The metrics, agreement and MSE tables of one graph version, made by
+    """The metrics and agreement tables of one graph version, made by
     results_table, by table name."""
     results_table.GENERATORS = (
         ("Original", REFERENCE),
@@ -117,33 +152,23 @@ def latex_tables(
     made = THRESHOLDS.get(threshold, f"made at threshold {threshold}")
     stem = f"{family.replace('_', '-')}_{threshold}"
     metrics = results_table.read_metrics(analysis / "metrics.csv")
-    each = (
-        f"on {caption} and on the synthetic copy of each generator {made}",
-        f"between {caption} and the synthetic copy of each generator {made}",
-    )
     tables = {
         "metrics": results_table.build_table(
             metrics,
             [(results_table.latex_name(family), family)],
             results_table.HEADER,
-            f"Link prediction results on {caption} and its synthetic copies {made}, "
-            "trained and tested on VANILLA's 80/20 split.",
+            f"Link prediction results on {caption} and its synthetic copies {made}.",
             f"tab:{stem}_metrics",
+            bold=False,
         ),
         "agreement": results_table.build_agreement_table(
             results_table.read_agreement(analysis)
         )[0]
         .replace(
             "on each original graph and on the synthetic copy of each generator",
-            each[0],
+            f"on {caption} and on the synthetic copy of each generator {made}",
         )
         .replace("\\label{tab:ranking_agreement}", f"\\label{{tab:{stem}_agreement}}"),
-        "mse": results_table.build_mse_table(metrics)[0]
-        .replace(
-            "between each original graph and the synthetic copy of each generator",
-            each[1],
-        )
-        .replace("\\label{tab:metric_mse}", f"\\label{{tab:{stem}_mse}}"),
     }
     header = f"% Generated by scripts/compare_results.py from {analysis}"
     return {
@@ -177,26 +202,131 @@ def agreement_frame(agreement: pd.DataFrame, copies: list[str]) -> pd.DataFrame:
     )[["copy", "metric", "spearman_rho", "spearman_p", "models"]].reset_index(drop=True)
 
 
-def mse_frame(analysis: Path, family: str, copies: list[str]) -> pd.DataFrame:
-    """One row per copy and metric: the MSE with the original and the models."""
+def mse_variant(generator_key: str, threshold: str) -> str:
+    """The variant of a generator's copy at a threshold: `ours_r25`."""
+    return f"{generator_key}_{threshold}"
+
+
+def graph_mse_frame(analysis: Path, family: str) -> pd.DataFrame:
+    """One row per threshold, copy and metric: the MSE with the original and the
+    number of models trained on both (none for a copy not ranked yet)."""
     metrics = results_table.read_metrics(analysis / "metrics.csv")
     rows = []
-    for copy in copies:
-        for name, key in METRICS:
-            value = results_table.metric_mse(metrics, family, copy, key)
-            rows.append(
-                {
-                    "copy": label(copy),
-                    "metric": name,
-                    "mse": value[0] if value else None,
-                    "models": value[1] if value else 0,
-                }
-            )
+    for threshold in MSE_THRESHOLDS:
+        for key in MSE_GENERATORS:
+            for name, metric in METRICS:
+                value = results_table.metric_mse(
+                    metrics, family, mse_variant(key, threshold), metric
+                )
+                rows.append(
+                    {
+                        "threshold": threshold,
+                        "copy": LABELS[key],
+                        "metric": name,
+                        "mse": value[0] if value else None,
+                        "models": value[1] if value else 0,
+                    }
+                )
     return pd.DataFrame(rows)
 
 
-def markdown(frame: pd.DataFrame, title: str, index: bool = False) -> str:
-    """A table as Markdown under a title, numbers rounded to DECIMALS."""
+def graph_mse_latex(analysis: Path, family: str, caption: str) -> str:
+    """The MSE table of one graph, one row per threshold, made by results_table."""
+    results_table.GENERATORS = (
+        ("Original", REFERENCE),
+        *((name, key) for name, key in GENERATORS if key in MSE_GENERATORS),
+    )
+    results_table.AGREEMENT_METRICS = METRICS
+    keys = [key for name, key in results_table.GENERATORS if key != REFERENCE]
+    rows = [
+        [(t, family, [mse_variant(key, t) for key in keys]) for t in MSE_THRESHOLDS]
+    ]
+    table, _, _ = results_table.build_mse_table(
+        results_table.read_metrics(analysis / "metrics.csv"),
+        rows,
+        header="Threshold",
+        caption=(
+            f"Mean squared error of {results_table.metric_list(METRICS)} between "
+            f"{caption} and the synthetic copy of each generator at each rule "
+            "threshold (std1: the rules with std confidence 1; r25 to r100: about 25 "
+            "to 100\\% of the mined rules, those of highest PCA confidence), computed "
+            f"metric by metric over the models trained on both (all {len(MODELS)} "
+            "unless marked $^\\dagger$). The smallest error of each threshold and "
+            "metric is in bold."
+        ),
+        label=f"tab:{family.replace('_', '-')}_mse",
+    )
+    header = f"% Generated by scripts/compare_results.py from {analysis}"
+    return header + "\n" + table.split("\n", 1)[1]
+
+
+def bump_chart(
+    frame: pd.DataFrame, versions: list[str], title: str, path: Path
+) -> None:
+    """Draws how the models rank on the original graph and on each copy: one
+    panel per metric, the versions on the x axis in table order and the rank on the
+    y axis, 1 (best) at the top, one line per model. The ranks come from pandas'
+    `rank` of each version's column of `frame` (`metrics_frame`), tied models
+    sharing the best of their ranks; a run not ranked yet leaves a gap."""
+    names = ["Original" if v == REFERENCE else generator(v)[1] for v in versions]
+    models = [m for m in MODELS if m in frame.index]
+    fig, axes = plt.subplots(
+        2, 3, figsize=(13, 7.6), dpi=PLOT_DPI, sharey=True, facecolor=SURFACE
+    )
+    for ax, (metric, _) in zip(axes.flat, METRICS, strict=True):
+        columns = [f"{label(v)} {metric}" for v in versions]
+        ranks = frame[columns].rank(ascending=False, method="min")
+        for model in models:
+            index = MODELS.index(model)
+            ax.plot(
+                range(len(versions)),
+                ranks.loc[model].to_numpy(dtype=float),
+                color=CATEGORICAL[index],
+                linewidth=2 * PX,
+                solid_capstyle="round",
+                solid_joinstyle="round",
+                marker=MARKERS[index],
+                markersize=14 * PX,
+                markeredgecolor=SURFACE,
+                markeredgewidth=2 * PX,
+                label=model,
+                zorder=3,
+            )
+        ax.set_facecolor(SURFACE)
+        ax.set_title(metric, color=INK, fontsize=11, loc="left")
+        ax.set_xticks(range(len(versions)), names)
+        ax.set_xlim(-0.25, len(versions) - 0.75)
+        ax.set_yticks(range(1, len(models) + 1))
+        ax.set_ylim(len(models) + 0.5, 0.5)
+        ax.grid(axis="y", color=GRIDLINE, linewidth=PX)
+        ax.tick_params(colors=INK_SECONDARY, length=0, labelsize=9)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+    for ax in axes[:, 0]:
+        ax.set_ylabel("Rank (1 = best)", color=INK_SECONDARY, fontsize=9)
+    handles, labels = axes.flat[0].get_legend_handles_labels()
+    fig.legend(
+        handles,
+        labels,
+        loc="lower center",
+        ncol=len(models),
+        frameon=False,
+        fontsize=9,
+        labelcolor=INK,
+        handlelength=2.5,
+    )
+    # A long threshold description wraps rather than running off the figure.
+    title = textwrap.fill(title, width=120)
+    fig.suptitle(title, color=INK, fontsize=12, x=0.01, ha="left")
+    fig.tight_layout(rect=(0, 0.06, 1, 1 - 0.035 * (title.count("\n") + 1)))
+    fig.savefig(path, dpi=PLOT_DPI, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def markdown(
+    frame: pd.DataFrame, title: str, index: bool = False, decimals: int = DECIMALS
+) -> str:
+    """A table as Markdown under a title, numbers rounded to `decimals`."""
     shown = frame.copy()
     if "spearman_rho" in shown:
         stars = shown["spearman_p"].lt(SIGNIFICANCE).map({True: "*", False: ""})
@@ -204,7 +334,7 @@ def markdown(frame: pd.DataFrame, title: str, index: bool = False) -> str:
             lambda v: "" if pd.isna(v) else f"{v:.{DECIMALS}f}"
         ) + stars.where(shown["spearman_rho"].notna(), "")
     # tabulate takes one number format per column: the MSE keeps more decimals.
-    formats = [f".{DECIMALS}f"] * (len(shown.columns) + index)
+    formats = [f".{decimals}f"] * (len(shown.columns) + index)
     if "mse" in shown:
         formats[list(shown.columns).index("mse") + index] = (
             f".{results_table.MSE_DECIMALS}f"
@@ -279,14 +409,20 @@ def main() -> int:
             frames = {
                 "metrics": metrics_frame(runs, [REFERENCE, *copies]),
                 "agreement": agreement_frame(agreement, copies),
-                "mse": mse_frame(args.analysis, family, copies),
             }
             titles = {
                 "metrics": f"{family}, {threshold}: Hits@k and MRR (copies {made})",
                 "agreement": f"{family}, {threshold}: Spearman's rho with the original",
-                "mse": f"{family}, {threshold}: mean squared error with the original",
             }
             latex = latex_tables(args.analysis, family, threshold, copies, caption)
+            chart = folder / "ranking.png"
+            bump_chart(
+                frames["metrics"],
+                [REFERENCE, *copies],
+                f"{caption}, copies {made}: model ranking by metric",
+                chart,
+            )
+            written.append(chart)
             for name, frame in frames.items():
                 index = name == "metrics"
                 frame.to_csv(folder / f"{name}.csv", index=index)
@@ -298,6 +434,34 @@ def main() -> int:
                 printed.append(
                     latex[name] if args.latex else markdown(frame, titles[name], index)
                 )
+
+        if any(
+            mse_variant(k, t) in set(runs["variant"])
+            for k in MSE_GENERATORS
+            for t in MSE_THRESHOLDS
+        ):
+            folder = output / family
+            folder.mkdir(parents=True, exist_ok=True)
+            frame = graph_mse_frame(args.analysis, family)
+            frame.to_csv(folder / "mse.csv", index=False)
+            wide = frame.pivot_table(
+                index="threshold",
+                columns=["copy", "metric"],
+                values="mse",
+                dropna=False,
+                sort=False,
+            )
+            wide.columns = [f"{c} {m}" for c, m in wide.columns]
+            wide = wide.reindex(list(MSE_THRESHOLDS))
+            title = f"{family}: mean squared error with the original, by threshold"
+            text = markdown(
+                wide, title, index=True, decimals=results_table.MSE_DECIMALS
+            )
+            (folder / "mse.md").write_text(text, encoding="utf-8")
+            tex = graph_mse_latex(args.analysis, family, caption)
+            (folder / "mse.tex").write_text(tex, encoding="utf-8")
+            written += [folder / f"mse.{ext}" for ext in ("csv", "md", "tex")]
+            printed.append(tex if args.latex else text)
 
     print("\n".join(printed), end="")
     print(f"\nWrote {len(written)} files under {output}", file=sys.stderr)

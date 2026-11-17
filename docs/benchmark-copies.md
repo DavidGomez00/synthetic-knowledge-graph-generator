@@ -2,6 +2,8 @@
 
 Every benchmark dataset in `exp_datasets/` has synthetic copies made by three generators: this project's (`<dataset>_ours/`, 24 copies), kbgen (Melo and Paulheim, ESWC 2017; `<dataset>_kbgen/`, 24 copies) and PyGraft (Hubert et al., ESWC 2024; `<dataset>_pygraft/`, 19 copies, none of the five YAGO3-10 datasets). All three sets were made between 9 and 11 November 2026 on the development laptop (Intel i5-11300H with 4 cores and 8 threads, 15 GB of RAM), with the `NeSy` pyenv environment (Python 3.10.12). This page records the code, settings and commands behind each set and the checks run on it. [`generation-times.md`](generation-times.md) gives the time of each copy, and [`generate-benchmarks.md`](generate-benchmarks.md) the steps to make this generator's copies again on another machine.
 
+The 24 copies of ours and the 24 of kbgen described here were removed from `exp_datasets/` on 17 November 2026: the two generators used different rules (ours the 0 to 18 rules with std confidence 1, kbgen every mined rule), so their copies can't be compared. Commit `194779bc` still has them. The rule-level copies replace them, made by both generators from the same rules at each level; `runs/rule-levels/` records how, and [`rule-levels.md`](rule-levels.md) describes the levels. The PyGraft copies stay.
+
 ## At a glance
 
 | | Ours | kbgen | PyGraft |

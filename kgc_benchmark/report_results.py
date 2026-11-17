@@ -5,12 +5,14 @@ prediction of every run, and compare the variants of each dataset family.
 train_kge.py trains each model on a dataset's `train` split and saves the run
 to `exp_results/<dataset>/<model>/`: the model (`trained_model.pkl`), its
 training triples (`training_triples/`) and pykeen's `results.json`, next to
-the dataset's `train`, `valid` and `test` splits. The model never sees `valid`
-or `test`, which don't overlap, so this script ranks both as one held-out set.
+the dataset's splits: `train` and `test` (VANILLA's 80/20 split), and `valid`
+in a dataset that has one. The model never sees `valid` or `test`, which don't
+overlap, so this script ranks both as one held-out set: `test` alone when there
+is no `valid`, as in every current dataset.
 
 Each held-out triple (h, r, t) gives a tail prediction (h, r, ?) and a head
 prediction (?, r, t), ranked among every entity after removing the other
-answers known to be true (train, valid and test), with ties at their mean rank
+answers known to be true (train, test and any valid), with ties at their mean rank
 (pykeen's "realistic" rank). This is train_kge.py's filtered evaluation, so the
 MRR of a run's test predictions must match its results.json; a run that
 doesn't is left out. Every metric below covers the whole held-out set, head
@@ -68,7 +70,9 @@ import gzip
 import json
 import multiprocessing
 import os
+import re
 import signal
+import subprocess
 import textwrap
 import time
 import zlib
@@ -83,15 +87,26 @@ import numpy as np
 import pandas as pd
 import torch
 from cliffs_delta import cliffs_delta, effect_size
-from spearman_rho import ranking_agreement
 from matplotlib import path as mpath
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch, PathPatch
 from matplotlib.ticker import FuncFormatter, LogLocator
 from PIL import Image
+from plot_style import (
+    BASELINE,
+    CATEGORICAL,
+    GRIDLINE,
+    INK,
+    INK_MUTED,
+    INK_SECONDARY,
+    PLOT_DPI,
+    PX,
+    SURFACE,
+)
 from pykeen.triples import TriplesFactory
 from scipy.stats import ks_2samp, mannwhitneyu
+from spearman_rho import ranking_agreement
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_RESULTS = SCRIPT_DIR.parent / "exp_results"
@@ -236,26 +251,6 @@ PREDICTION_COLUMNS = [
     *HITS_COLUMNS,
 ]
 
-# Plot colors and mark sizes, from the dataviz reference palette (light).
-PLOT_DPI = 150
-PX = 72 / PLOT_DPI  # one pixel, in points
-SURFACE = "#fcfcfb"
-INK = "#0b0b0b"
-INK_SECONDARY = "#52514e"
-INK_MUTED = "#898781"
-GRIDLINE = "#e1e0d9"
-BASELINE = "#c3c2b7"
-# One color per graph, in the palette's validated order (see graph_order).
-CATEGORICAL = [
-    "#2a78d6",  # blue
-    "#eb6834",  # orange
-    "#1baf7a",  # aqua
-    "#eda100",  # yellow
-    "#e87ba4",  # magenta
-    "#008300",  # green
-    "#4a3aa7",  # violet
-    "#e34948",  # red
-]
 BAR_WIDTH_PX = 24
 BAR_GAP_PX = 2
 BAR_RADIUS_PX = 4
@@ -725,12 +720,47 @@ def predictions_path(output: Path, dataset: str, model: str) -> Path:
     return output / dataset / model / PREDICTIONS_FILE
 
 
-def init_ranking_worker(threads: int) -> None:
+def list_devices() -> list[str]:
+    """
+    Every MIG instance that `nvidia-smi -L` lists, plus the GPUs without MIG,
+    as CUDA_VISIBLE_DEVICES entries (as `train_kge.visible_devices`). A CUDA
+    process sees only one MIG instance, so `--devices all` gives each worker
+    its own.
+    """
+    try:
+        listing = subprocess.run(
+            ["nvidia-smi", "-L"], capture_output=True, text=True, check=True
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return []
+    devices: list[str] = []
+    gpu: str | None = None
+    for line in listing.splitlines():
+        match = re.search(r"\(UUID: ((GPU|MIG)-[^)]+)\)", line)
+        if not match:
+            continue
+        if match.group(2) == "GPU":
+            if gpu:
+                devices.append(gpu)
+            gpu = match.group(1)
+        else:
+            gpu = None  # A GPU with MIG on runs only on its instances.
+            devices.append(match.group(1))
+    if gpu:
+        devices.append(gpu)
+    return devices
+
+
+def init_ranking_worker(threads: int, devices=None) -> None:  # type: ignore[no-untyped-def]
     """
     Set up a ranking worker process. The main process stops the workers, so
     Ctrl-C reaching them too is ignored, and SIGTERM raises KeyboardInterrupt
     so that `atomic_path` removes the half-written file of the run in hand.
+    With `devices`, a queue of CUDA_VISIBLE_DEVICES entries, the worker takes
+    one before CUDA starts, so each worker scores on its own device.
     """
+    if devices is not None:
+        os.environ["CUDA_VISIBLE_DEVICES"] = devices.get()
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     signal.signal(signal.SIGTERM, signal.default_int_handler)
     torch.set_num_threads(threads)
@@ -760,6 +790,7 @@ def rank_pending(
     device: torch.device,
     progress: Progress,
     workers: int,
+    devices: list[str] | None = None,
 ) -> None:
     """
     Rank the `pending` runs and write their caches, one at a time or in
@@ -767,6 +798,8 @@ def rank_pending(
     ranks are those of a single process. At most `workers` runs are handed
     out at a time, so the runs marked "ranking" in `progress` are those being
     ranked. A line reports each ranked run with an estimate of the time left.
+    With `devices`, worker i scores on devices[i % len(devices)] instead of
+    `device`.
     """
     left = sum(progress.rows[r["dataset"], r["model"]]["held_out"] for r in pending)
     ranked_triples, busy_seconds, done = 0, 0.0, 0
@@ -798,7 +831,7 @@ def rank_pending(
     def started(run: dict) -> None:
         progress.set(run["dataset"], run["model"], status="ranking", error="")
 
-    if workers <= 1:
+    if workers <= 1 and not devices:
         for run in pending:
             progress.stage("ranking", f"{run['dataset']}/{run['model']}")
             started(run)
@@ -812,11 +845,18 @@ def rank_pending(
     # CUDA can't be used in a forked process. The cores are shared out so the
     # workers' PyTorch threads don't compete.
     threads = max(1, (os.cpu_count() or 1) // workers)
+    context = multiprocessing.get_context("spawn")
+    device_queue = None
+    if devices:
+        device_queue = context.Queue()
+        for i in range(workers):
+            device_queue.put(devices[i % len(devices)])
+        device = torch.device("cuda")
     executor = ProcessPoolExecutor(
         max_workers=workers,
-        mp_context=multiprocessing.get_context("spawn"),
+        mp_context=context,
         initializer=init_ranking_worker,
-        initargs=(threads,),
+        initargs=(threads, device_queue),
     )
     queue = list(pending)
     running: dict = {}
@@ -866,6 +906,7 @@ def build_predictions(
     force: bool = False,
     workers: int = 1,
     ranked_only: bool = False,
+    devices: list[str] | None = None,
 ) -> pd.DataFrame:
     """
     The ranks of every held-out prediction of every run of `runs` (from
@@ -901,7 +942,7 @@ def build_predictions(
             f"({left:,} held-out triples) with {workers} worker(s)",
             flush=True,
         )
-    rank_pending(pending, output, device, progress, workers)
+    rank_pending(pending, output, device, progress, workers, devices)
 
     frames = []
     for run in runs:
@@ -1838,14 +1879,21 @@ def write_cropped(plot: Path, out: Path) -> Path:
     return cropped
 
 
-def merge_summary(summary: list[dict], path: Path) -> tuple[list[dict], int]:
+def merge_summary(
+    summary: list[dict],
+    path: Path,
+    families: list[str] | None = None,
+    variants: list[str] | None = None,
+) -> tuple[list[dict], int]:
     """
     Merge the summary rows of this run into the summary already at `path`.
 
     A run limited with --families or --variants only covers some runs, so
-    the rows of the other runs are read back from the existing file and
-    kept. A row of this run replaces the row with the same family, variant
-    and model. The rows are sorted by family, variant and model.
+    the rows of the runs outside `families` and `variants` are read back from
+    the existing file and kept. A row inside them that this run didn't write
+    is dropped: its run is gone from the results, or was left out. A row of
+    this run replaces the row with the same family, variant and model. The
+    rows are sorted by family, variant and model.
 
     Returns:
         The merged rows, and how many of them were kept from the file.
@@ -1859,7 +1907,10 @@ def merge_summary(summary: list[dict], path: Path) -> tuple[list[dict], int]:
     if path.is_file():
         with path.open(newline="", encoding="utf-8") as f:
             for row in csv.DictReader(f):
-                if key(row) not in merged:
+                covered = (not families or row["family"] in families) and (
+                    not variants or row["variant"] in variants
+                )
+                if key(row) not in merged and not covered:
                     merged[key(row)] = row
                     kept += 1
     return [merged[k] for k in sorted(merged)], kept
@@ -1873,13 +1924,16 @@ def write_analysis(
     reference: str,
     progress: Progress,
     crop: bool = False,
+    families: list[str] | None = None,
+    variants: list[str] | None = None,
 ) -> None:
     """
     Write each family's analysis (see the module docstring) to
     `<output>/<family>/`, since the variants of a family are only compared with
     each other, and the summary of every run to `<output>/SUMMARY_NAME`. With
     `crop`, every plot also gets a copy without its caption band in its
-    family's CROPPED_FOLDER.
+    family's CROPPED_FOLDER. `families` and `variants` are the run's filters,
+    which pick the rows of the summary it replaces (see `merge_summary`).
     """
     if predictions.empty:
         print("warning: no run could be ranked, so no analysis was written")
@@ -1889,7 +1943,7 @@ def write_analysis(
         {**dict(zip(("family", "variant"), row["dataset"].split("/"))), **row}
         for row in rows
     ]
-    merged, kept = merge_summary(summary, output / SUMMARY_NAME)
+    merged, kept = merge_summary(summary, output / SUMMARY_NAME, families, variants)
     write_csv(merged, output / SUMMARY_NAME, SUMMARY_FIELDS)
     print(
         f"Wrote {len(merged)} row(s) to {output / SUMMARY_NAME} "
@@ -2059,6 +2113,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Runs ranked at once, each in its own process (use MPS to share the GPU)",
     )
     p.add_argument(
+        "--devices",
+        nargs="+",
+        help="CUDA_VISIBLE_DEVICES entries (MIG or GPU UUIDs, or indices) given to the "
+        "workers in turn, so each scores on its own device; 'all' for every MIG "
+        "instance and GPU that nvidia-smi -L lists. Overrides --device",
+    )
+    p.add_argument(
         "--force",
         action="store_true",
         help=f"Rank every run again, even those with a {PREDICTIONS_FILE}",
@@ -2092,6 +2153,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.workers < 1:
         print("error: --workers must be at least 1")
         return 2
+    devices = args.devices
+    if devices == ["all"]:
+        devices = list_devices()
+        if not devices:
+            print("error: --devices all found no device in nvidia-smi -L")
+            return 2
+    if devices:
+        print(f"Workers score on {len(devices)} device(s): {', '.join(devices)}")
 
     # Ctrl-C and SIGTERM (e.g. kill) stop the validation cleanly. SIGINT is set
     # explicitly: a process started in the background inherits it ignored.
@@ -2114,6 +2183,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.force,
                 args.workers,
                 args.ranked_only,
+                devices,
             )
             rows = build_report(predictions)
             losses = build_losses(runs)
@@ -2125,6 +2195,8 @@ def main(argv: list[str] | None = None) -> int:
                 args.reference,
                 progress,
                 args.crop,
+                args.families,
+                args.variants,
             )
         except KeyboardInterrupt:
             progress.interrupted()

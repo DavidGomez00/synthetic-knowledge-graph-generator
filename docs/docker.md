@@ -38,10 +38,10 @@ The command for the sysadmin of a training machine:
 ```bash
 docker run -d --name skgg --gpus all --shm-size 8g --restart unless-stopped \
   -v skgg-data:/workspace --hostname <machine name> -e GITHUB_TOKEN=<token> \
-  skgg --skip-models CompGCN --set ours --workers 4
+  skgg --set ours --workers 4
 ```
 
-- Arguments starting with `-` go to `python scripts/train_kge.py --upload`. Without arguments it runs `--skip-models CompGCN` on the base set. Any other command runs as given, e.g. `skgg python -m skgg.cli.main -f french_royalty.json` or `skgg bash`.
+- Arguments starting with `-` go to `python scripts/train_kge.py --upload`. Without arguments it trains every model on the base set (`--set base`); until 2026-11-16 it left CompGCN out (`--skip-models CompGCN`), which at batch size 32 would have taken months, and now trains it with its own batch size and learning rate. Add `--skip-models CompGCN` to leave it out. Any other command runs as given, e.g. `skgg python -m skgg.cli.main -f french_royalty.json` or `skgg bash`.
 - `--hostname` names the machine in the commits of `kge-results` ("Add 3 runs trained on <machine name>"). Without it they carry the container ID.
 - `-v skgg-data:/workspace` keeps the code, results, checkpoints and logs in the named volume `skgg-data`, which outlives the container. A folder of the host works too, e.g. `-v /srv/skgg:/workspace`, if it is empty and owned by uid 1000 (`sudo install -d -o 1000 -g 1000 /srv/skgg`). Without `-v`, Docker keeps `/workspace` in an anonymous volume, which a later container doesn't find by name.
 - `--restart unless-stopped` starts the container again after a crash, a power cut or a reboot, as long as the Docker service starts at boot (`systemctl is-enabled docker`). Training resumes from the last finished epoch: checkpoints are written after every epoch with an atomic rename, so a cut loses at most the epoch in progress. Killing a container with `docker kill` and starting it again resumed at epoch 3 of 20 in testing.
