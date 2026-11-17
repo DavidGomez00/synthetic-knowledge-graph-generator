@@ -13,20 +13,26 @@ on YAGO3-10) is shown as "-". In each block, the highest value of each metric
 of each variant over the models is bold (all of them on a tie); a column whose
 models all show the same value has no bold.
 
-Each table goes to its own file in `--output-dir` (default
-`exp_analysis/results_tables/`), named after its label: `family_french.tex`,
-..., `variant_1N.tex`, ..., to be included with `\\input`. Run it again after
-`report_results.py` to update the tables.
+Every table is written once per rule level of LEVELS (docs/rule-levels.md), with
+KBgen's and NAME's copies at that level (`kbgen_r25` and `ours_r25` at `r25`), so
+both generators were given the same rules. PyGraft uses no rules, so its column is
+the same at every level. The full copies `<dataset>_kbgen` and `<dataset>_ours`,
+made from different rules, were dropped on 17 November 2026.
 
-`ranking_agreement.tex` has one row per graph (every base graph, its 1:1, 1:N,
+Each table goes to its own file in `--output-dir` (default
+`exp_analysis/results_tables/`), named after its label and level:
+`family_french_r25.tex`, ..., `variant_1N_r25.tex`, ..., to be included with
+`\\input`. Run it again after `report_results.py` to update the tables.
+
+`ranking_agreement_<level>.tex` has one row per graph (every base graph, its 1:1, 1:N,
 N:1 and N:M sub-graphs, and SGKG1-4) and, per generator, Spearman's rho between
 the ranking of the models on the original graph and on the copy, by Hits@1 and
 by MRR, read from the `ranking_agreement.csv` that `report_results.py` writes
-in each graph's folder. `metric_mse.tex` has the same rows and columns, with
+in each graph's folder. `metric_mse_<level>.tex` has the same rows and columns, with
 the mean squared error of Hits@1 and of MRR between the original graph and the
 copy over the models trained on both (scikit-learn's `mean_squared_error`),
 computed metric by metric, the smallest of each metric in bold. In
-`ranking_agreement.tex`, the highest rho of each metric is bold, and ties are
+the agreement tables, the highest rho of each metric is bold, and ties are
 all bold. A rho with p < 0.005 (SIGNIFICANCE) is marked with an asterisk, and an
 undefined rho (every model with the same value, e.g. Hits@1 = 0) is "-".
 
@@ -86,6 +92,30 @@ GENERATORS = (
     ("KBgen", "kbgen"),
     ("NAME", "ours"),
 )
+# The rule levels the tables are written for, with the caption text of each.
+LEVELS = {
+    "std1": "made from the rules with std confidence 1",
+    **{
+        f"r{share}": f"made from about {share}\\% of the mined rules, those of highest "
+        "PCA confidence"
+        for share in (25, 50, 75)
+    },
+    "r100": "made from every mined rule",
+}
+
+
+# GENERATORS as defined above, which main and compare_results.py replace.
+BASE_GENERATORS = GENERATORS
+
+
+def level_generators(level: str) -> tuple[tuple[str, str], ...]:
+    """BASE_GENERATORS with KBgen's and NAME's copies at a rule level."""
+    return tuple(
+        (name, f"{key}_{level}" if key in ("kbgen", "ours") else key)
+        for name, key in BASE_GENERATORS
+    )
+
+
 METRICS = (
     ("Hits@1", "hits_at_1"),
     ("Hits@3", "hits_at_3"),
@@ -211,8 +241,12 @@ def build_table(
     return "\n".join(lines) + "\n"
 
 
-def tables(metrics: Metrics) -> list[tuple[str, str, list[str]]]:
-    """Each table as (file stem, LaTeX source, dataset folders)."""
+def tables(metrics: Metrics, level: str) -> list[tuple[str, str, list[str]]]:
+    """Each table of a rule level as (file stem, LaTeX source, dataset folders)."""
+    copies = (
+        f"synthetic copies of each generator, KBgen's and NAME's {LEVELS[level]} "
+        f"(level {level}), PyGraft's made without rules."
+    )
     out = []
     for family, key, caption_name in FAMILIES:
         blocks = [
@@ -221,19 +255,19 @@ def tables(metrics: Metrics) -> list[tuple[str, str, list[str]]]:
         ]
         caption = (
             f"Link prediction results on {caption_name} and its 1:N, N:1 and N:M "
-            "sub-graphs, for the original graphs and the synthetic copies of each "
-            "generator."
+            f"sub-graphs, for the original graphs and the {copies}"
         )
-        stem = f"family_{key}"
+        stem = f"family_{key}_{level}"
         source = build_table(metrics, blocks, HEADER, caption, f"tab:{stem}")
         out.append((stem, source, [d for _, d in blocks]))
     blocks = [(latex_name(graph), graph) for graph in SGKG_GRAPHS]
     caption = (
-        "Link prediction results on SGKG1 to SGKG4, for the original graphs and "
-        "the synthetic copies of each generator."
+        f"Link prediction results on SGKG1 to SGKG4, for the original graphs and "
+        f"the {copies}"
     )
-    source = build_table(metrics, blocks, HEADER, caption, "tab:family_sgkg")
-    out.append(("family_sgkg", source, SGKG_GRAPHS))
+    stem = f"family_sgkg_{level}"
+    source = build_table(metrics, blocks, HEADER, caption, f"tab:{stem}")
+    out.append((stem, source, SGKG_GRAPHS))
     for variant, key in VARIANTS:
         blocks = [
             (latex_name(DATASETS[family, variant]), DATASETS[family, variant])
@@ -241,10 +275,9 @@ def tables(metrics: Metrics) -> list[tuple[str, str, list[str]]]:
         ]
         caption = (
             f"Link prediction results on the {variant} sub-graphs of the four "
-            "benchmarks, for the original graphs and the synthetic copies of each "
-            "generator."
+            f"benchmarks, for the original graphs and the {copies}"
         )
-        stem = f"variant_{key}"
+        stem = f"variant_{key}_{level}"
         source = build_table(metrics, blocks, HEADER, caption, f"tab:{stem}")
         out.append((stem, source, [d for _, d in blocks]))
     return out
@@ -497,27 +530,49 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    global GENERATORS
+    base_generators = GENERATORS
     metrics = read_metrics(args.metrics)
+    agreement = read_agreement(args.metrics.parent)
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    variants = [v for _, v in GENERATORS if v]
-    for stem, source, datasets in tables(metrics):
-        path = args.output_dir / f"{stem}.tex"
-        path.write_text(source, encoding="utf-8")
-        filled = sum(
-            (d, v, m) in metrics for d in datasets for v in variants for m in MODELS
+    for level, made in LEVELS.items():
+        GENERATORS = level_generators(level)
+        variants = [v for _, v in GENERATORS if v]
+        for stem, source, datasets in tables(metrics, level):
+            path = args.output_dir / f"{stem}.tex"
+            path.write_text(source, encoding="utf-8")
+            filled = sum(
+                (d, v, m) in metrics for d in datasets for v in variants for m in MODELS
+            )
+            total = len(datasets) * len(variants) * len(MODELS)
+            print(f"Wrote {path}: {filled} of {total} runs with results")
+
+        copies = f"of each generator, KBgen's and NAME's {made} (level {level})"
+        source, filled, total = build_agreement_table(agreement)
+        source = source.replace(
+            "the synthetic copy of each generator", f"the synthetic copy {copies}"
+        ).replace(
+            "\\label{tab:ranking_agreement}",
+            f"\\label{{tab:ranking_agreement_{level}}}",
         )
-        total = len(datasets) * len(variants) * len(MODELS)
-        print(f"Wrote {path}: {filled} of {total} runs with results")
+        path = args.output_dir / f"ranking_agreement_{level}.tex"
+        path.write_text(source, encoding="utf-8")
+        print(f"Wrote {path}: {filled} of {total} rhos")
 
-    source, filled, total = build_agreement_table(read_agreement(args.metrics.parent))
-    path = args.output_dir / "ranking_agreement.tex"
-    path.write_text(source, encoding="utf-8")
-    print(f"Wrote {path}: {filled} of {total} rhos")
-
-    source, filled, total = build_mse_table(metrics)
-    path = args.output_dir / "metric_mse.tex"
-    path.write_text(source, encoding="utf-8")
-    print(f"Wrote {path}: {filled} of {total} errors")
+        source, filled, total = build_mse_table(
+            metrics,
+            caption=(
+                f"Mean squared error of {metric_list(AGREEMENT_METRICS)} between each "
+                f"original graph and the synthetic copy {copies}, computed metric by "
+                f"metric over the models trained on both (all {len(MODELS)} unless "
+                "marked $^\\dagger$). The smallest error of each metric is in bold."
+            ),
+            label=f"tab:metric_mse_{level}",
+        )
+        path = args.output_dir / f"metric_mse_{level}.tex"
+        path.write_text(source, encoding="utf-8")
+        print(f"Wrote {path}: {filled} of {total} errors")
+    GENERATORS = base_generators
 
 
 if __name__ == "__main__":

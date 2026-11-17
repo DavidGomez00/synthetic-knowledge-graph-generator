@@ -10,10 +10,12 @@ metric). Run report_results.py first, and again when more runs finish:
     python kgc_benchmark/report_results.py
 
 A copy's variant is its generator and the threshold of the rules it was made from,
-as `ours_std1` (rules with std confidence 1) or `kbgen_r25` (rule level r25); the
-full copies of the main benchmark (`ours`, `kbgen`, `pygraft`) have the threshold
-`full`. A graph version is a family at one threshold: the original and every
-generator's copy at that threshold, such as `french1_N` at `r25`.
+as `ours_std1` (rules with std confidence 1) or `kbgen_r25` (rule level r25).
+PyGraft's copies (`pygraft`) are made without rules, so they are in the version of
+every threshold. A graph version is a family at one threshold: the original, every
+generator's copy at that threshold and PyGraft's copy, such as `french1_N` at
+`r25`. The full copies `ours` and `kbgen`, made from different rules, were dropped
+on 17 November 2026 and have no version.
 
 For each graph version it writes the folder
 `<analysis>/results_tables/<family>_<threshold>/` (--output-dir for another root)
@@ -84,8 +86,6 @@ LABELS = {"ours": "Ours", "kbgen": "kbgen", "pygraft": "PyGraft"}
 # named in the caption as it is and comes after these.
 THRESHOLDS = {
     "std1": "made from the rules with std confidence 1",
-    "full": "of the main benchmark (NAME from the rules with std confidence 1, KBgen "
-    "from every mined rule, PyGraft from the relation characteristics)",
     **{
         f"r{share}": f"made from about {share}\\% of the mined rules, those of highest "
         f"PCA confidence (level r{share})"
@@ -93,7 +93,8 @@ THRESHOLDS = {
     },
     "r100": "made from every mined rule (level r100)",
 }
-# The tag of a copy made without a threshold (`ours`, `kbgen`).
+# The tag of a copy made without a threshold: PyGraft's, which uses no rules and
+# goes in the version of every threshold.
 FULL = "full"
 # The rows of each graph's MSE table, in order.
 MSE_THRESHOLDS = ("std1", "r25", "r50", "r75", "r100")
@@ -150,6 +151,8 @@ def latex_tables(
     results_table.AGREEMENT_GRAPHS = ((family,),)
     results_table.AGREEMENT_METRICS = METRICS
     made = THRESHOLDS.get(threshold, f"made at threshold {threshold}")
+    if any(generator(c)[2] == FULL for c in copies):
+        made += " (PyGraft's made without rules)"
     stem = f"{family.replace('_', '-')}_{threshold}"
     metrics = results_table.read_metrics(analysis / "metrics.csv")
     tables = {
@@ -398,6 +401,10 @@ def main() -> int:
         for variant in sorted(runs["variant"].unique(), key=lambda v: generator(v)[0]):
             if variant != REFERENCE:
                 groups.setdefault(generator(variant)[2], []).append(variant)
+        # PyGraft's copies, made without rules, join the version of every threshold.
+        rule_free = groups.pop(FULL, [])
+        for t, copies in groups.items():
+            groups[t] = sorted(copies + rule_free, key=lambda v: generator(v)[0])
         thresholds = [t for t in (args.thresholds or groups) if t in groups]
         thresholds.sort(key=lambda t: (order.index(t) if t in order else len(order), t))
         caption = captions.get(family, results_table.latex_name(family))

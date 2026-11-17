@@ -3,16 +3,17 @@
 \centering
 \setlength{\tabcolsep}{3pt}
 \renewcommand{\arraystretch}{0.8}
-\caption{Spearman's $\rho$ between the ranking of the models on French Royalty and on the synthetic copy of each generator made from about 25\% of the mined rules, those of highest PCA confidence (level r25) for metrics Hits@1, Hits@3, Hits@5, Hits@10, Hits@15 and MRR. The highest $\rho$ of each metric is in bold, and $^*$ means a p-value of less than 0.005.}
+\caption{Spearman's $\rho$ between the ranking of the models on French Royalty and on the synthetic copy of each generator made from about 25\% of the mined rules, those of highest PCA confidence (level r25) (PyGraft's made without rules) for metrics Hits@1, Hits@3, Hits@5, Hits@10, Hits@15 and MRR. The highest $\rho$ of each metric is in bold, and $^*$ means a p-value of less than 0.005.}
 \label{tab:french_r25_agreement}
 \resizebox{\columnwidth}{!}{%
-\begin{tabular}{l||cccccc||cccccc}
+\begin{tabular}{l||cccccc||cccccc||cccccc}
 \hline
-\multirow{2}{*}{Knowledge Graph} & \multicolumn{6}{c||}{KBgen}
+\multirow{2}{*}{Knowledge Graph} & \multicolumn{6}{c||}{PyGraft}
+ & \multicolumn{6}{c||}{KBgen}
  & \multicolumn{6}{c}{NAME} \\
- & Hits@1 & Hits@3 & Hits@5 & Hits@10 & Hits@15 & MRR & Hits@1 & Hits@3 & Hits@5 & Hits@10 & Hits@15 & MRR \\
+ & Hits@1 & Hits@3 & Hits@5 & Hits@10 & Hits@15 & MRR & Hits@1 & Hits@3 & Hits@5 & Hits@10 & Hits@15 & MRR & Hits@1 & Hits@3 & Hits@5 & Hits@10 & Hits@15 & MRR \\
 \hline\hline
-french & 0.893 & 0.964$^*$ & \textbf{0.893} & \textbf{1.000}$^*$ & \textbf{0.991}$^*$ & 0.964$^*$ & \textbf{0.964}$^*$ & \textbf{1.000}$^*$ & 0.750 & 0.893 & 0.893 & \textbf{1.000}$^*$ \\
+french & 0.866 & 0.162 & 0.214 & -0.054 & -0.162 & 0.250 & 0.893 & 0.964$^*$ & \textbf{0.893} & \textbf{1.000}$^*$ & \textbf{0.991}$^*$ & 0.964$^*$ & \textbf{0.964}$^*$ & \textbf{1.000}$^*$ & 0.750 & 0.893 & 0.893 & \textbf{1.000}$^*$ \\
 \hline
 \end{tabular}%
 }
