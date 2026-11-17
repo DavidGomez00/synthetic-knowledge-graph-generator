@@ -41,7 +41,7 @@ docker compose --profile graphdb up -d
 curl -s http://localhost:7200/rest/repositories    # prints [] once GraphDB is up
 ```
 
-The batch creates and deletes its own repositories (`skgg_ours_<dataset>`), so GraphDB needs no setup in its Workbench. A fresh GraphDB has security turned off, so the default credentials of the batch (`admin`/`rootpassword`) are not checked. With security on, pass `--user` and `--password`.
+The batch creates and deletes its own repositories (`skgg_ours_<dataset>`, or `skgg_ours_<dataset>_<level>` with `--levels`), so GraphDB needs no setup in its Workbench. A fresh GraphDB has security turned off, so the default credentials of the batch (`admin`/`rootpassword`) are not checked. With security on, pass `--user` and `--password`.
 
 ## 4. Run the batch
 

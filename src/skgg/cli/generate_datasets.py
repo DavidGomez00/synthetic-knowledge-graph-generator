@@ -28,7 +28,9 @@ rule; for std1, which has no PCA threshold, the rules with std confidence 1, as
 without `--levels`), and the copy goes to
 `<root>/<folder>_ours_L/<folder>_ours_L.tsv`, with the rules the run used next to it
 as `<folder>_ours_L_used.csv`. A row with
-`ours_same_as` is skipped. See docs/rule-levels.md.
+`ours_same_as` is skipped. Each level has its own repository
+(`skgg_ours_<folder>_L`) and its own copy of the rules file, so several invocations
+can make levels of the same dataset at once. See docs/rule-levels.md.
 
     python -m skgg.cli.generate_datasets --levels r0 std1 r25 r50 r75 r100 \
         --datasets french french1_1 french1_N frenchN_1 frenchN_M
@@ -260,7 +262,10 @@ def generate_dataset(
     synthetic_uri = graph.synthetic_uri(
         rule_filter_label(None if threshold is None else float(threshold))
     )
+    # Each level has its own repository, so the levels of a dataset can run at once.
     repository = f"{REPOSITORY_PREFIX}{folder.name}"
+    if level is not None:
+        repository += f"_{level.name}"
 
     store.create_repository(repository)
     try:
@@ -269,19 +274,23 @@ def generate_dataset(
             log_path.open("w", encoding="utf-8") as log,
         ):
             config = Path(tmp) / "config.json"
-            # A rules file with the header only: no rule at all.
-            no_rules = None
-            if level is not None and level.no_rules:
-                no_rules = Path(tmp) / "no_rules.csv"
-                with rules_file(folder).open(encoding="utf-8") as f:
-                    no_rules.write_text(f.readline(), encoding="utf-8")
-            _write_config(
-                config, folder, graph, store, repository, log_level, no_rules
-            )
+            rules = None
+            if level is not None:
+                # cli/main.py writes the rules it used next to the rules file, so the
+                # run reads a copy in its own folder: runs of other levels of the
+                # dataset can't overwrite that file or move it away.
+                rules = Path(tmp) / rules_file(folder).name
+                if level.no_rules:
+                    # A rules file with the header only: no rule at all.
+                    with rules_file(folder).open(encoding="utf-8") as f:
+                        rules.write_text(f.readline(), encoding="utf-8")
+                else:
+                    shutil.copy(rules_file(folder), rules)
+            _write_config(config, folder, graph, store, repository, log_level, rules)
             download_stem = Path(tmp) / "graph"
-            # cli/main.py writes the rules it used next to the rules file; remove
+            used = (rules or rules_file(folder)).with_name(f"{folder.name}_used.csv")
+            # Without a level the file is next to the dataset's rules file; remove
             # an earlier run's file so that only this run's can be copied.
-            used = rules_file(folder).with_name(f"{folder.name}_used.csv")
             used.unlink(missing_ok=True)
             for step in (
                 ["skgg.cli.graph", "upload", "-f", str(config)],
