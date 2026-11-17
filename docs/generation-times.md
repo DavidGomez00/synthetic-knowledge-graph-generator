@@ -136,24 +136,20 @@ The table below is rewritten by `runs/rule-levels/make_report.py` (step `report`
 
 <!-- rule-level times: written by runs/rule-levels/make_report.py -->
 
-Last written on 2026-11-17 09:11. Each cell is ours / kbgen. *Pending*: the copy is not made yet, or was made before its run recorded what `check_copies.py` checks. *No rule*: our generator uses no rule at that level, so neither method makes a copy. *As r100*: the level has the rules of `r100`, whose copy stands for it.
+Last written on 2026-11-17 11:12. Each cell is ours / kbgen. *Pending*: the copy is not made yet, or was made before its run recorded what `check_copies.py` checks. *No rule*: our generator uses no rule at that level, so neither method makes a copy. *As r100*: the level has the rules of `r100`, whose copy stands for it.
 
 | Dataset | std1 | r25 | r50 | r75 | r100 | Ours, sum | kbgen, sum | kbgen shared steps |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| family | 54 s / 11 min 50 s | 1 min 52 s / 32 min 10 s | 2 min 16 s / pending | 2 min 49 s / 7 h 17 min | 6 min 21 s / 7 h 25 min | 14 min 11 s | pending | 7 s |
-| Family1_1 | no rule | 8 s / 1 min 55 s | 17 s / 3 min 25 s | 1 min 14 s / 5 min 27 s | 4 min 8 s / 6 min 16 s | 5 min 47 s | 17 min 3 s | 5 s |
-| Family1_N | no rule | 6 s / 30 s | 7 s / 46 s | 8 s / 1 min 33 s | 10 s / 1 min 24 s | 30 s | 4 min 12 s | 4 s |
-| FamilyM_N | no rule | 11 s / 2 min 5 s | 13 s / 3 min 53 s | 14 s / 5 min 12 s | 17 s / 7 min 12 s | 54 s | 18 min 22 s | 4 s |
-| FamilyN_1 | no rule | 9 s / 30 s | 13 s / 46 s | 1 min 37 s / 52 s | 8 s / 55 s | 2 min 8 s | 3 min 3 s | 4 s |
 | french | 17 s / 5 s | 18 s / 5 min 2 s | 24 s / 11 min 2 s | 30 s / 18 min 1 s | 36 s / 17 min 49 s | 2 min 6 s | 51 min 59 s | 7 s |
 | french1_1 | no rule | 17 s / 4 min 38 s | 21 s / 7 min 4 s | 26 s / 10 min 40 s | 30 s / 10 min 48 s | 1 min 34 s | 33 min 10 s | 5 s |
 | french1_N | no rule | 7 s / 4 s | 7 s / 7 s | 7 s / 9 s | 8 s / 10 s | 28 s | 30 s | 4 s |
 | frenchN_1 | no rule | 11 s / 46 s | 14 s / 1 min 21 s | 17 s / 1 min 53 s | 19 s / 2 min 5 s | 1 min 0 s | 6 min 4 s | 5 s |
 | frenchN_M | no rule | 9 s / 1 min 0 s | 10 s / 1 min 49 s | 11 s / 2 min 48 s | 12 s / 2 min 59 s | 43 s | 8 min 36 s | 4 s |
-| SGKG1 | as r100 | as r100 | as r100 | as r100 | 46 s / 10 min 56 s | 46 s | 10 min 56 s | 16 s |
-| SGKG2 | as r100 | as r100 | as r100 | as r100 | 3 min 8 s / 10 min 46 s | 3 min 8 s | 10 min 46 s | 14 s |
-| SGKG3 | as r100 | as r100 | as r100 | as r100 | 1 min 22 s / 9 min 40 s | 1 min 22 s | 9 min 40 s | 14 s |
-| SGKG4 | as r100 | as r100 | as r100 | as r100 | 46 s / 9 min 21 s | 46 s | 9 min 21 s | 16 s |
+| family | 54 s / 11 min 50 s | 1 min 52 s / 32 min 10 s | 2 min 16 s / 8 h 21 min | 2 min 49 s / 7 h 17 min | 6 min 21 s / 7 h 25 min | 14 min 11 s | 23 h 48 min | 7 s |
+| Family1_1 | no rule | 8 s / 1 min 55 s | 17 s / 3 min 25 s | 1 min 14 s / 5 min 27 s | 4 min 8 s / 6 min 16 s | 5 min 47 s | 17 min 3 s | 5 s |
+| Family1_N | no rule | 6 s / 30 s | 7 s / 46 s | 8 s / 1 min 33 s | 10 s / 1 min 24 s | 30 s | 4 min 12 s | 4 s |
+| FamilyM_N | no rule | 11 s / 2 min 5 s | 13 s / 3 min 53 s | 14 s / 5 min 12 s | 17 s / 7 min 12 s | 54 s | 18 min 22 s | 4 s |
+| FamilyN_1 | no rule | 9 s / 30 s | 13 s / 46 s | 1 min 37 s / 52 s | 8 s / 55 s | 2 min 8 s | 3 min 3 s | 4 s |
 | WN18RR | 11 min 53 s / 4 min 11 s | 9 min 1 s / 12 min 28 s | 8 min 56 s / 22 min 28 s | 9 min 5 s / 36 min 41 s | 9 min 16 s / 35 min 41 s | 48 min 12 s | 1 h 51 min | 18 s |
 | WN18RR1_1 | no rule | 11 min 55 s / 11 min 1 s | 10 min 28 s / 20 min 50 s | 8 min 4 s / 22 min 37 s | 9 min 4 s / 25 min 50 s | 39 min 30 s | 1 h 20 min | 15 s |
 | WN18RR1_N | no rule | 1 min 10 s / 15 s | 1 min 4 s / 23 s | 51 s / 27 s | 40 s / 29 s | 3 min 45 s | 1 min 34 s | 9 s |
@@ -164,7 +160,11 @@ Last written on 2026-11-17 09:11. Each cell is ours / kbgen. *Pending*: the copy
 | YAGO3-10_1_N | no rule | 1 h 29 min / 54 min 1 s | 3 h 22 min / 1 h 37 min | 1 h 34 min / 2 h 8 min | 1 h 33 min / 2 h 19 min | 8 h 0 min | 7 h 0 min | 2 min 38 s |
 | YAGO3-10_N_1 | no rule | 4 h 22 min / 2 h 58 min | 2 h 0 min / 3 h 41 min | 2 h 0 min / 4 h 0 min | 2 h 1 min / 4 h 24 min | 10 h 25 min | 15 h 4 min | 2 min 5 s |
 | YAGO3-10_N_M | no rule | 4 h 12 min / 4 h 49 min | 1 h 22 min / 5 h 23 min | 1 h 12 min / 5 h 50 min | 1 h 53 min / 5 h 53 min | 8 h 41 min | 21 h 56 min | 3 min 3 s |
-| All | | | | | | 45 h 52 min | pending (101 h 33 min so far) | |
+| SGKG1 | as r100 | as r100 | as r100 | as r100 | 46 s / 10 min 56 s | 46 s | 10 min 56 s | 16 s |
+| SGKG2 | as r100 | as r100 | as r100 | as r100 | 3 min 8 s / 10 min 46 s | 3 min 8 s | 10 min 46 s | 14 s |
+| SGKG3 | as r100 | as r100 | as r100 | as r100 | 1 min 22 s / 9 min 40 s | 1 min 22 s | 9 min 40 s | 14 s |
+| SGKG4 | as r100 | as r100 | as r100 | as r100 | 46 s / 9 min 21 s | 46 s | 9 min 21 s | 16 s |
+| All | | | | | | 45 h 52 min | 109 h 54 min | |
 
 <!-- end of rule-level times -->
 
