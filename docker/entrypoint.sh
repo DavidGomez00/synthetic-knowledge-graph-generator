@@ -5,9 +5,9 @@
 #    the first start with a new volume.
 # 2. Pushes go through GITHUB_TOKEN, read from the environment when git needs it.
 # 3. Updates /workspace to the latest commit of REPO_REF (SKGG_UPDATE=0 skips it).
-# 4. Copies the runs already on the kge-results branch into exp_results/, so they
-#    are not trained again (SKGG_DOWNLOAD=0 skips it).
-# 5. Runs the command. Arguments starting with "-" go to
+#    exp_results/ is tracked, so this also brings the runs other machines finished,
+#    and train_kge.py skips them.
+# 4. Runs the command. Arguments starting with "-" go to
 #    `python scripts/train_kge.py --upload`, and the container then stays up idle
 #    (SKGG_IDLE=0 exits instead), so `--restart unless-stopped` restarts it after a
 #    reboot without training again once it is done. Anything else runs as given.
@@ -32,28 +32,35 @@ fi
 git remote set-url origin "$REPO_URL" 2>/dev/null || git remote add origin "$REPO_URL"
 # Keep only the configured remote branch, so the shallow fetch below stays small.
 git config remote.origin.fetch "+refs/heads/$REPO_REF:refs/remotes/origin/$REPO_REF"
+# upload_results.py commits to the checked-out branch, so HEAD must be on one.
+git symbolic-ref -q HEAD >/dev/null || git checkout -q -B "$REPO_REF"
 
 if [[ -n "${GITHUB_TOKEN:-}" ]]; then
     # The helper prints the token when git asks for it; nothing is written to disk.
     git config --global credential.helper \
         '!f() { echo username=x-access-token; echo "password=$GITHUB_TOKEN"; }; f'
 else
-    log "GITHUB_TOKEN is not set: finished runs cannot be pushed to the kge-results branch."
+    log "GITHUB_TOKEN is not set: finished runs cannot be pushed to $REPO_REF."
 fi
 
 if [[ "${SKGG_UPDATE:-1}" == 1 ]]; then
-    if git fetch -q --depth 1 origin "$REPO_REF"; then
-        # Tracked files only: results, checkpoints and logs are ignored by git.
-        git reset -q --hard FETCH_HEAD
+    # No --depth: the fetch then reaches the commit checked out here, so git can
+    # tell whether this machine has commits of its own.
+    if git fetch -q origin "$REPO_REF"; then
+        if git merge-base --is-ancestor HEAD FETCH_HEAD; then
+            # Tracked files only. Unfinished runs, checkpoints and logs are not
+            # tracked and are left alone.
+            git reset -q --hard FETCH_HEAD
+        elif ! git rebase -q FETCH_HEAD; then
+            # Commits of an upload whose push failed: they go on top of the new
+            # code, and train_kge.py --upload pushes them.
+            git rebase --abort
+            log "Could not rebase the local commits on $REPO_REF; keeping them as they are."
+        fi
         log "Code at $(git log -1 --format='%h %s')."
     else
         log "Could not fetch $REPO_REF; keeping the code at $(git log -1 --format=%h)."
     fi
-fi
-
-if [[ "${SKGG_DOWNLOAD:-1}" == 1 ]]; then
-    python scripts/upload_results.py --download \
-        || log "No runs downloaded from the kge-results branch (see above)."
 fi
 
 if [[ $# -gt 0 && "$1" != -* ]]; then
