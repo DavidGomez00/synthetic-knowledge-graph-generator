@@ -1,6 +1,6 @@
 # Rule-level copies: results
 
-Written by `make_report.py` on 2026-11-17 09:07 from `status.tsv`, `ours/times.tsv`, `kbgen-results/rule-levels/summary.csv` and `kbgen-work/<dataset>/timings.json`. README.md says how the copies were made.
+Written by `make_report.py` on 2026-11-17 09:11 from `status.tsv`, `ours/times.tsv`, `kbgen-results/rule-levels/summary.csv` and `kbgen-work/<dataset>/timings.json`. README.md says how the copies were made.
 
 ## Machine
 

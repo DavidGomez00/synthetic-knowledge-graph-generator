@@ -136,7 +136,7 @@ The table below is rewritten by `runs/rule-levels/make_report.py` (step `report`
 
 <!-- rule-level times: written by runs/rule-levels/make_report.py -->
 
-Last written on 2026-11-17 09:07. Each cell is ours / kbgen. *Pending*: the copy is not made yet, or was made before its run recorded what `check_copies.py` checks. *No rule*: our generator uses no rule at that level, so neither method makes a copy. *As r100*: the level has the rules of `r100`, whose copy stands for it.
+Last written on 2026-11-17 09:11. Each cell is ours / kbgen. *Pending*: the copy is not made yet, or was made before its run recorded what `check_copies.py` checks. *No rule*: our generator uses no rule at that level, so neither method makes a copy. *As r100*: the level has the rules of `r100`, whose copy stands for it.
 
 | Dataset | std1 | r25 | r50 | r75 | r100 | Ours, sum | kbgen, sum | kbgen shared steps |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
