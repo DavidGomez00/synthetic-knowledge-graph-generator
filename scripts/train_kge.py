@@ -40,8 +40,9 @@ the flag then trains only that model, as the finished ones are skipped.
 `--skip-datasets` does the same for datasets, as in
 `--skip-datasets YAGO3-10 YAGO3-10_1_1`.
 
-`--upload` pushes every finished run to the kge-results branch after each run and at
-the end, so several machines collect their results in one place (upload_results.py).
+`--upload` commits every finished run to the checked-out branch and pushes it, after
+each run and at the end, so several machines collect their results in one place
+(upload_results.py).
 
 A model that fails, usually by running out of GPU memory, is logged and skipped. The
 script goes on with the others, exits with status 1, and retries it on the next run.
@@ -768,7 +769,6 @@ def run_jobs(
     started_at: str,
     progress_bars: bool,
     upload: bool = False,
-    upload_branch: str = upload_results.BRANCH,
 ) -> tuple[int, int]:
     """Trains every run of `jobs` that no other process holds, in order.
 
@@ -829,7 +829,7 @@ def run_jobs(
             if upload:
                 # Don't queue behind another worker's upload: it, or a later one,
                 # sends this run, and the command's last upload sends the rest.
-                upload_finished(output, upload_branch, wait=False)
+                upload_finished(output, wait=False)
     return failed, busy
 
 
@@ -899,16 +899,14 @@ def train_job(
     return loaded
 
 
-def upload_finished(
-    output: Path, branch: str = upload_results.BRANCH, wait: bool = True
-) -> None:
+def upload_finished(output: Path, wait: bool = True) -> None:
     """Uploads the finished runs; a failure is logged and doesn't stop training.
 
     Without `wait`, it skips the upload if another process is uploading: that or a
     later upload sends the run, and the command's last upload waits and sends the rest.
     """
     try:
-        upload_results.upload(output, branch=branch, wait=wait)
+        upload_results.upload(output, wait=wait)
     except Exception:
         logger.exception("Could not upload the results; the next upload retries.")
 
@@ -1042,7 +1040,6 @@ def worker_main(
     settings: Settings,
     started_at: str,
     upload: bool = False,
-    upload_branch: str = upload_results.BRANCH,
     threads: int = DEFAULT_THREADS,
 ) -> None:
     """Runs in a worker process. Exits with 1 if a run failed, 130 if stopped."""
@@ -1066,7 +1063,6 @@ def worker_main(
             started_at,
             progress_bars=False,
             upload=upload,
-            upload_branch=upload_branch,
         )
     except KeyboardInterrupt:
         logger.info("Stopped.")
@@ -1095,7 +1091,6 @@ def run_workers(
                 settings,
                 started_at,
                 args.upload,
-                args.upload_branch,
                 args.threads,
             ),
             args.devices,
@@ -1208,15 +1203,10 @@ def parse_args() -> argparse.Namespace:
         help="CPU threads of each worker (default: %(default)s)",
     )
     parser.add_argument(
-        "--upload-branch",
-        default=upload_results.BRANCH,
-        help="branch that --upload pushes to (default: %(default)s)",
-    )
-    parser.add_argument(
         "--upload",
         action="store_true",
-        help="upload every finished run to the kge-results branch of origin, after "
-        "each run and at the end (see upload_results.py)",
+        help="commit every finished run to the checked-out branch and push it to "
+        "origin, after each run and at the end (see upload_results.py)",
     )
     parser.add_argument(
         "--workers",
@@ -1311,7 +1301,6 @@ def main() -> int:
                 started_at,
                 progress_bars=True,
                 upload=args.upload,
-                upload_branch=args.upload_branch,
             )
         except KeyboardInterrupt:
             logger.info("Interrupted. Run the same command to resume.")
@@ -1326,7 +1315,7 @@ def main() -> int:
         code = 1 if failed else 0
     if args.upload and code != INTERRUPTED_STATUS:
         # Catches the runs whose upload failed, and those finished before.
-        upload_finished(args.output, args.upload_branch)
+        upload_finished(args.output)
     if code == 1:
         logger.error("Some runs failed; the next run retries them (see progress.csv).")
     elif code == 0:

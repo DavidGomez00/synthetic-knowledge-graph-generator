@@ -4,10 +4,10 @@
 # experiments): Python 3.10.22 built by pyenv, the packages pinned in
 # requirements.txt (PyTorch from PyPI, built for CUDA 13.0), Java and AMIE3, and
 # a clone of the repository, copied at the first start into the volume
-# /workspace. Started without arguments, it updates the clone, downloads the runs
-# other machines finished, trains with scripts/train_kge.py --upload, pushes each
-# finished run to the kge-results branch with the token in GITHUB_TOKEN, and then
-# stays up idle. See docs/docker.md.
+# /workspace. Started without arguments, it updates the clone, which brings the runs
+# other machines finished (exp_results/ is tracked), trains with
+# scripts/train_kge.py --upload, pushes each finished run to REPO_REF with the token
+# in GITHUB_TOKEN, and then stays up idle. See docs/docker.md.
 #
 # The build needs no files from the host:
 #   docker build -t skgg https://github.com/DavidGomez00/synthetic-knowledge-graph-generator.git#main
