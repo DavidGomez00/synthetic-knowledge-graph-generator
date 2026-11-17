@@ -28,12 +28,12 @@ with two tables, each as LaTeX (`.tex`), Markdown (`.md`) and CSV (`.csv`):
 
 `ranking` (each model's rank by each metric, 1 = best and tied models sharing the
 best rank, on the original and on KBgen's and NAME's copy, PyGraft left out; in
-LaTeX a copy's rank is bold where it equals the model's rank on the original), and
-`ranking.png`, a bump chart of the model ranking on the original and on each
-copy: one panel per metric, the versions in table order on the x axis, the rank
-(1 = best, ties sharing the best rank) on the y axis, one line per model, with a
-fixed color and marker shape per model in every chart (style of
-kgc_benchmark/plot_style.py).
+LaTeX a copy's rank is bold where it equals the model's rank on the original; also
+drawn as `ranking_table.png`, those ranks tinted and bold), and `ranking.png`, a
+bump chart of the model ranking on the original and on each copy: one panel per
+metric, the versions in table order on the x axis, the rank (1 = best, ties sharing
+the best rank) on the y axis, one line per model, with a fixed color and marker
+shape per model in every chart (style of kgc_benchmark/plot_style.py).
 
 For each original graph with copies at the rule thresholds (MSE_THRESHOLDS: std1,
 r25, r50, r75, r100), it writes `<analysis>/results_tables/<family>/mse`, also as
@@ -79,9 +79,11 @@ from matplotlib import pyplot as plt  # noqa: E402
 # The plot style shared with kgc_benchmark/report_results.py.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "kgc_benchmark"))
 from plot_style import (  # noqa: E402
+    BASELINE,
     CATEGORICAL,
     GRIDLINE,
     INK,
+    INK_MUTED,
     INK_SECONDARY,
     PLOT_DPI,
     PX,
@@ -272,6 +274,120 @@ def ranking_latex(
         lines.append(" & ".join(cells) + " \\\\")
     lines += ["\\hline", "\\end{tabular}%", "}", "\\end{table*}"]
     return "\n".join(lines) + "\n"
+
+
+def tint(color: str, share: float) -> str:
+    """`color` mixed with SURFACE, `share` of it: a light fill of the same hue."""
+    a = [int(color[i : i + 2], 16) for i in (1, 3, 5)]
+    b = [int(SURFACE[i : i + 2], 16) for i in (1, 3, 5)]
+    mixed = [round(share * x + (1 - share) * y) for x, y in zip(a, b, strict=True)]
+    return "#" + "".join(f"{v:02x}" for v in mixed)
+
+
+def ranking_table_png(
+    ranks: pd.DataFrame, versions: list[str], title: str, path: Path
+) -> None:
+    """Draws the ranking table (`ranking_frame`) as a PNG: one column group per
+    metric, one column per version, one row per model. A copy's rank that equals
+    the model's rank on the original is bold on a light tint, so the match does not
+    rest on color alone; a run not ranked yet is "-"."""
+    names = ["Original" if v == REFERENCE else generator(v)[1] for v in versions]
+    models = list(ranks.index)
+    n = len(versions)
+    columns = 1 + n * len(METRICS)
+    match_fill = tint(CATEGORICAL[0], 0.18)
+    width = 1.5 + 0.55 * n * len(METRICS)
+    height = 1.6 + 0.36 * (len(models) + 2)
+    fig, ax = plt.subplots(figsize=(width, height), dpi=PLOT_DPI, facecolor=SURFACE)
+    ax.set_facecolor(SURFACE)
+    ax.set_xlim(0, columns + 1)
+    ax.set_ylim(len(models) + 2, 0)
+    ax.axis("off")
+
+    def x_of(column: int) -> float:
+        # The model column is twice as wide as a rank column.
+        return 1.0 if column == 0 else column + 1.5
+
+    for i, (metric, _) in enumerate(METRICS):
+        first = 1 + i * n
+        center = (x_of(first) + x_of(first + n - 1)) / 2
+        ax.text(center, 0.5, metric, ha="center", va="center", color=INK, fontsize=10)
+        for j, name in enumerate(names):
+            ax.text(
+                x_of(first + j),
+                1.5,
+                name,
+                ha="center",
+                va="center",
+                color=INK_SECONDARY,
+                fontsize=8,
+            )
+        if i:
+            ax.plot(
+                [x_of(first) - 0.5] * 2,
+                [0.1, len(models) + 1.9],
+                color=BASELINE,
+                linewidth=2 * PX,
+            )
+    ax.text(0.2, 1.5, "Model", ha="left", va="center", color=INK_SECONDARY, fontsize=8)
+    ax.plot([0.1, columns + 0.9], [2] * 2, color=BASELINE, linewidth=2 * PX)
+
+    for r, model in enumerate(models):
+        y = 2.5 + r
+        if r:
+            ax.plot([0.1, columns + 0.9], [y - 0.5] * 2, color=GRIDLINE, linewidth=PX)
+        ax.text(0.2, y, model, ha="left", va="center", color=INK, fontsize=9)
+        for i, (metric, _) in enumerate(METRICS):
+            original = ranks.at[model, f"{label(REFERENCE)} {metric}"]
+            for j, v in enumerate(versions):
+                rank = ranks.at[model, f"{label(v)} {metric}"]
+                x = x_of(1 + i * n + j)
+                match = (
+                    v != REFERENCE
+                    and not pd.isna(rank)
+                    and not pd.isna(original)
+                    and rank == original
+                )
+                if match:
+                    ax.add_patch(
+                        plt.Rectangle(
+                            (x - 0.42, y - 0.4),
+                            0.84,
+                            0.8,
+                            facecolor=match_fill,
+                            edgecolor="none",
+                            zorder=0,
+                        )
+                    )
+                ax.text(
+                    x,
+                    y,
+                    "-" if pd.isna(rank) else str(rank),
+                    ha="center",
+                    va="center",
+                    fontsize=9,
+                    color=INK_MUTED if pd.isna(rank) else INK,
+                    fontweight="bold" if match else "normal",
+                )
+    fig.suptitle(
+        textwrap.fill(title, width=int(width * 11)),
+        color=INK,
+        fontsize=12,
+        x=0.01,
+        ha="left",
+    )
+    fig.text(
+        0.01,
+        0.02,
+        "Rank 1 = best; tied models share the best rank. Bold on a tint: the copy "
+        "ranks the model where the original does.",
+        color=INK_SECONDARY,
+        fontsize=8,
+        ha="left",
+    )
+    fig.tight_layout(rect=(0, 0.05, 1, 1 - 0.06 * (title.count("\n") + 1)))
+    fig.savefig(path, dpi=PLOT_DPI, facecolor=SURFACE)
+    plt.close(fig)
 
 
 def mse_variant(generator_key: str, threshold: str) -> str:
@@ -703,6 +819,14 @@ def main() -> int:
                 "original graph.",
                 f"tab:{family.replace('_', '-')}_{threshold}_ranking",
             )
+            table_chart = folder / "ranking_table.png"
+            ranking_table_png(
+                frames["ranking"],
+                ranked,
+                f"{caption}, copies {made}: rank of each model by metric",
+                table_chart,
+            )
+            written.append(table_chart)
             chart = folder / "ranking.png"
             bump_chart(
                 frames["metrics"],
