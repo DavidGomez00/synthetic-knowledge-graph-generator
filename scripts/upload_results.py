@@ -54,14 +54,15 @@ RUN_LOG_DIR = "logs"
 STATUS_DIR = "status"
 
 
-def git(*args: str, cwd: Path) -> str:
-    """Runs git and returns its output. Raises RuntimeError with git's message."""
+def git(*args: str, cwd: Path, strip: bool = True) -> str:
+    """Runs git and returns its output, stripped unless `strip` is False. Raises
+    RuntimeError with git's message."""
     done = subprocess.run(
         ["git", *args], cwd=cwd, capture_output=True, text=True, check=False
     )
     if done.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)}: {done.stderr.strip()}")
-    return done.stdout.strip()
+    return done.stdout.strip() if strip else done.stdout
 
 
 def repository_root() -> Path:
@@ -127,6 +128,9 @@ def changed_paths(root: Path, results: Path) -> set[Path]:
         "--",
         str(results),
         cwd=root,
+        # Stripping would cut the leading space of a first entry such as
+        # " M exp_results/...", and with it the first letter of its path.
+        strip=False,
     )
     paths = set()
     entries = iter(output.split("\0"))
