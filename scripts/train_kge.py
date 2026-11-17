@@ -505,10 +505,13 @@ def log_run_header(
 
 
 def find_datasets(
-    root: Path, names: list[str] | None, dataset_set_name: str | None = None
+    root: Path,
+    names: list[str] | None,
+    dataset_set_name: str | None = None,
+    keep_order: bool = False,
 ) -> list[Path]:
     """Returns the folders under root with `train` and `test` (REQUIRED_SPLITS),
-    smallest `train` first.
+    smallest `train` first, or in the order of `names` with `keep_order`.
 
     Named datasets are returned whatever their set; otherwise, with
     `dataset_set_name`, only the folders of that set ("all" keeps every set).
@@ -528,6 +531,8 @@ def find_datasets(
         if missing:
             raise ValueError(f"Datasets not found under {root}: {', '.join(missing)}")
         folders = {name: folders[name] for name in names}
+        if keep_order:
+            return list(folders.values())
     # Lines, not bytes: YAGO3-10's splits hold integer IDs, so its train file is
     # smaller in bytes than those of datasets with half its triples.
     return sorted(folders.values(), key=lambda d: count_lines(d / "train"))
@@ -1236,7 +1241,18 @@ def parse_args() -> argparse.Namespace:
         help="train the largest datasets first instead of the smallest (by the size "
         "of their train file)",
     )
+    parser.add_argument(
+        "--keep-order",
+        action="store_true",
+        help="train the datasets of --datasets in the order given instead of "
+        "smallest train file first, e.g. to finish one family of datasets before "
+        "the next",
+    )
     args = parser.parse_args()
+    if args.keep_order and not args.datasets:
+        parser.error("--keep-order needs --datasets.")
+    if args.keep_order and args.largest_first:
+        parser.error("--keep-order and --largest-first exclude each other.")
     if args.workers < 1:
         parser.error("--workers must be at least 1.")
     args.epochs = Settings.num_epochs if args.epochs is None else args.epochs
@@ -1258,7 +1274,9 @@ def main() -> int:
     started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     settings = Settings(num_epochs=args.epochs, batch_size=args.batch_size)
-    folders = find_datasets(args.root, args.datasets, args.dataset_set)
+    folders = find_datasets(
+        args.root, args.datasets, args.dataset_set, keep_order=args.keep_order
+    )
     unknown = sorted(set(args.skip_datasets) - {folder.name for folder in folders})
     if unknown:
         logger.error(
@@ -1296,7 +1314,8 @@ def main() -> int:
         )
     # Smallest dataset first, so the fast graphs finish early and the slowest come
     # last. --largest-first reverses it, so that with several workers the longest
-    # runs start at once instead of ending up alone at the end.
+    # runs start at once instead of ending up alone at the end. --keep-order keeps
+    # the order of --datasets instead.
     if args.largest_first:
         folders.reverse()
     jobs = [

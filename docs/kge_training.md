@@ -52,7 +52,7 @@ CompGCN is the exception. It encodes the whole graph at every step, so at batch 
 
 ## Order and parallel runs
 
-Datasets are trained smallest `train` file first, so the fast graphs finish early and the slowest, the YAGO3-10 datasets, come last. `--largest-first` reverses the order: with several workers it starts the longest runs at once instead of leaving them alone at the end, which can shorten the whole command.
+Datasets are trained smallest `train` file first, so the fast graphs finish early and the slowest, the YAGO3-10 datasets, come last. `--largest-first` reverses the order: with several workers it starts the longest runs at once instead of leaving them alone at the end, which can shorten the whole command. `--keep-order` trains the datasets of `--datasets` in the order given instead, so that one family of datasets finishes before the next starts, while the workers that run out of runs in one family go on to the next.
 
 At batch size 32 a run is CPU-bound: it keeps one CPU core busy and uses only part of a GPU. `--workers N` trains N runs at once, one model on one dataset each, in its own process, and `--threads` (default 4) caps the CPU threads of each. Worker i gets device i of `--devices`, in turn; by default every MIG instance and GPU that `nvidia-smi -L` lists, because a CUDA process sees only one MIG instance.
 
