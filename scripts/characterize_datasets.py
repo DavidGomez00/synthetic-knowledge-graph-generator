@@ -48,6 +48,13 @@ Writes to `--output-dir` (default `exp_analysis`):
   KBgen's and NAME's copies at that level and PyGraft's copy, made without rules,
   at every level. The full copies `<source>_kbgen` and `<source>_ours`, made from
   different rules, were dropped on 17 November 2026.
+- `structural_tables/size_mse.csv`, `.md` and `.tex`: the relative mean squared
+  error ((copy - original) / original)² of the number of entities and of
+  triples, one row per rule level of the ours and kbgen copies (and `All`, over
+  every level), one column per generator. A level's error is averaged over the
+  source datasets with an ours or kbgen copy at that level, PyGraft's included.
+  `--skip-levels std1 pca1` leaves those copies out of this table only, written
+  as `size_mse_without_std1.*` and so on.
 
 `--set` picks the datasets: `base` (default), the `_ours`, `_kbgen` or
 `_pygraft` copies (read from `<folder>/<folder>.tsv`), including their
@@ -94,7 +101,7 @@ VARIANT_RE = re.compile(r"^(.*?)_?([1NM])_([1NM])$")
 SGKG_RE = re.compile(r"^(SGKG)(\d+)$", re.IGNORECASE)
 # A copy: `<source>_<set>`, or a rule-level copy `<source>_<set>_<level>`.
 COPY_RE = re.compile(
-    rf"^(?P<source>.+)_(?P<set>{'|'.join(COPY_SETS)})(?:_(?P<level>r\d+|std1))?$"
+    rf"^(?P<source>.+)_(?P<set>{'|'.join(COPY_SETS)})(?:_(?P<level>r\d+|std1|pca1))?$"
 )
 
 
@@ -331,11 +338,13 @@ def parse_name(name: str) -> tuple[str, str, str]:
 
 
 def level_key(level: str) -> tuple[int, int]:
-    """Default copy first, then std1, then the rule levels by threshold."""
+    """Default copy first, then std1 and pca1, then the rule levels by threshold."""
     if not level:
         return (0, 0)
     if level == "std1":
         return (1, 0)
+    if level == "pca1":
+        return (1, 1)
     return (2, int(level[1:]))
 
 
@@ -940,6 +949,155 @@ def write_level_tables(out: Path, rows: list[dict[str, object]], level: str) -> 
         (folder / f"{stem}.tex").write_text("\n".join(tex) + "\n", encoding="utf-8")
 
 
+# The size descriptors of the size MSE table: header and key.
+SIZE_COLUMNS = (("|V|", "entities"), ("|E|", "triples"))
+# The levels that `--skip-levels` can leave out of the size MSE table.
+SKIPPABLE_LEVELS = ("std1", "pca1")
+
+
+def size_mse(rows: list[dict[str, object]], skip: set[str]) -> list[dict[str, object]]:
+    """The relative mean squared error of the entity and triple counts of each
+    generator's copies, ((copy - original) / original)² averaged over the source
+    datasets, one group of rows per rule level of the ours and kbgen copies
+    (except the levels of `skip`) and a last group, level `All`, over every
+    (source, level) pair of those levels. A level's sources are those with an
+    ours or kbgen copy at that level; each generator is measured on those of
+    them where it has a copy, `n` of them. PyGraft, made without rules, is thus
+    measured on the same sources as the level's rule-based copies."""
+    levels = sorted(
+        {
+            str(r["level"])
+            for r in rows
+            if r["set"] in ("ours", "kbgen") and r["level"] and r["level"] not in skip
+        },
+        key=level_key,
+    )
+    generators = [s for _, s in METHOD_COLUMNS if s != "base"]
+    errors: dict[tuple[str, str, str], list[float]] = defaultdict(list)
+    for level in levels:
+        for row in method_rows(rows, level):
+            if row["ours:entities"] == "" and row["kbgen:entities"] == "":
+                continue
+            for copy_set in generators:
+                for _, key in SIZE_COLUMNS:
+                    copy, original = row[f"{copy_set}:{key}"], row[f"base:{key}"]
+                    if copy == "":
+                        continue
+                    error = (float(copy) - float(original)) / float(original)  # type: ignore[arg-type]
+                    for group in (level, "All"):
+                        errors[group, copy_set, key].append(error**2)
+    return [
+        {
+            "level": level,
+            "generator": copy_set,
+            "descriptor": key,
+            "mse": statistics.fmean(values)
+            if (values := errors[level, copy_set, key])
+            else "",
+            "n": len(values),
+        }
+        for level in ([*levels, "All"] if levels else [])
+        for copy_set in generators
+        for _, key in SIZE_COLUMNS
+    ]
+
+
+def write_size_mse(out: Path, table: list[dict[str, object]], skip: set[str]) -> str:
+    """`structural_tables/size_mse.csv`, `.md` and `.tex` (`size_mse_without_<levels>`
+    when levels are skipped) from the rows of `size_mse`: one row per level,
+    one column per generator and size descriptor, the smallest error of each row
+    and descriptor in bold in LaTeX. Returns the stem written."""
+    folder = out / "structural_tables"
+    folder.mkdir(parents=True, exist_ok=True)
+    stem = "size_mse" + "".join(f"_without_{s}" for s in sorted(skip, key=level_key))
+    write_csv(folder / f"{stem}.csv", table)
+    cells = {
+        (str(r["level"]), str(r["generator"]), str(r["descriptor"])): r for r in table
+    }
+    levels = list(dict.fromkeys(str(r["level"]) for r in table))
+    methods = [(name, s) for name, s in METHOD_COLUMNS if s != "base"]
+    skipped = (
+        f" The {' and '.join(sorted(skip, key=level_key))} copies are left out."
+        if skip
+        else ""
+    )
+    md = [
+        "# Relative MSE of the number of entities and triples",
+        "",
+        "Generated by `scripts/characterize_datasets.py`. Each cell is the mean, over "
+        "the source datasets with an ours or kbgen copy at that level, of "
+        "((copy − original) / original)², for the number of entities |V| and of "
+        "distinct triples |E|; n is the number of copies counted. PyGraft, made "
+        "without rules, is measured on the same sources at every level. All pools "
+        f"every (source, level) pair of the levels above.{skipped}",
+        "",
+        "| Level | "
+        + " | ".join(
+            f"{name} {h.replace('|', chr(92) + '|')}"
+            for name, _ in methods
+            for h, _ in SIZE_COLUMNS
+        )
+        + " | "
+        + " | ".join(f"{name} n" for name, _ in methods)
+        + " |",
+        "|---|" + "---:|" * (len(methods) * (len(SIZE_COLUMNS) + 1)),
+    ]
+    for level in levels:
+        values = [
+            format_value(cells[level, s, key]["mse"], "sci")
+            for _, s in methods
+            for _, key in SIZE_COLUMNS
+        ]
+        counts = [str(cells[level, s, SIZE_COLUMNS[0][1]]["n"]) for _, s in methods]
+        md.append(f"| {level} | " + " | ".join(values + counts) + " |")
+    (folder / f"{stem}.md").write_text("\n".join(md) + "\n", encoding="utf-8")
+
+    n = len(SIZE_COLUMNS)
+    tex = [
+        "% Generated by scripts/characterize_datasets.py",
+        "% Relative MSE ((copy - original) / original)^2 of the number of entities "
+        f"and triples, per rule level.{skipped}",
+        "\\begin{tabular}{l" + "|".join(["r" * n] * len(methods)) + "}",
+        "\\toprule",
+        " & "
+        + " & ".join(
+            f"\\multicolumn{{{n}}}{{c{'|' if i < len(methods) - 1 else ''}}}{{{name}}}"
+            for i, (name, _) in enumerate(methods)
+        )
+        + " \\\\",
+        "Level & "
+        + " & ".join(f"${h}$" for _ in methods for h, _ in SIZE_COLUMNS)
+        + " \\\\",
+        "\\midrule",
+    ]
+    for level in levels:
+        if level == "All":
+            tex.append("\\midrule")
+        best = {
+            key: min(
+                (
+                    float(v)  # type: ignore[arg-type]
+                    for _, s in methods
+                    if (v := cells[level, s, key]["mse"]) != ""
+                ),
+                default=None,
+            )
+            for _, key in SIZE_COLUMNS
+        }
+        row = []
+        for _, s in methods:
+            for _, key in SIZE_COLUMNS:
+                value = cells[level, s, key]["mse"]
+                text = format_value(value, "sci", latex=True)
+                if value != "" and float(value) == best[key]:  # type: ignore[arg-type]
+                    text = f"$\\mathbf{{{text.strip('$')}}}$"
+                row.append(text)
+        tex.append(f"{level} & " + " & ".join(row) + " \\\\")
+    tex += ["\\bottomrule", "\\end{tabular}"]
+    (folder / f"{stem}.tex").write_text("\n".join(tex) + "\n", encoding="utf-8")
+    return stem
+
+
 def find_datasets(root: Path, chosen_set: str, names: list[str] | None) -> list[str]:
     found = []
     for folder in sorted(p for p in root.iterdir() if p.is_dir()):
@@ -989,6 +1147,14 @@ def main() -> None:
         help="share of a relation's pairs that a symmetry, inverse or "
         "inclusion needs (default 0.9)",
     )
+    parser.add_argument(
+        "--skip-levels",
+        nargs="+",
+        default=[],
+        choices=SKIPPABLE_LEVELS,
+        help="copies left out of the size MSE table (structural_tables/size_mse_"
+        "without_<level>.*); every other output keeps them",
+    )
     args = parser.parse_args()
 
     names = find_datasets(args.root, args.set, args.datasets)
@@ -1023,6 +1189,11 @@ def main() -> None:
     write_latex(out / "dataset_characteristics.tex", rows)
     write_comparison(out, comparison_rows(rows))
     write_metric_tables(out, rows)
+    skip = set(args.skip_levels)
+    mse_table = size_mse(rows, skip)
+    if mse_table:
+        stem = write_size_mse(out, mse_table, skip)
+        print(f"Wrote structural_tables/{stem}.{{csv,md,tex}}")
     print(
         "Wrote dataset_characteristics.{csv,md,tex}, structural_comparison."
         "{csv,md,tex}, structural_tables/ and relation_characteristics.csv "
