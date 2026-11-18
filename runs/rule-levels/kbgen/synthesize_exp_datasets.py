@@ -41,8 +41,9 @@ that both generators see the same rules. Every level is then made, r100 included
 (as `D_kbgen_r100`), the used file must have the row's `rules_ours` rules, and a row
 whose `ours_same_as` is set is skipped, as the generator skips it. --force redoes the level
 steps only, never `work/D/`. The summary goes to `<results dir>/rule-levels/`.
-The generator's `_used.csv` files are always read from `<root>`, so the kbgen copies
-can go to another `--level-root`.
+The generator's `_used.csv` files are read from `<root>` whatever `--level-root` is,
+or from `--used-rules-dir` (`<dir>/D_ours_L_used.csv`) for rules selected without
+making the generator's copy (runs/rule-levels-entities/select_rules.py).
 
 By default kbgen synthesizes as many entities as the subjects of the graph it loads
 (its `n_entities`). With --entities source, synthesize.py gets `-ne N`, N being the
@@ -163,9 +164,11 @@ def find_datasets(root: Path, work_root: Path, names: list[str] | None) -> list[
 
 
 def ours_level_datasets(levels_file: Path, datasets: list[Dataset], levels: list[str], root: Path,
-                        work_root: Path, level_root: Path | None) -> list[Dataset]:
+                        work_root: Path, level_root: Path | None,
+                        used_rules_dir: Path | None = None) -> list[Dataset]:
     """The level copies to make with --rules-from-ours: each dataset at each level of
-    `levels`, with the rules this project's generator used at that level."""
+    `levels`, with the rules this project's generator used at that level, read from
+    `<used_rules_dir>/D_ours_L_used.csv` if `used_rules_dir` is set."""
     with levels_file.open(encoding="utf-8", newline="") as f:
         rows = {(r["dataset"], r["level"]): r for r in csv.DictReader(f, delimiter="\t")}
     todo = []
@@ -182,7 +185,7 @@ def ours_level_datasets(levels_file: Path, datasets: list[Dataset], levels: list
                 continue
             copy = f"{ds.name}_ours_{level}"
             # The generator's copies stay next to their dataset, whatever the level root.
-            used = root / copy / f"{copy}_used.csv"
+            used = (used_rules_dir or root / copy) / f"{copy}_used.csv"
             if row["rules_kept"] == "0":
                 ids, used = set(), None
             elif not used.is_file():
@@ -606,6 +609,9 @@ def main() -> int:
                    help="entities to synthesize: kbgen's own count, the subjects of the graph it loads "
                         "(kept, the default), or the unique entities of D.unified.tsv, passed as "
                         "synthesize.py -ne (source)")
+    p.add_argument("--used-rules-dir", type=Path, default=None,
+                   help="with --rules-from-ours, read D_ours_L_used.csv from this folder "
+                        "(default: <root>/D_ours_L/)")
     p.add_argument("--level-root", type=Path, default=None,
                    help="folder of the level copies D_kbgen_L (default: <root>)")
     args = p.parse_args()
@@ -638,9 +644,13 @@ def main() -> int:
             # Every level of a dataset reads work/D, so it is made first, once.
             list(pool.map(lambda ds: process(ds, base_only=True), datasets))
             ready = [ds for ds in datasets if ds.tag not in failed]
-            pick = ours_level_datasets if args.rules_from_ours else level_datasets
-            todo = pick(args.rule_levels or args.root / "rule_levels.tsv", ready, args.levels,
-                        args.root, args.work_dir, args.level_root)
+            levels_file = args.rule_levels or args.root / "rule_levels.tsv"
+            if args.rules_from_ours:
+                todo = ours_level_datasets(levels_file, ready, args.levels, args.root, args.work_dir,
+                                           args.level_root, args.used_rules_dir)
+            else:
+                todo = level_datasets(levels_file, ready, args.levels, args.root, args.work_dir,
+                                      args.level_root)
             logger.info("Levels: %s", ", ".join(ds.tag for ds in todo))
             list(pool.map(process, todo))
         else:

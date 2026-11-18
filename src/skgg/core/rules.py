@@ -475,9 +475,12 @@ def rule_filter_label(
     return f"std={DEFAULT_STD_THRESHOLD:g}"
 
 
-def write_used_rules(rules_file: Path, rule_ids: Iterable[str]) -> Path:
+def write_used_rules(
+    rules_file: Path, rule_ids: Iterable[str], output: Path | None = None
+) -> Path:
     """Copies the rows of `rules_file` whose rule_id is in `rule_ids` to
-    `<stem>_used<suffix>` next to it, e.g. `rules.csv` -> `rules_used.csv`.
+    `output`, by default `<stem>_used<suffix>` next to it, e.g. `rules.csv` ->
+    `rules_used.csv`.
 
     Rows keep the input's columns, order, values and line endings, so the
     output can be read back with `parse_rule_set`.
@@ -485,7 +488,8 @@ def write_used_rules(rules_file: Path, rule_ids: Iterable[str]) -> Path:
     Returns:
         The path written.
     """
-    output = rules_file.with_name(f"{rules_file.stem}_used{rules_file.suffix}")
+    if output is None:
+        output = rules_file.with_name(f"{rules_file.stem}_used{rules_file.suffix}")
     keep = set(rule_ids)
     with rules_file.open(newline="") as f:
         text = f.read()
