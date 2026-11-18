@@ -41,6 +41,13 @@ that both generators see the same rules. Every level is then made, r100 included
 (as `D_kbgen_r100`), the used file must have the row's `rules_ours` rules, and a row
 whose `ours_same_as` is set is skipped, as the generator skips it. --force redoes the level
 steps only, never `work/D/`. The summary goes to `<results dir>/rule-levels/`.
+The generator's `_used.csv` files are always read from `<root>`, so the kbgen copies
+can go to another `--level-root`.
+
+By default kbgen synthesizes as many entities as the subjects of the graph it loads
+(its `n_entities`). With --entities source, synthesize.py gets `-ne N`, N being the
+unique entities of the distinct triples of D.unified.tsv, the number PyGraft is given
+as num_entities. The summary records both (`entities_mode`, `desired_entities`).
 
     ~/.pyenv/versions/NeSy/bin/python synthesize_exp_datasets.py --levels r0 r25 r50 r75 --jobs 4
 
@@ -174,7 +181,8 @@ def ours_level_datasets(levels_file: Path, datasets: list[Dataset], levels: list
                 logger.info("[%s] skipped: the generator uses the rules of %s", tag, row["ours_same_as"])
                 continue
             copy = f"{ds.name}_ours_{level}"
-            used = (level_root or root) / copy / f"{copy}_used.csv"
+            # The generator's copies stay next to their dataset, whatever the level root.
+            used = root / copy / f"{copy}_used.csv"
             if row["rules_kept"] == "0":
                 ids, used = set(), None
             elif not used.is_file():
@@ -238,8 +246,12 @@ def level_datasets(levels_file: Path, datasets: list[Dataset], levels: list[str]
 # Pipeline steps
 # ---------------------------------------------------------------------------
 class Runner:
-    def __init__(self, ds: Dataset, fc, python: str, size: float, force: bool):
+    def __init__(self, ds: Dataset, fc, python: str, size: float, force: bool, entities: str = "kept"):
         self.ds, self.fc, self.python, self.size, self.force = ds, fc, python, size, force
+        # "kept": kbgen's own entity count (the subjects of the graph it loads);
+        # "source": synthesize.py -ne with the unique entities of D.unified.tsv.
+        self.entities = entities
+        self._source_entities: int | None = None
         self.term_mapping = fc.build_term_mapping(NAMESPACE)
         ds.base_work.mkdir(parents=True, exist_ok=True)
         ds.work.mkdir(parents=True, exist_ok=True)
@@ -276,6 +288,25 @@ class Runner:
             log.flush()
             subprocess.run(cmd, cwd=cwd or self.ds.work, stdout=log, stderr=subprocess.STDOUT, check=True,
                            env={**os.environ, "PYTHONUNBUFFERED": "1", "MPLBACKEND": "Agg"})
+
+    def source_entities(self) -> int:
+        """The unique entities (subjects and objects) of the distinct triples of
+        D.unified.tsv, the number PyGraft was given as num_entities."""
+        if self._source_entities is None:
+            seen, entities = set(), set()
+            for _, t in self.fc.read_tsv(self.ds.triples):
+                if t is None or t in seen:
+                    continue
+                seen.add(t)
+                entities.update((t[0], t[2]))
+            self._source_entities = len(entities)
+        return self._source_entities
+
+    def synthesize_args(self) -> list[str]:
+        args = [self.ds.models["M3"].name, self.ds.synth_nt.name, "-s", str(self.size)]
+        if self.entities == "source":
+            args += ["-ne", str(self.source_entities())]
+        return args
 
     def link_base(self) -> None:
         """Links work/D's tensor and M2 into the level's folder under the level's names,
@@ -370,7 +401,7 @@ class Runner:
         self.step("learn_M3", [ds.models["M3"]],
                   lambda: self.kbgen("learn_model.py", ds.npz.name, "-m", "M3", "-r", ds.amie.name))
         self.step("synthesize", [ds.synth_nt, ds.synth_tsv],
-                  lambda: self.kbgen("synthesize.py", ds.models["M3"].name, ds.synth_nt.name, "-s", str(self.size)))
+                  lambda: self.kbgen("synthesize.py", *self.synthesize_args()))
         self.step("write_output", [ds.output], self.write_output)
         self.step("stats", [ds.stats], self.write_stats)
 
@@ -435,6 +466,8 @@ class Runner:
             "dropped_share": round(1 - n_kept / n_in, 4),
             "kept_entities": len(kept_ents),
             "model_entities": model_entities,
+            "entities_mode": self.entities,
+            "desired_entities": self.source_entities() if self.entities == "source" else model_entities,
             "kept_relations": sum(1 for r in kept if kept[r]),
             "synthetic_triples": n_syn,
             "synthetic_vs_kept": round(n_syn / n_kept, 4) if n_kept else None,
@@ -480,7 +513,8 @@ def write_summary(work_root: Path, results_dir: Path, root: Path, levels: bool =
     level_columns = ["level", "pca_threshold", "std_threshold", "rules_from", "given_rules",
                      "given_rule_ids"] if levels else []
     columns = ["dataset", *level_columns, "input_triples", "kept_triples", "synthetic_triples", "dropped_share",
-               "synthetic_vs_kept", "input_entities", "kept_entities", "model_entities", "synthetic_entities",
+               "synthetic_vs_kept", "input_entities", "kept_entities", "model_entities", "entities_mode", "desired_entities",
+               "synthetic_entities",
                "input_relations", "kept_relations", "synthetic_relations", "csv_rules", "parsed_rules",
                "rule_facts", "tvd_kept_vs_synthetic", "relations_lost_in_load", "relations_lost_in_synthesis",
                "total_seconds", *[f"seconds_{k}" for k in STEP_KEYS], "finished"]
@@ -568,6 +602,10 @@ def main() -> int:
     p.add_argument("--rules-from-ours", action="store_true",
                    help="with --levels, give kbgen at each level the rules of this project's generator, "
                         "D_ours_L/D_ours_L_used.csv")
+    p.add_argument("--entities", choices=["kept", "source"], default="kept",
+                   help="entities to synthesize: kbgen's own count, the subjects of the graph it loads "
+                        "(kept, the default), or the unique entities of D.unified.tsv, passed as "
+                        "synthesize.py -ne (source)")
     p.add_argument("--level-root", type=Path, default=None,
                    help="folder of the level copies D_kbgen_L (default: <root>)")
     args = p.parse_args()
@@ -588,7 +626,7 @@ def main() -> int:
 
     def process(ds: Dataset, base_only: bool = False) -> None:
         try:
-            runner = Runner(ds, fc, args.python, args.size, args.force and not base_only)
+            runner = Runner(ds, fc, args.python, args.size, args.force and not base_only, args.entities)
             runner.run_base() if base_only else runner.run()
             logger.info("[%s] finished%s", ds.tag, " the steps shared by its levels" if base_only else "")
         except Exception:
