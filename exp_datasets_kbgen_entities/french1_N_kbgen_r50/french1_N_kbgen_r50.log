@@ -1,0 +1,26 @@
+### 2026-11-18 13:34:11 link_base: start
+### 2026-11-18 13:34:11 link_base: done in 0.0 s
+### 2026-11-18 13:34:11 csv_to_amie: start
+### 2026-11-18 13:34:11 csv->amie: 8 of 15 rules
+### 2026-11-18 13:34:11 csv_to_amie: done in 0.0 s
+### 2026-11-18 13:34:11 learn_M3: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/GitHub/synthetic-knowledge-graph-generator/runs/rule-levels/kbgen/learn_model.py french1_N-r50.npz -m M3 -r french1_N-r50-AmieRules.txt
+Namespace(input='french1_N-r50.npz', model='M3', source_kb_models=['M1', 'M2', 'M3'], rules_path='french1_N-r50-AmieRules.txt')
+learning M3 model
+rules successfully parsed: 8
+saving model to french1_N-r50-M3.pkl
+### 2026-11-18 13:34:13 learn_M3: done in 2.0 s
+### 2026-11-18 13:34:13 synthesize: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/GitHub/synthetic-knowledge-graph-generator/runs/rule-levels/kbgen/synthesize.py french1_N-r50-M3.pkl french1_N-r50.kbgenm3.nt -s 1.0 -ne 1325
+Namespace(input='french1_N-r50-M3.pkl', output='french1_N-r50.kbgenm3.nt', size=1.0, nentities=1325, nfacts=None, debug=False)
+Synthesizing HORN model
+  0%|          | 0/1325 [00:00<?, ?it/s]100%|██████████| 1325/1325 [00:00<00:00, 39533.72it/s]
+  0%|          | 0/881 [00:00<?, ?it/s]  0%|          | 2/881 [00:00<00:56, 15.57it/s]  1%|          | 9/881 [00:00<00:19, 43.89it/s]  4%|▎         | 32/881 [00:00<00:07, 119.74it/s]  8%|▊         | 69/881 [00:00<00:03, 209.76it/s] 10%|█         | 91/881 [00:00<00:03, 203.47it/s] 13%|█▎        | 112/881 [00:00<00:04, 178.89it/s] 15%|█▍        | 131/881 [00:00<00:04, 152.11it/s] 18%|█▊        | 157/881 [00:00<00:04, 177.37it/s] 20%|█▉        | 176/881 [00:01<00:04, 163.73it/s] 22%|██▏       | 198/881 [00:01<00:03, 176.62it/s] 25%|██▍       | 217/881 [00:01<00:04, 138.22it/s] 27%|██▋       | 242/881 [00:01<00:03, 160.89it/s] 30%|██▉       | 260/881 [00:01<00:03, 157.69it/s] 32%|███▏      | 278/881 [00:01<00:03, 159.93it/s] 33%|███▎      | 295/881 [00:01<00:03, 159.97it/s] 35%|███▌      | 312/881 [00:02<00:03, 151.08it/s] 38%|███▊      | 332/881 [00:02<00:03, 163.49it/s] 41%|████      | 358/881 [00:02<00:02, 185.16it/s] 43%|████▎     | 382/881 [00:02<00:02, 196.87it/s] 46%|████▌     | 403/881 [00:02<00:03, 158.55it/s] 49%|████▉     | 431/881 [00:02<00:02, 186.27it/s] 51%|█████▏    | 452/881 [00:02<00:02, 164.39it/s] 53%|█████▎    | 470/881 [00:02<00:02, 161.72it/s] 55%|█████▌    | 488/881 [00:03<00:02, 160.75it/s] 58%|█████▊    | 507/881 [00:03<00:02, 168.04it/s] 60%|█████▉    | 525/881 [00:03<00:02, 143.93it/s] 61%|██████▏   | 541/881 [00:03<00:02, 141.01it/s] 63%|██████▎   | 556/881 [00:03<00:02, 123.43it/s] 66%|██████▌   | 578/881 [00:03<00:02, 128.13it/s] 68%|██████▊   | 597/881 [00:03<00:02, 140.58it/s] 69%|██████▉   | 612/881 [00:03<00:02, 129.08it/s] 71%|███████▏  | 628/881 [00:04<00:01, 135.07it/s] 74%|███████▍  | 650/881 [00:04<00:01, 154.45it/s] 76%|███████▌  | 667/881 [00:04<00:01, 142.53it/s] 77%|███████▋  | 682/881 [00:04<00:01, 124.49it/s] 80%|████████  | 707/881 [00:04<00:01, 150.36it/s] 83%|████████▎ | 729/881 [00:04<00:00, 167.62it/s] 85%|████████▍ | 747/881 [00:04<00:00, 151.39it/s] 87%|████████▋ | 770/881 [00:04<00:00, 164.97it/s] 89%|████████▉ | 788/881 [00:05<00:00, 146.30it/s] 93%|█████████▎| 816/881 [00:05<00:00, 177.16it/s] 95%|█████████▍| 835/881 [00:05<00:00, 154.38it/s] 97%|█████████▋| 852/881 [00:05<00:00, 142.42it/s] 99%|█████████▊| 868/881 [00:05<00:00, 134.72it/s]/home/david/.pyenv/versions/KG/lib/python3.10/site-packages/rdflib/plugins/serializers/nt.py:39: UserWarning: NTSerializer always uses UTF-8 encoding. Given encoding was: None
+  warnings.warn(
+### 2026-11-18 13:34:20 synthesize: done in 7.3 s
+### 2026-11-18 13:34:20 write_output: start
+### 2026-11-18 13:34:20 output: 881 facts written, 6 schema triples dropped
+### 2026-11-18 13:34:20 write_output: done in 0.0 s
+### 2026-11-18 13:34:20 stats: start
+### 2026-11-18 13:34:20 stats: 1696 input, 881 kept, 881 synthetic triples; 8/8 rules parsed
+### 2026-11-18 13:34:20 stats: done in 0.0 s

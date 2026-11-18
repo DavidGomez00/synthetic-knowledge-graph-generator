@@ -63,9 +63,10 @@ def compare(old: dict, new: dict) -> list[tuple[str, str, float, float]]:
     sources: dict[str, dict[str, float]] = {}
     print("| Copy | Desired before | Desired now | Entities source / before / now | "
           "Triples kept / before / now | Relations source / now | Rule facts before / now | "
+          "Sampled facts before / now | "
           "Max degree source / before / now | Median degree source / before / now | "
           "Top 1% share source / before / now | Synthesis s before / now |")
-    print("|---|---:|---:|---|---|---|---|---|---|---|---|")
+    print("|---|---:|---:|---|---|---|---|---|---|---|---|---|")
     times = []
     for d, level in sorted(new, key=key):
         n, o = new[(d, level)], old.get((d, level))
@@ -84,6 +85,8 @@ def compare(old: dict, new: dict) -> list[tuple[str, str, float, float]]:
               f"| {n['kept_triples']} / {before['triples']} / {now['triples']} "
               f"| {src['relations']} / {now['relations']} "
               f"| {o['rule_facts']} / {n['rule_facts']} "
+              f"| {int(o['synthetic_triples']) - int(o['rule_facts'])} / "
+              f"{int(n['synthetic_triples']) - int(n['rule_facts'])} "
               f"| {src['max_degree']} / {before['max_degree']} / {now['max_degree']} "
               f"| {src['median_degree']:g} / {before['median_degree']:g} / {now['median_degree']:g} "
               f"| {src['top1_share']:.3f} / {before['top1_share']:.3f} / {now['top1_share']:.3f} "
