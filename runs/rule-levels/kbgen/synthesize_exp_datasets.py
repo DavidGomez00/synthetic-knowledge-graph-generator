@@ -250,6 +250,14 @@ def level_datasets(levels_file: Path, datasets: list[Dataset], levels: list[str]
     return todo
 
 
+def order_by_earlier_times(todo: list[Dataset], summary: Path) -> list[Dataset]:
+    """`todo` with the levels that took longest to synthesize in `summary` first, and
+    those it lacks before them, so that with --jobs the long levels start together."""
+    with summary.open(encoding="utf-8", newline="") as f:
+        seconds = {r["dataset"]: float(r["seconds_synthesize"] or 0) for r in csv.DictReader(f)}
+    return sorted(todo, key=lambda ds: -seconds.get(ds.tag, float("inf")))
+
+
 # ---------------------------------------------------------------------------
 # Pipeline steps
 # ---------------------------------------------------------------------------
@@ -656,6 +664,9 @@ def main() -> int:
                    help="entities to synthesize: kbgen's own count, the subjects of the graph it loads "
                         "(kept, the default), or the unique entities of D.unified.tsv, passed as "
                         "synthesize.py -ne (source)")
+    p.add_argument("--order-from", type=Path, default=None,
+                   help="with --levels, start the levels that took longest in this earlier "
+                        "summary.csv (seconds_synthesize) first; levels it lacks go first")
     p.add_argument("--used-rules-dir", type=Path, default=None,
                    help="with --rules-from-ours, read D_ours_L_used.csv from this folder "
                         "(default: <root>/D_ours_L/)")
@@ -701,6 +712,8 @@ def main() -> int:
             else:
                 todo = level_datasets(levels_file, ready, args.levels, args.root, args.work_dir,
                                       args.level_root)
+            if args.order_from:
+                todo = order_by_earlier_times(todo, args.order_from)
             logger.info("Levels: %s", ", ".join(ds.tag for ds in todo))
             list(pool.map(process, todo))
         else:
