@@ -1,0 +1,33 @@
+### 2026-11-17 02:08:39 tsv_to_nt: start
+### 2026-11-17 02:09:10 tsv->nt: 1089040 triples, 0 duplicates, 0 invalid lines
+### 2026-11-17 02:09:10 tsv_to_nt: done in 30.8 s
+### 2026-11-17 02:09:10 load_tensor: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/GitHub/synthetic-knowledge-graph-generator/runs/rule-levels/kbgen/load_tensor.py YAGO3-10.nt
+Namespace(input='YAGO3-10.nt', typedict=None)
+loading data
+loading types
+0 types loaded
+loading subjects dict
+loading object properties
+30 object properties loaded
+allocating adjacency matrices
+populating adjacency matrices
+populating type matrix with type assertions
+0 type assertions loaded
+load types hierarchy: total=0 matched=0
+load relations hierarchy: total=0 matched=0
+load relation domains: total=0
+load relation ranges: total=0
+### 2026-11-17 02:12:30 load_tensor: done in 200.1 s
+### 2026-11-17 02:12:30 learn_M1: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/GitHub/synthetic-knowledge-graph-generator/runs/rule-levels/kbgen/learn_model.py YAGO3-10.npz -m M1
+Namespace(input='YAGO3-10.npz', model='M1', source_kb_models=['M1', 'M2', 'M3'], rules_path=None)
+learning M1 model
+saving model to YAGO3-10-M1.pkl
+### 2026-11-17 02:15:36 learn_M1: done in 186.1 s
+### 2026-11-17 02:15:36 learn_M2: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/GitHub/synthetic-knowledge-graph-generator/runs/rule-levels/kbgen/learn_model.py YAGO3-10.npz -m M2
+Namespace(input='YAGO3-10.npz', model='M2', source_kb_models=['M1', 'M2', 'M3'], rules_path=None)
+learning M2 model
+saving model to YAGO3-10-M2.pkl
+### 2026-11-17 02:15:42 learn_M2: done in 5.4 s

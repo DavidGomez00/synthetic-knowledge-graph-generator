@@ -476,6 +476,10 @@ def generate_all(
             _count_lines(triple_file(folder)),
             seconds,
         )
+        # The copy keeps the log of the run that made it, wherever --log-dir is.
+        copy_log = output.with_suffix(".log")
+        if log_path.resolve() != copy_log.resolve():
+            shutil.copyfile(log_path, copy_log)
         if times_file is not None:
             used = output.with_name(f"{output.stem}_used.csv")
             _append_time(

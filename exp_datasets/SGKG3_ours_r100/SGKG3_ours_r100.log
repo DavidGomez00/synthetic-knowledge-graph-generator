@@ -1,0 +1,60 @@
+22:57:12 | __main__ | INFO   | Inserted /home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets/SGKG3/SGKG3.unified.tsv into <http://skgg.org/SGKG3/base> with 54585 triples.
+22:57:13 | __main__ | INFO   | Confifuration correctly initialized.
+22:57:13 | __main__ | INFO   | [1/5] Extracting metrics and rules
+22:57:13 | __main__ | INFO   | Rule filter pca=0: EDB at <http://skgg.org/SGKG3/skgg/pca=0/edb>, synthetic graph at <http://skgg.org/SGKG3/skgg/pca=0>.
+22:57:15 | skgg.core.rules | INFO   | Kept 3/3 rules with PCA confidence >= 0.000 (classification == POSITIVE); dropped 0 (NEGATIVE or UNKNOWN).
+22:57:15 | __main__ | INFO   | 3 rules: 3 complete (std confidence 1, forward-chained), 0 partial (grounded round(PCA confidence x support) times in the EDB, after the complete rules).
+22:57:15 | skgg.core.visualization | INFO   | Saved relation graph visualization (3 predicates, 3 in a cycle) to <logs/relation_graph_SGKG3.png>
+22:57:15 | skgg.core.cycles | INFO   | Cycle of hasPredecessor, hasSibing, hasSuccessor: keeping 1 of 3 cyclic rules with the order hasPredecessor < hasSibing < hasSuccessor.
+22:57:15 | skgg.core.cycles | INFO   | Removed rule 2: hasSuccessor after hasSibing in the order.
+22:57:15 | skgg.core.cycles | INFO   | Removed rule 3: hasSibing, hasSuccessor after hasPredecessor in the order.
+22:57:15 | skgg.core.cycles | INFO   | Predicates made extensional by cyclic rule removal: hasPredecessor, hasSibing
+22:57:15 | skgg.core.cycles | INFO   | Removed 2 cyclic rules; 1 rules left.
+22:57:15 | __main__ | INFO   | Extensional relations (5, target frequency): equal 6037, equivalent 6110, hasPredecessor 12150, hasSibing 12150, sameAs 5988
+22:57:15 | __main__ | INFO   | Intensional relations (1, target frequency): hasSuccessor 12150
+22:57:15 | __main__ | INFO   | [2/5] Generating EDB
+22:57:15 | skgg.core.rules | INFO   | Saved 1 used rules to `/home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets/SGKG3/SGKG3_used.csv`.
+22:57:15 | skgg.engine.edb | INFO   | Start warm-up.
+22:57:15 | skgg.engine.edb | INFO   | [Warm-up] No direct matches.
+22:57:15 | skgg.engine.edb | INFO   | Creating EDB
+22:57:15 | skgg.engine.edb | INFO   | Extensional relations to generate (5/5, current/target): equal 0/6037 (open), equivalent 0/6110 (open), hasPredecessor 0/12150 (open), hasSibing 0/12150 (open), sameAs 0/5988 (open)
+22:57:15 | skgg.engine.edb | INFO   | Closed predicates [0/6].
+22:57:40 | skgg.engine.edb | INFO   | [Step 1] Closed predicates [2/6].
+22:58:25 | skgg.engine.edb | INFO   | [Step 18023] Closed predicates [3/6].
+22:58:25 | skgg.engine.edb | INFO   | [Step 18132] Closed predicates [4/6].
+22:58:25 | skgg.engine.edb | INFO   | [Step 18136] Closed predicates [5/6].
+22:58:25 | __main__ | INFO   | EDB generated in 70.4s at <http://skgg.org/SGKG3/skgg/pca=0/edb> with 42435 triples.
+22:58:25 | __main__ | INFO   | [3/5] Completing graph
+22:58:25 | __main__ | INFO   | [EDB] Closed predicates: 5/6, closed rules: 0/1.
+22:58:25 | __main__ | INFO   | [EDB] Newly closed predicates: equal, equivalent, hasPredecessor, hasSibing, sameAs
+22:58:25 | __main__ | INFO   | [EDB] Open intensional predicates (current/target): hasSuccessor 0/12150
+22:58:25 | __main__ | INFO   | Applying the 1 complete rules (1 open): 1 (open)
+22:58:27 | skgg.engine.completion | INFO   | [initial] Pass 1: +12150 triples (rule 1 +12150).
+22:58:28 | skgg.engine.completion | INFO   | [initial] Pass 2: no triples added.
+22:58:28 | skgg.engine.completion | INFO   | [initial] +12150 triples in 2 passes (stale state): rule 1 +12150.
+22:58:29 | __main__ | INFO   | [initial] Closed predicates: 6/6, closed rules: 1/1.
+22:58:29 | __main__ | INFO   | [initial] Newly closed predicates: hasSuccessor
+22:58:29 | __main__ | INFO   | [initial] Newly closed rules: 1
+22:58:29 | __main__ | INFO   | [4/5] Filling open relations
+22:58:29 | __main__ | INFO   | Skipping the fill step (pass --fill to run it); synthetic graph at <http://skgg.org/SGKG3/skgg/pca=0>.
+22:58:29 | __main__ | INFO   | [5/5] Summary
+22:58:29 | __main__ | INFO   | Experiment summary, <http://skgg.org/SGKG3/base> -> <http://skgg.org/SGKG3/skgg/pca=0>:
+Triples: 54585 -> 54585 (+0, +0.0%)
+
+Predicates (6):
+  equal            6037 -> 6037   (+0)  [CLOSED]  [EXTENSIONAL]
+  equivalent       6110 -> 6110   (+0)  [CLOSED]  [EXTENSIONAL]
+  hasPredecessor  12150 -> 12150  (+0)  [CLOSED]  [EXTENSIONAL]
+  hasSibing       12150 -> 12150  (+0)  [CLOSED]  [EXTENSIONAL]
+  hasSuccessor    12150 -> 12150  (+0)  [CLOSED]  [INTENSIONAL]
+  sameAs           5988 -> 5988   (+0)  [CLOSED]  [EXTENSIONAL]
+
+Rules (1), support, std and PCA confidence, original -> synthetic:
+  1  ?b hasSibing ?e & ?e hasPredecessor ?a => ?a hasSuccessor ?b  12150 -> 12150  (+0)  std 1.000 -> 1.000 (+0.000)  pca 1.000 -> 1.000 (+0.000)  [CLOSED]  [COMPLETE]
+
+Removed cyclic rules (2):
+  2  ?b hasPredecessor ?f & ?f hasSuccessor ?a => ?a hasSibing ?b  12150 -> 12150  (+0)  std 1.000 -> 1.000 (+0.000)  pca 1.000 -> 1.000 (+0.000)
+  3  ?b hasSuccessor ?f & ?f hasSibing ?a => ?a hasPredecessor ?b  12150 -> 12150  (+0)  std 1.000 -> 1.000 (+0.000)  pca 1.000 -> 1.000 (+0.000)
+22:58:29 | __main__ | INFO   | Execution finished after 76.1s.
+22:58:31 | skgg.core.triples | INFO   | Wrote 54585 triples to /tmp/tmp6ebaddc1/graph.tsv, skipping 0 duplicate triples and 0 invalid lines.
+22:58:31 | __main__ | INFO   | Downloaded <http://skgg.org/SGKG3/skgg/pca=0>: 54585 triples to /tmp/tmp6ebaddc1/graph.nt and /tmp/tmp6ebaddc1/graph.tsv.

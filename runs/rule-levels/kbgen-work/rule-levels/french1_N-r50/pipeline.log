@@ -1,0 +1,52 @@
+### 2026-11-16 19:49:59 link_base: start
+### 2026-11-16 19:49:59 link_base: done in 0.0 s
+### 2026-11-16 19:49:59 csv_to_amie: start
+### 2026-11-16 19:49:59 csv->amie: 8 of 15 rules
+### 2026-11-16 19:49:59 csv_to_amie: done in 0.0 s
+### 2026-11-16 19:49:59 learn_M3: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/GitHub/synthetic-knowledge-graph-generator/runs/rule-levels/kbgen/learn_model.py french1_N-r50.npz -m M3 -r french1_N-r50-AmieRules.txt
+Namespace(input='french1_N-r50.npz', model='M3', source_kb_models=['M1', 'M2', 'M3'], rules_path='french1_N-r50-AmieRules.txt')
+learning M3 model
+rules successfully parsed: 8
+saving model to french1_N-r50-M3.pkl
+### 2026-11-16 19:50:01 learn_M3: done in 1.2 s
+### 2026-11-16 19:50:01 synthesize: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/GitHub/synthetic-knowledge-graph-generator/runs/rule-levels/kbgen/synthesize.py french1_N-r50-M3.pkl french1_N-r50.kbgenm3.nt -s 1.0
+Namespace(input='french1_N-r50-M3.pkl', output='french1_N-r50.kbgenm3.nt', size=1.0, nentities=None, nfacts=None, debug=False)
+Synthesizing HORN model
+  0%|          | 0/616 [00:00<?, ?it/s]100%|██████████| 616/616 [00:00<00:00, 101912.72it/s]
+  0%|          | 0/881 [00:00<?, ?it/s]  1%|          | 8/881 [00:00<00:11, 76.65it/s]  3%|▎         | 23/881 [00:00<00:07, 117.19it/s]  6%|▋         | 56/881 [00:00<00:03, 208.96it/s] 10%|█         | 91/881 [00:00<00:03, 256.52it/s] 13%|█▎        | 117/881 [00:00<00:03, 218.46it/s] 16%|█▌        | 141/881 [00:00<00:03, 221.95it/s] 19%|█▉        | 166/881 [00:00<00:03, 229.88it/s] 22%|██▏       | 191/881 [00:00<00:03, 210.07it/s] 25%|██▍       | 218/881 [00:01<00:02, 224.24it/s] 28%|██▊       | 248/881 [00:01<00:02, 239.21it/s] 31%|███       | 273/881 [00:01<00:02, 236.50it/s] 34%|███▎      | 297/881 [00:01<00:02, 215.55it/s] 37%|███▋      | 329/881 [00:01<00:02, 240.65it/s] 42%|████▏     | 366/881 [00:01<00:01, 273.35it/s] 45%|████▍     | 394/881 [00:01<00:02, 214.09it/s] 48%|████▊     | 421/881 [00:01<00:02, 225.40it/s] 51%|█████     | 449/881 [00:02<00:01, 231.02it/s] 54%|█████▍    | 480/881 [00:02<00:01, 216.62it/s] 57%|█████▋    | 503/881 [00:02<00:01, 214.79it/s] 60%|█████▉    | 526/881 [00:02<00:01, 207.40it/s] 63%|██████▎   | 551/881 [00:02<00:01, 213.78it/s] 65%|██████▌   | 573/881 [00:02<00:01, 211.30it/s] 68%|██████▊   | 602/881 [00:02<00:01, 228.26it/s] 71%|███████   | 626/881 [00:02<00:01, 224.78it/s] 74%|███████▎  | 649/881 [00:02<00:01, 214.14it/s] 76%|███████▌  | 671/881 [00:03<00:01, 168.00it/s] 78%|███████▊  | 690/881 [00:03<00:01, 171.26it/s] 81%|████████  | 715/881 [00:03<00:00, 190.61it/s] 84%|████████▎ | 736/881 [00:03<00:00, 181.08it/s] 87%|████████▋ | 767/881 [00:03<00:00, 213.16it/s] 90%|████████▉ | 790/881 [00:03<00:00, 184.77it/s] 92%|█████████▏| 810/881 [00:03<00:00, 165.63it/s] 96%|█████████▌| 845/881 [00:04<00:00, 207.86it/s] 99%|█████████▉| 876/881 [00:04<00:00, 230.13it/s]/home/david/.pyenv/versions/KG/lib/python3.10/site-packages/rdflib/plugins/serializers/nt.py:39: UserWarning: NTSerializer always uses UTF-8 encoding. Given encoding was: None
+  warnings.warn(
+### 2026-11-16 19:50:06 synthesize: done in 5.0 s
+### 2026-11-16 19:50:06 write_output: start
+### 2026-11-16 19:50:06 output: 881 facts written, 6 schema triples dropped
+### 2026-11-16 19:50:06 write_output: done in 0.0 s
+### 2026-11-16 19:50:06 stats: start
+### 2026-11-16 19:50:06 stats: 1696 input, 881 kept, 881 synthetic triples; 8/8 rules parsed
+### 2026-11-16 19:50:06 stats: done in 0.0 s
+### 2026-11-16 21:09:55 link_base: start
+### 2026-11-16 21:09:55 link_base: done in 0.0 s
+### 2026-11-16 21:09:55 csv_to_amie: start
+### 2026-11-16 21:09:55 csv->amie: 8 of 15 rules
+### 2026-11-16 21:09:55 csv_to_amie: done in 0.0 s
+### 2026-11-16 21:09:55 learn_M3: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/GitHub/synthetic-knowledge-graph-generator/runs/rule-levels/kbgen/learn_model.py french1_N-r50.npz -m M3 -r french1_N-r50-AmieRules.txt
+Namespace(input='french1_N-r50.npz', model='M3', source_kb_models=['M1', 'M2', 'M3'], rules_path='french1_N-r50-AmieRules.txt')
+learning M3 model
+rules successfully parsed: 8
+saving model to french1_N-r50-M3.pkl
+### 2026-11-16 21:09:56 learn_M3: done in 1.3 s
+### 2026-11-16 21:09:56 synthesize: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/GitHub/synthetic-knowledge-graph-generator/runs/rule-levels/kbgen/synthesize.py french1_N-r50-M3.pkl french1_N-r50.kbgenm3.nt -s 1.0
+Namespace(input='french1_N-r50-M3.pkl', output='french1_N-r50.kbgenm3.nt', size=1.0, nentities=None, nfacts=None, debug=False)
+Synthesizing HORN model
+  0%|          | 0/616 [00:00<?, ?it/s]100%|██████████| 616/616 [00:00<00:00, 201835.11it/s]
+  0%|          | 0/881 [00:00<?, ?it/s]  0%|          | 3/881 [00:00<00:30, 28.42it/s]  2%|▏         | 22/881 [00:00<00:07, 117.54it/s]  5%|▌         | 48/881 [00:00<00:04, 180.31it/s]  9%|▊         | 76/881 [00:00<00:03, 216.56it/s] 12%|█▏        | 102/881 [00:00<00:03, 230.69it/s] 14%|█▍        | 126/881 [00:00<00:03, 195.01it/s] 17%|█▋        | 153/881 [00:00<00:03, 212.97it/s] 20%|█▉        | 176/881 [00:00<00:03, 208.43it/s] 22%|██▏       | 198/881 [00:01<00:03, 206.44it/s] 25%|██▌       | 221/881 [00:01<00:03, 212.14it/s] 28%|██▊       | 250/881 [00:01<00:02, 230.75it/s] 32%|███▏      | 279/881 [00:01<00:02, 240.27it/s] 35%|███▍      | 304/881 [00:01<00:02, 215.55it/s] 37%|███▋      | 327/881 [00:01<00:02, 203.96it/s] 40%|███▉      | 348/881 [00:01<00:02, 202.23it/s] 43%|████▎     | 378/881 [00:01<00:02, 200.26it/s] 46%|████▌     | 404/881 [00:01<00:02, 207.89it/s] 48%|████▊     | 426/881 [00:02<00:02, 198.56it/s] 51%|█████     | 447/881 [00:02<00:02, 196.74it/s] 53%|█████▎    | 467/881 [00:02<00:02, 170.38it/s] 55%|█████▌    | 487/881 [00:02<00:02, 173.31it/s] 58%|█████▊    | 509/881 [00:02<00:02, 175.43it/s] 60%|█████▉    | 527/881 [00:02<00:02, 173.03it/s] 62%|██████▏   | 545/881 [00:02<00:01, 171.66it/s] 64%|██████▍   | 563/881 [00:02<00:02, 147.92it/s] 67%|██████▋   | 587/881 [00:03<00:01, 167.48it/s] 69%|██████▊   | 605/881 [00:03<00:01, 157.84it/s] 71%|███████   | 622/881 [00:03<00:01, 135.27it/s] 73%|███████▎  | 641/881 [00:03<00:01, 147.36it/s] 75%|███████▍  | 657/881 [00:03<00:01, 136.96it/s] 76%|███████▋  | 673/881 [00:03<00:01, 140.86it/s] 79%|███████▉  | 695/881 [00:03<00:01, 159.84it/s] 81%|████████  | 712/881 [00:04<00:01, 126.12it/s] 83%|████████▎ | 728/881 [00:04<00:01, 132.14it/s] 84%|████████▍ | 744/881 [00:04<00:00, 137.86it/s] 86%|████████▌ | 759/881 [00:04<00:00, 122.14it/s] 88%|████████▊ | 773/881 [00:04<00:00, 121.45it/s] 90%|████████▉ | 790/881 [00:04<00:00, 132.69it/s] 92%|█████████▏| 808/881 [00:04<00:00, 143.44it/s] 93%|█████████▎| 823/881 [00:04<00:00, 124.64it/s] 97%|█████████▋| 852/881 [00:05<00:00, 162.82it/s]100%|██████████| 881/881 [00:05<00:00, 194.04it/s]/home/david/.pyenv/versions/KG/lib/python3.10/site-packages/rdflib/plugins/serializers/nt.py:39: UserWarning: NTSerializer always uses UTF-8 encoding. Given encoding was: None
+  warnings.warn(
+### 2026-11-16 21:10:03 synthesize: done in 6.0 s
+### 2026-11-16 21:10:03 write_output: start
+### 2026-11-16 21:10:03 output: 881 facts written, 6 schema triples dropped
+### 2026-11-16 21:10:03 write_output: done in 0.0 s
+### 2026-11-16 21:10:03 stats: start
+### 2026-11-16 21:10:03 stats: 1696 input, 881 kept, 881 synthetic triples; 8/8 rules parsed
+### 2026-11-16 21:10:03 stats: done in 0.0 s

@@ -1,0 +1,44 @@
+17:06:24 | __main__ | INFO   | Inserted /home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets/frenchN_M/frenchN_M.unified.tsv into <http://skgg.org/frenchN_M/base> with 3375 triples.
+17:06:25 | __main__ | INFO   | Confifuration correctly initialized.
+17:06:25 | __main__ | INFO   | [1/5] Extracting metrics and rules
+17:06:25 | __main__ | INFO   | Rule filter pca=0.5: EDB at <http://skgg.org/frenchN_M/skgg/pca=0.5/edb>, synthetic graph at <http://skgg.org/frenchN_M/skgg/pca=0.5>.
+17:06:25 | skgg.core.rules | INFO   | Kept 14/54 rules with PCA confidence >= 0.500 (classification == POSITIVE); dropped 40 (NEGATIVE or UNKNOWN).
+17:06:25 | __main__ | INFO   | 14 rules: 0 complete (std confidence 1, forward-chained), 14 partial (grounded round(PCA confidence x support) times in the EDB, after the complete rules).
+17:06:25 | skgg.core.visualization | INFO   | Saved relation graph visualization (0 predicates, 0 in a cycle) to <logs/relation_graph_frenchN_M.png>
+17:06:25 | __main__ | INFO   | Extensional relations (5, target frequency): child 804, parent 772, predecessor 389, spouse 992, successor 418
+17:06:25 | __main__ | INFO   | Intensional relations (0, target frequency): none
+17:06:25 | __main__ | INFO   | [2/5] Generating EDB
+17:06:25 | skgg.core.rules | INFO   | Saved 14 used rules to `/home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets/frenchN_M/frenchN_M_used.csv`.
+17:06:25 | skgg.engine.edb | INFO   | Start warm-up.
+17:06:25 | skgg.engine.edb | INFO   | [Warm-up] No direct matches.
+17:06:25 | skgg.engine.edb | INFO   | Creating EDB
+17:06:25 | skgg.engine.edb | INFO   | Extensional relations to generate (5/5, current/target): child 0/804 (open), parent 0/772 (open), predecessor 0/389 (open), spouse 0/992 (open), successor 0/418 (open)
+17:06:25 | skgg.engine.edb | INFO   | Closed predicates [0/5].
+17:06:26 | skgg.engine.generator | WARNING | Built 303 of 715 needed groundings for ['?b <http://skgg.org/frenchN_M/spouse> ?a', '?a <http://skgg.org/frenchN_M/spouse> ?b'].
+17:06:27 | skgg.engine.generator | WARNING | No candidate values left for ['?b'] in ['?a <http://skgg.org/frenchN_M/parent> ?b', '?b <http://skgg.org/frenchN_M/successor> ?a', '?a <http://skgg.org/frenchN_M/predecessor> ?b']; skipping the rule.
+17:06:27 | skgg.engine.generator | WARNING | Built 60 of 81 needed groundings for ['?a <http://skgg.org/frenchN_M/parent> ?b', '?b <http://skgg.org/frenchN_M/successor> ?a', '?a <http://skgg.org/frenchN_M/predecessor> ?b'].
+17:06:27 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?b <http://skgg.org/frenchN_M/parent> ?a', '?b <http://skgg.org/frenchN_M/predecessor> ?a', '?a <http://skgg.org/frenchN_M/successor> ?b']; skipping the rule.
+17:06:27 | skgg.engine.generator | WARNING | Built 0 of 30 needed groundings for ['?b <http://skgg.org/frenchN_M/parent> ?a', '?b <http://skgg.org/frenchN_M/predecessor> ?a', '?a <http://skgg.org/frenchN_M/successor> ?b'].
+17:06:27 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?b <http://skgg.org/frenchN_M/predecessor> ?a', '?a <http://skgg.org/frenchN_M/successor> ?b']; skipping the rule.
+17:06:27 | skgg.engine.generator | WARNING | Built 14 of 21 needed groundings for ['?b <http://skgg.org/frenchN_M/predecessor> ?a', '?a <http://skgg.org/frenchN_M/successor> ?b'].
+17:06:27 | skgg.engine.generator | WARNING | No candidate values left for ['?b'] in ['?b <http://skgg.org/frenchN_M/parent> ?a', '?a <http://skgg.org/frenchN_M/child> ?b']; skipping the rule.
+17:06:27 | skgg.engine.generator | WARNING | Built 6 of 48 needed groundings for ['?b <http://skgg.org/frenchN_M/parent> ?a', '?a <http://skgg.org/frenchN_M/child> ?b'].
+17:06:27 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?b <http://skgg.org/frenchN_M/child> ?a', '?a <http://skgg.org/frenchN_M/parent> ?b']; skipping the rule.
+17:06:27 | skgg.engine.generator | WARNING | Built 0 of 46 needed groundings for ['?b <http://skgg.org/frenchN_M/child> ?a', '?a <http://skgg.org/frenchN_M/parent> ?b'].
+17:06:27 | skgg.engine.edb | INFO   | [Step 276] Closed predicates [1/5].
+17:06:27 | skgg.engine.edb | INFO   | [Step 405] Closed predicates [2/5].
+17:06:27 | skgg.engine.edb | INFO   | [Step 824] Closed predicates [3/5].
+17:06:27 | skgg.engine.edb | INFO   | [Step 917] Closed predicates [4/5].
+17:06:27 | skgg.engine.edb | INFO   | [Step 1091] Closed predicates [5/5].
+17:06:27 | __main__ | INFO   | EDB generated in 2.1s at <http://skgg.org/frenchN_M/skgg/pca=0.5/edb> with 3375 triples.
+17:06:27 | __main__ | INFO   | [3/5] Completing graph
+17:06:27 | __main__ | INFO   | [EDB] Closed predicates: 5/5, closed rules: 8/14.
+17:06:27 | __main__ | INFO   | [EDB] Newly closed predicates: child, parent, predecessor, spouse, successor
+17:06:27 | __main__ | INFO   | [EDB] Newly closed rules: 10, 12, 2, 20, 38, 4, 7, 8
+17:06:27 | __main__ | INFO   | Applying the 0 complete rules (0 open): none
+17:06:27 | skgg.engine.completion | INFO   | [initial] Pass 1: no triples added.
+17:06:27 | skgg.engine.completion | INFO   | [initial] +0 triples in 1 passes (stale state).
+17:06:28 | __main__ | INFO   | [initial] Closed predicates: 5/5, closed rules: 8/14.
+17:06:28 | __main__ | INFO   | [4/5] Filling open relations
+17:06:28 | __main__ | INFO   | Skipping the fill step (pass --fill to run it); synthetic graph at <http://skgg.org/frenchN_M/skgg/pca=0.5>.
+17:06:28 | __main__ | INFO   | [5/5] Summary

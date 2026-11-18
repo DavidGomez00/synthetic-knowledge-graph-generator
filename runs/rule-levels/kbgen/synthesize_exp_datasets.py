@@ -50,6 +50,10 @@ By default kbgen synthesizes as many entities as the subjects of the graph it lo
 unique entities of the distinct triples of D.unified.tsv, the number PyGraft is given
 as num_entities. The summary records both (`entities_mode`, `desired_entities`).
 
+Every copy keeps the logs and records of the run that made it, next to it:
+`<copy>.log`, `<copy>.base.log`, `<copy>.stats.json` and `<copy>.rules.txt`
+(archive_logs). --archive-only copies them for the runs of --work-dir already made.
+
     ~/.pyenv/versions/NeSy/bin/python synthesize_exp_datasets.py --levels r0 r25 r50 r75 --jobs 4
 
 Needs the Python environment that runs kbgen (rdflib, numpy, scipy, tqdm,
@@ -70,6 +74,7 @@ import logging
 import os
 import pickle
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -407,6 +412,7 @@ class Runner:
                   lambda: self.kbgen("synthesize.py", *self.synthesize_args()))
         self.step("write_output", [ds.output], self.write_output)
         self.step("stats", [ds.stats], self.write_stats)
+        archive_logs(ds.work, ds.base_work, json.loads(ds.stats.read_text()))
 
     # -----------------------------------------------------------------------
     def write_stats(self) -> None:
@@ -491,6 +497,45 @@ class Runner:
         ds.stats.write_text(json.dumps(stats, indent=2))
         self.note(f"stats: {n_in} input, {n_kept} kept, {n_syn} synthetic triples; "
                   f"{stats['parsed_rules']}/{stats['given_rules']} rules parsed")
+
+
+# ---------------------------------------------------------------------------
+# Logs kept with each copy
+# ---------------------------------------------------------------------------
+def archive_logs(work: Path, base_work: Path, stats: dict) -> bool:
+    """Copies the logs and records of the run that made a copy next to it, so the copy
+    keeps them wherever --work-dir is: `<copy>.log` (the level's pipeline.log: kbgen's
+    commands and output), `<copy>.base.log` (the dataset's pipeline.log: tensor, M1 and
+    M2, when the copy is a level), `<copy>.stats.json` (stats.json, with the rule IDs
+    given, the model's counters and the seconds of each step) and `<copy>.rules.txt`
+    (the rules as kbgen read them). Skips a copy that no longer exists."""
+    output = Path(stats["output"]) if "output" in stats else None
+    if output is None or not output.is_file():
+        logger.warning("[%s] no copy at %s, logs not archived", stats.get("dataset"), output)
+        return False
+    stem = output.with_suffix("")
+    files = {work / "pipeline.log": stem.with_suffix(".log"),
+             work / "stats.json": stem.with_suffix(".stats.json")}
+    if base_work != work:
+        files[base_work / "pipeline.log"] = stem.with_suffix(".base.log")
+    rules = sorted(work.glob("*-AmieRules.txt"))
+    if rules:
+        files[rules[0]] = stem.with_suffix(".rules.txt")
+    for source, target in files.items():
+        if source.is_file():
+            shutil.copyfile(source, target)
+    return True
+
+
+def archive_all(work_root: Path, levels: bool) -> None:
+    """archive_logs for every run with a stats.json under `work_root`."""
+    folders = sorted((work_root / "rule-levels" if levels else work_root).glob("*/stats.json"))
+    done = 0
+    for path in folders:
+        stats = json.loads(path.read_text())
+        base = work_root / stats["dataset"].rsplit("-", 1)[0] if levels else path.parent
+        done += archive_logs(path.parent, base, stats)
+    logger.info("Archived the logs of %d of %d copies", done, len(folders))
 
 
 # ---------------------------------------------------------------------------
@@ -597,6 +642,8 @@ def main() -> int:
     p.add_argument("--size", type=float, default=1.0, help="synthesize.py -s (fraction of the original facts)")
     p.add_argument("--force", action="store_true", help="redo every step (with --levels, every level step)")
     p.add_argument("--summary-only", action="store_true", help="only rebuild the summary CSVs")
+    p.add_argument("--archive-only", action="store_true",
+                   help="only copy each run's logs and records next to its copy")
     p.add_argument("--levels", nargs="+", default=None,
                    help="make the copies at these rule levels of --rule-levels, e.g. r0 r25 r50 r75 "
                         "(default: the copies with all rules, <root>/D_kbgen)")
@@ -620,6 +667,9 @@ def main() -> int:
     sys.path.insert(0, str(KBGEN_DIR))
     levels = args.levels is not None
 
+    if args.archive_only:
+        archive_all(args.work_dir, levels)
+        return 0
     if args.summary_only:
         write_summary(args.work_dir, args.results_dir, args.root, levels)
         return 0
