@@ -245,7 +245,7 @@ def tables(metrics: Metrics, level: str) -> list[tuple[str, str, list[str]]]:
     """Each table of a rule level as (file stem, LaTeX source, dataset folders)."""
     copies = (
         f"synthetic copies of each generator, KBgen's and NAME's {LEVELS[level]} "
-        f"(level {level}), PyGraft's made without rules."
+        f"(level {level})."
     )
     out = []
     for family, key, caption_name in FAMILIES:
@@ -547,14 +547,29 @@ def main() -> None:
         default=Path("exp_analysis/results_tables"),
         help="folder of the LaTeX files, one per table",
     )
+    parser.add_argument(
+        "--no-std1",
+        action="store_true",
+        help="leave out the level std1 (copies made from the rules with std "
+        "confidence 1): no *_std1.tex table",
+    )
+    parser.add_argument(
+        "--no-pygraft",
+        action="store_true",
+        help="leave out PyGraft's copies: no PyGraft column in any table",
+    )
     args = parser.parse_args()
 
-    global GENERATORS
+    global GENERATORS, BASE_GENERATORS
+    if args.no_pygraft:
+        BASE_GENERATORS = tuple(g for g in BASE_GENERATORS if g[1] != "pygraft")
     base_generators = GENERATORS
     metrics = read_metrics(args.metrics)
     agreement = read_agreement(args.metrics.parent)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     for level, made in LEVELS.items():
+        if args.no_std1 and level == "std1":
+            continue
         GENERATORS = level_generators(level)
         variants = [v for _, v in GENERATORS if v]
         for stem, source, datasets in tables(metrics, level):

@@ -1,0 +1,327 @@
+2026-11-17 14:06:11,256 INFO worker-72 train_kge.run: ===== TransE on YAGO3-10_ours_r75 =====
+2026-11-17 14:06:11,259 INFO worker-72 train_kge.run: Command: scripts/train_kge.py --datasets SGKG1_kbgen_r100 SGKG1_ours_r100 SGKG4_kbgen_r100 SGKG4_ours_r100 SGKG2_kbgen_r100 SGKG2_ours_r100 SGKG3_kbgen_r100 SGKG3_ours_r100 family_ours_r100 family_ours_r50 family_ours_r75 family_ours_r25 family_ours_std1 family_kbgen_r50 family_kbgen_r100 family_kbgen_r25 family_kbgen_r75 family_kbgen_std1 YAGO3-10_ours_r25 YAGO3-10_ours_r50 YAGO3-10_ours_r75 YAGO3-10_ours_r100 YAGO3-10_N_1_ours_r25 YAGO3-10_N_1_ours_r50 YAGO3-10_N_1_ours_r75 YAGO3-10_N_1_ours_r100 YAGO3-10_N_M_ours_r25 YAGO3-10_N_M_ours_r50 YAGO3-10_N_M_ours_r75 YAGO3-10_N_M_ours_r100 YAGO3-10_1_N_ours_r25 YAGO3-10_1_N_ours_r50 YAGO3-10_1_N_ours_r75 YAGO3-10_1_N_ours_r100 YAGO3-10_N_M_kbgen_r100 YAGO3-10_N_M_kbgen_r25 YAGO3-10_N_M_kbgen_r50 YAGO3-10_N_M_kbgen_r75 YAGO3-10_kbgen_r100 YAGO3-10_kbgen_r25 YAGO3-10_kbgen_r50 YAGO3-10_kbgen_r75 YAGO3-10_N_1_kbgen_r100 YAGO3-10_N_1_kbgen_r75 YAGO3-10_N_1_kbgen_r25 YAGO3-10_N_1_kbgen_r50 YAGO3-10_1_1_ours_r75 YAGO3-10_1_N_kbgen_r75 YAGO3-10_1_N_kbgen_r100 YAGO3-10_1_N_kbgen_r25 YAGO3-10_1_N_kbgen_r50 WN18RRN_M_ours_std1 WN18RR_ours_std1 WN18RRN_M_ours_r25 WN18RR_ours_r50 WN18RRN_M_ours_r100 WN18RRN_M_ours_r75 WN18RR_ours_r100 WN18RR_ours_r25 WN18RR_ours_r75 WN18RRN_M_ours_r50 WN18RRN_M_kbgen_r100 WN18RRN_M_kbgen_r25 WN18RRN_M_kbgen_r50 WN18RRN_M_kbgen_r75 WN18RRN_M_kbgen_std1 WN18RR_kbgen_r100 WN18RR_kbgen_r25 WN18RR_kbgen_r50 WN18RR_kbgen_r75 WN18RR_kbgen_std1 WN18RR1_1_ours_r100 WN18RR1_1_ours_r25 WN18RR1_1_ours_r50 WN18RR1_1_ours_r75 WN18RR1_1_kbgen_r100 WN18RR1_1_kbgen_r25 WN18RR1_1_kbgen_r50 WN18RR1_1_kbgen_r75 WN18RRN_1_ours_r100 WN18RRN_1_ours_r25 WN18RRN_1_ours_r50 WN18RRN_1_ours_r75 WN18RRN_1_kbgen_r100 WN18RRN_1_kbgen_r25 WN18RRN_1_kbgen_r50 WN18RRN_1_kbgen_r75 WN18RR1_N_ours_r100 WN18RR1_N_ours_r25 WN18RR1_N_ours_r75 WN18RR1_N_ours_r50 WN18RR1_N_kbgen_r25 WN18RR1_N_kbgen_r50 WN18RR1_N_kbgen_r100 WN18RR1_N_kbgen_r75 --keep-order --workers 75 --threads 1 --upload
+2026-11-17 14:06:11,263 INFO worker-72 train_kge.run: Host 2f3059f595bf, PID 15306, process worker-72, device MIG-3a78d308-a336-58cd-8495-3c315c87eca9 (NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 1g.24gb).
+2026-11-17 14:06:11,266 INFO worker-72 train_kge.run: Python 3.10.22, PyTorch 2.14.1+cu130 (CUDA 13.0, cuDNN 92400), PyKEEN 1.11.1, NumPy 2.2.6, 1 threads.
+2026-11-17 14:06:11,269 INFO worker-72 train_kge.run: Settings: {'num_epochs': 100, 'batch_size': 4096, 'embedding_dim': 50, 'random_seed': 1235, 'create_inverse_triples': True, 'filtered_negative_sampling': True, 'compgcn_batch_size': 131072, 'compgcn_learning_rate': 0.03}
+2026-11-17 14:06:11,642 INFO worker-72 train_kge.run: Split exp_datasets/YAGO3-10_ours_r75/train: 870654 lines, sha256 79eec0a46338abafa5f89d45bcb6c4967b8654bb19e7b691e4d9f822c29bdf37.
+2026-11-17 14:06:11,648 INFO worker-72 train_kge.run: Split exp_datasets/YAGO3-10_ours_r75/valid: absent, read as empty.
+2026-11-17 14:06:11,766 INFO worker-72 train_kge.run: Split exp_datasets/YAGO3-10_ours_r75/test: 217664 lines, sha256 f9e933198e5caa1c27105d8d01aae2350c1091d7ea9260642b9ccb6601ac9e18.
+2026-11-17 14:06:11,950 INFO worker-72 train_kge: YAGO3-10_ours_r75: loading the splits.
+2026-11-17 14:06:24,757 WARNING worker-72 pykeen.triples.triples_factory: Provided empty triples to map.
+2026-11-17 14:06:26,479 WARNING worker-72 pykeen.triples.triples_factory: Reconstructing all label-based triples. This is expensive and rarely needed.
+2026-11-17 14:06:28,339 WARNING worker-72 pykeen.triples.triples_factory: Reconstructing all label-based triples. This is expensive and rarely needed.
+2026-11-17 14:06:28,823 INFO worker-72 train_kge: YAGO3-10_ours_r75: training TransE (exp_results).
+2026-11-17 14:07:00,393 INFO worker-72 train_kge.run: Triples: 870654 train (123182 entities, 74 relations, inverse triples True), 0 valid, 217664 test.
+2026-11-17 14:07:00,400 INFO worker-72 train_kge.run: Pipeline arguments: {'model': 'TransE', 'training_loop': <class '__mp_main__.AtomicCheckpointLoop'>, 'model_kwargs': {'embedding_dim': 50}, 'negative_sampler_kwargs': {'filtered': True}, 'training_kwargs': {'num_epochs': 100, 'batch_size': 4096, 'use_tqdm': False, 'use_tqdm_batch': False, 'checkpoint_directory': PosixPath('exp_checkpoints/YAGO3-10_ours_r75'), 'checkpoint_name': 'TransE.pt', 'checkpoint_frequency': 0, 'callbacks': <__mp_main__.StatusCallback object at 0x7cbcdbfb2dd0>}, 'random_seed': 1235, 'evaluation_kwargs': {'use_tqdm': False}}
+2026-11-17 14:07:00,415 INFO worker-72 pykeen.pipeline.api: => no training loop checkpoint file found at 'exp_checkpoints/YAGO3-10_ours_r75/TransE.pt'. Creating a new file.
+2026-11-17 14:07:00,513 INFO worker-72 pykeen.pipeline.api: Using device: None
+2026-11-17 14:07:00,623 INFO worker-72 pykeen.nn.representation: Inferred unique=False for Embedding()
+2026-11-17 14:07:00,668 INFO worker-72 pykeen.nn.representation: Inferred unique=False for Embedding()
+2026-11-17 14:07:00,752 INFO worker-72 pykeen.training.training_loop: => no checkpoint found at 'exp_checkpoints/YAGO3-10_ours_r75/TransE.pt'. Creating a new file.
+2026-11-17 14:07:00,811 INFO worker-72 pykeen.triples.triples_factory: Creating inverse triples.
+2026-11-17 14:07:01,767 INFO worker-72 pykeen.triples.triples_factory: Creating inverse triples.
+2026-11-17 14:07:06,066 INFO worker-72 train_kge.run: epoch 1/100: loss 0.88217416, 3.66 s, 3.7 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:07:40,533 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 1.
+2026-11-17 14:07:44,777 INFO worker-72 train_kge.run: epoch 2/100: loss 0.48851795, 38.71 s, 42.4 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:08:17,180 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 2.
+2026-11-17 14:08:21,275 INFO worker-72 train_kge.run: epoch 3/100: loss 0.31091634, 36.50 s, 78.9 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:08:49,097 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 3.
+2026-11-17 14:08:53,185 INFO worker-72 train_kge.run: epoch 4/100: loss 0.22472588, 31.91 s, 110.8 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:09:22,463 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 4.
+2026-11-17 14:09:26,039 INFO worker-72 train_kge.run: epoch 5/100: loss 0.17789459, 32.85 s, 143.6 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:09:49,036 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 5.
+2026-11-17 14:09:52,327 INFO worker-72 train_kge.run: epoch 6/100: loss 0.14991824, 26.29 s, 169.9 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:10:09,881 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 6.
+2026-11-17 14:10:13,196 INFO worker-72 train_kge.run: epoch 7/100: loss 0.13058701, 20.87 s, 190.8 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:10:42,592 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 7.
+2026-11-17 14:10:46,336 INFO worker-72 train_kge.run: epoch 8/100: loss 0.11633516, 33.14 s, 223.9 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:11:11,594 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 8.
+2026-11-17 14:11:15,167 INFO worker-72 train_kge.run: epoch 9/100: loss 0.10525637, 28.83 s, 252.8 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:11:43,283 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 9.
+2026-11-17 14:11:46,586 INFO worker-72 train_kge.run: epoch 10/100: loss 0.09651071, 31.42 s, 284.2 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:12:14,407 INFO worker-72 train_kge: YAGO3-10_ours_r75 TransE: epoch 10/100, 28.4 s per epoch, 43 min left.
+2026-11-17 14:12:14,707 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 10.
+2026-11-17 14:12:18,276 INFO worker-72 train_kge.run: epoch 11/100: loss 0.08941131, 31.69 s, 315.9 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:12:49,358 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 11.
+2026-11-17 14:12:52,570 INFO worker-72 train_kge.run: epoch 12/100: loss 0.08329062, 34.29 s, 350.2 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:13:20,868 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 12.
+2026-11-17 14:13:24,060 INFO worker-72 train_kge.run: epoch 13/100: loss 0.07800760, 31.49 s, 381.7 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:13:52,879 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 13.
+2026-11-17 14:13:55,986 INFO worker-72 train_kge.run: epoch 14/100: loss 0.07324791, 31.93 s, 413.6 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:14:24,281 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 14.
+2026-11-17 14:14:27,694 INFO worker-72 train_kge.run: epoch 15/100: loss 0.06913830, 31.71 s, 445.3 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:14:52,577 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 15.
+2026-11-17 14:14:55,854 INFO worker-72 train_kge.run: epoch 16/100: loss 0.06608465, 28.16 s, 473.4 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:15:17,720 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 16.
+2026-11-17 14:15:21,430 INFO worker-72 train_kge.run: epoch 17/100: loss 0.06263007, 25.58 s, 499.0 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:15:49,672 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 17.
+2026-11-17 14:15:54,293 INFO worker-72 train_kge.run: epoch 18/100: loss 0.05966089, 32.86 s, 531.9 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:16:21,943 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 18.
+2026-11-17 14:16:26,041 INFO worker-72 train_kge.run: epoch 19/100: loss 0.05707996, 31.75 s, 563.6 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:16:55,506 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 19.
+2026-11-17 14:16:59,255 INFO worker-72 train_kge.run: epoch 20/100: loss 0.05489393, 33.21 s, 596.9 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:17:29,904 INFO worker-72 train_kge: YAGO3-10_ours_r75 TransE: epoch 20/100, 29.8 s per epoch, 40 min left.
+2026-11-17 14:17:30,188 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 20.
+2026-11-17 14:17:33,484 INFO worker-72 train_kge.run: epoch 21/100: loss 0.05220624, 34.23 s, 631.1 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:17:59,779 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 21.
+2026-11-17 14:18:03,036 INFO worker-72 train_kge.run: epoch 22/100: loss 0.05054512, 29.55 s, 660.6 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:18:25,055 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 22.
+2026-11-17 14:18:28,197 INFO worker-72 train_kge.run: epoch 23/100: loss 0.04832068, 25.16 s, 685.8 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:18:48,438 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 23.
+2026-11-17 14:18:51,785 INFO worker-72 train_kge.run: epoch 24/100: loss 0.04706332, 23.59 s, 709.4 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:19:19,018 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 24.
+2026-11-17 14:19:22,217 INFO worker-72 train_kge.run: epoch 25/100: loss 0.04493396, 30.43 s, 739.8 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:19:49,883 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 25.
+2026-11-17 14:19:53,224 INFO worker-72 train_kge.run: epoch 26/100: loss 0.04368551, 31.01 s, 770.8 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:20:23,075 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 26.
+2026-11-17 14:20:27,056 INFO worker-72 train_kge.run: epoch 27/100: loss 0.04241702, 33.83 s, 804.7 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:20:59,515 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 27.
+2026-11-17 14:21:04,486 INFO worker-72 train_kge.run: epoch 28/100: loss 0.04084476, 37.43 s, 842.1 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:21:40,016 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 28.
+2026-11-17 14:21:43,158 INFO worker-72 train_kge.run: epoch 29/100: loss 0.03974727, 38.67 s, 880.8 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:22:11,181 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 29.
+2026-11-17 14:22:14,422 INFO worker-72 train_kge.run: epoch 30/100: loss 0.03853436, 31.26 s, 912.0 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:22:44,888 INFO worker-72 train_kge: YAGO3-10_ours_r75 TransE: epoch 30/100, 30.4 s per epoch, 35 min left.
+2026-11-17 14:22:45,229 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 30.
+2026-11-17 14:22:49,553 INFO worker-72 train_kge.run: epoch 31/100: loss 0.03741057, 35.13 s, 947.1 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:23:18,855 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 31.
+2026-11-17 14:23:22,845 INFO worker-72 train_kge.run: epoch 32/100: loss 0.03612802, 33.29 s, 980.4 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:23:53,488 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 32.
+2026-11-17 14:23:56,754 INFO worker-72 train_kge.run: epoch 33/100: loss 0.03544503, 33.91 s, 1014.3 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:24:24,405 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 33.
+2026-11-17 14:24:27,432 INFO worker-72 train_kge.run: epoch 34/100: loss 0.03458642, 30.68 s, 1045.0 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:25:00,732 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 34.
+2026-11-17 14:25:03,605 INFO worker-72 train_kge.run: epoch 35/100: loss 0.03374440, 36.17 s, 1081.2 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:25:27,525 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 35.
+2026-11-17 14:25:30,713 INFO worker-72 train_kge.run: epoch 36/100: loss 0.03259963, 27.11 s, 1108.3 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:26:01,905 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 36.
+2026-11-17 14:26:04,987 INFO worker-72 train_kge.run: epoch 37/100: loss 0.03220636, 34.27 s, 1142.6 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:26:33,597 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 37.
+2026-11-17 14:26:36,804 INFO worker-72 train_kge.run: epoch 38/100: loss 0.03125765, 31.82 s, 1174.4 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:27:06,776 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 38.
+2026-11-17 14:27:09,659 INFO worker-72 train_kge.run: epoch 39/100: loss 0.03059977, 32.85 s, 1207.3 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:27:38,394 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 39.
+2026-11-17 14:27:41,686 INFO worker-72 train_kge.run: epoch 40/100: loss 0.02977020, 32.03 s, 1239.3 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:28:11,717 INFO worker-72 train_kge: YAGO3-10_ours_r75 TransE: epoch 40/100, 31.0 s per epoch, 31 min left.
+2026-11-17 14:28:11,955 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 40.
+2026-11-17 14:28:18,205 INFO worker-72 train_kge.run: epoch 41/100: loss 0.02934693, 36.52 s, 1275.8 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:28:46,710 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 41.
+2026-11-17 14:28:52,889 INFO worker-72 train_kge.run: epoch 42/100: loss 0.02849949, 34.68 s, 1310.5 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:29:16,462 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 42.
+2026-11-17 14:29:21,057 INFO worker-72 train_kge.run: epoch 43/100: loss 0.02819690, 28.17 s, 1338.7 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:29:48,508 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 43.
+2026-11-17 14:29:51,532 INFO worker-72 train_kge.run: epoch 44/100: loss 0.02770211, 30.47 s, 1369.1 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:30:17,570 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 44.
+2026-11-17 14:30:20,571 INFO worker-72 train_kge.run: epoch 45/100: loss 0.02724223, 29.04 s, 1398.2 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:30:46,247 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 45.
+2026-11-17 14:30:49,550 INFO worker-72 train_kge.run: epoch 46/100: loss 0.02638063, 28.98 s, 1427.1 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:31:13,573 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 46.
+2026-11-17 14:31:16,742 INFO worker-72 train_kge.run: epoch 47/100: loss 0.02620055, 27.19 s, 1454.3 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:31:40,758 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 47.
+2026-11-17 14:31:44,086 INFO worker-72 train_kge.run: epoch 48/100: loss 0.02565315, 27.34 s, 1481.7 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:32:09,822 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 48.
+2026-11-17 14:32:13,682 INFO worker-72 train_kge.run: epoch 49/100: loss 0.02528724, 29.60 s, 1511.3 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:32:41,561 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 49.
+2026-11-17 14:32:45,628 INFO worker-72 train_kge.run: epoch 50/100: loss 0.02466918, 31.95 s, 1543.2 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:33:16,595 INFO worker-72 train_kge: YAGO3-10_ours_r75 TransE: epoch 50/100, 30.9 s per epoch, 26 min left.
+2026-11-17 14:33:16,863 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 50.
+2026-11-17 14:33:20,344 INFO worker-72 train_kge.run: epoch 51/100: loss 0.02432528, 34.72 s, 1577.9 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:33:51,608 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 51.
+2026-11-17 14:33:54,681 INFO worker-72 train_kge.run: epoch 52/100: loss 0.02403191, 34.34 s, 1612.3 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:34:26,728 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 52.
+2026-11-17 14:34:29,788 INFO worker-72 train_kge.run: epoch 53/100: loss 0.02362927, 35.11 s, 1647.4 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:35:00,609 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 53.
+2026-11-17 14:35:04,015 INFO worker-72 train_kge.run: epoch 54/100: loss 0.02320081, 34.23 s, 1681.6 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:35:28,970 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 54.
+2026-11-17 14:35:32,810 INFO worker-72 train_kge.run: epoch 55/100: loss 0.02301838, 28.80 s, 1710.4 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:35:56,464 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 55.
+2026-11-17 14:36:00,723 INFO worker-72 train_kge.run: epoch 56/100: loss 0.02276515, 27.91 s, 1738.3 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:36:26,906 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 56.
+2026-11-17 14:36:30,889 INFO worker-72 train_kge.run: epoch 57/100: loss 0.02239783, 30.17 s, 1768.5 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:36:50,830 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 57.
+2026-11-17 14:36:53,937 INFO worker-72 train_kge.run: epoch 58/100: loss 0.02201366, 23.05 s, 1791.5 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:37:19,372 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 58.
+2026-11-17 14:37:22,956 INFO worker-72 train_kge.run: epoch 59/100: loss 0.02194576, 29.02 s, 1820.6 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:37:57,472 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 59.
+2026-11-17 14:38:02,840 INFO worker-72 train_kge.run: epoch 60/100: loss 0.02146058, 39.88 s, 1860.4 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:38:29,257 INFO worker-72 train_kge: YAGO3-10_ours_r75 TransE: epoch 60/100, 31.0 s per epoch, 21 min left.
+2026-11-17 14:38:29,548 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 60.
+2026-11-17 14:38:37,102 INFO worker-72 train_kge.run: epoch 61/100: loss 0.02112903, 34.26 s, 1894.7 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:39:01,328 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 61.
+2026-11-17 14:39:05,060 INFO worker-72 train_kge.run: epoch 62/100: loss 0.02085588, 27.96 s, 1922.7 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:39:34,351 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 62.
+2026-11-17 14:39:37,396 INFO worker-72 train_kge.run: epoch 63/100: loss 0.02053005, 32.34 s, 1955.0 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:40:03,639 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 63.
+2026-11-17 14:40:06,855 INFO worker-72 train_kge.run: epoch 64/100: loss 0.02033479, 29.46 s, 1984.5 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:40:34,465 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 64.
+2026-11-17 14:40:38,023 INFO worker-72 train_kge.run: epoch 65/100: loss 0.02030487, 31.17 s, 2015.6 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:41:09,413 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 65.
+2026-11-17 14:41:12,964 INFO worker-72 train_kge.run: epoch 66/100: loss 0.02006615, 34.94 s, 2050.6 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:41:44,860 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 66.
+2026-11-17 14:41:48,364 INFO worker-72 train_kge.run: epoch 67/100: loss 0.01974019, 35.40 s, 2086.0 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:42:20,558 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 67.
+2026-11-17 14:42:23,870 INFO worker-72 train_kge.run: epoch 68/100: loss 0.01963638, 35.51 s, 2121.5 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:42:50,736 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 68.
+2026-11-17 14:42:53,816 INFO worker-72 train_kge.run: epoch 69/100: loss 0.01924937, 29.95 s, 2151.4 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:43:16,064 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 69.
+2026-11-17 14:43:20,306 INFO worker-72 train_kge.run: epoch 70/100: loss 0.01908432, 26.49 s, 2177.9 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:43:41,035 INFO worker-72 train_kge: YAGO3-10_ours_r75 TransE: epoch 70/100, 31.1 s per epoch, 16 min left.
+2026-11-17 14:43:41,309 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 70.
+2026-11-17 14:43:46,053 INFO worker-72 train_kge.run: epoch 71/100: loss 0.01881234, 25.75 s, 2203.6 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:44:14,645 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 71.
+2026-11-17 14:44:18,788 INFO worker-72 train_kge.run: epoch 72/100: loss 0.01881051, 32.74 s, 2236.4 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:44:43,203 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 72.
+2026-11-17 14:44:46,217 INFO worker-72 train_kge.run: epoch 73/100: loss 0.01861271, 27.43 s, 2263.8 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:45:19,513 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 73.
+2026-11-17 14:45:22,329 INFO worker-72 train_kge.run: epoch 74/100: loss 0.01842068, 36.11 s, 2299.9 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:45:52,030 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 74.
+2026-11-17 14:45:55,440 INFO worker-72 train_kge.run: epoch 75/100: loss 0.01838554, 33.11 s, 2333.0 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:46:24,066 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 75.
+2026-11-17 14:46:27,923 INFO worker-72 train_kge.run: epoch 76/100: loss 0.01814778, 32.48 s, 2365.5 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:46:56,918 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 76.
+2026-11-17 14:47:00,626 INFO worker-72 train_kge.run: epoch 77/100: loss 0.01788864, 32.70 s, 2398.2 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:47:24,571 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 77.
+2026-11-17 14:47:27,323 INFO worker-72 train_kge.run: epoch 78/100: loss 0.01781682, 26.70 s, 2424.9 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:47:49,835 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 78.
+2026-11-17 14:47:54,528 INFO worker-72 train_kge.run: epoch 79/100: loss 0.01765325, 27.20 s, 2452.1 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:48:22,862 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 79.
+2026-11-17 14:48:28,458 INFO worker-72 train_kge.run: epoch 80/100: loss 0.01756388, 33.93 s, 2486.1 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:48:55,830 INFO worker-72 train_kge: YAGO3-10_ours_r75 TransE: epoch 80/100, 31.1 s per epoch, 10 min left.
+2026-11-17 14:48:56,108 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 80.
+2026-11-17 14:49:01,437 INFO worker-72 train_kge.run: epoch 81/100: loss 0.01722605, 32.98 s, 2519.0 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:49:31,266 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 81.
+2026-11-17 14:49:35,553 INFO worker-72 train_kge.run: epoch 82/100: loss 0.01737142, 34.12 s, 2553.1 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:49:57,439 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 82.
+2026-11-17 14:50:00,181 INFO worker-72 train_kge.run: epoch 83/100: loss 0.01723586, 24.63 s, 2577.8 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:50:15,366 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 83.
+2026-11-17 14:50:20,019 INFO worker-72 train_kge.run: epoch 84/100: loss 0.01696558, 19.84 s, 2597.6 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:50:39,558 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 84.
+2026-11-17 14:50:42,917 INFO worker-72 train_kge.run: epoch 85/100: loss 0.01688533, 22.90 s, 2620.5 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:50:59,379 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 85.
+2026-11-17 14:51:05,170 INFO worker-72 train_kge.run: epoch 86/100: loss 0.01671896, 22.25 s, 2642.8 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:51:23,163 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 86.
+2026-11-17 14:51:28,420 INFO worker-72 train_kge.run: epoch 87/100: loss 0.01663361, 23.25 s, 2666.0 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:51:55,559 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 87.
+2026-11-17 14:51:58,797 INFO worker-72 train_kge.run: epoch 88/100: loss 0.01660349, 30.38 s, 2696.4 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:52:25,405 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 88.
+2026-11-17 14:52:28,865 INFO worker-72 train_kge.run: epoch 89/100: loss 0.01632564, 30.07 s, 2726.5 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:52:56,376 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 89.
+2026-11-17 14:53:02,537 INFO worker-72 train_kge.run: epoch 90/100: loss 0.01637527, 33.67 s, 2760.1 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:53:23,974 ERROR worker-72 train_kge: Could not record the status of TransE.
+Traceback (most recent call last):
+  File "/workspace/synthetic-knowledge-graph-generator/scripts/train_kge.py", line 260, in record_status
+    write_progress(output)
+  File "/workspace/synthetic-knowledge-graph-generator/scripts/train_kge.py", line 239, in write_progress
+    status = json.loads(path.read_text(encoding="utf-8"))
+  File "/root/.local/share/uv/python/cpython-3.10.22-linux-x86_64-gnu/lib/python3.10/pathlib.py", line 1134, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+  File "/root/.local/share/uv/python/cpython-3.10.22-linux-x86_64-gnu/lib/python3.10/pathlib.py", line 1119, in open
+    return self._accessor.open(self, mode, buffering, encoding, errors,
+FileNotFoundError: [Errno 2] No such file or directory: 'exp_results/YAGO3-10_ours_r50/status/TransE.json'
+2026-11-17 14:53:23,991 INFO worker-72 train_kge: YAGO3-10_ours_r75 TransE: epoch 90/100, 30.7 s per epoch, 5 min left.
+2026-11-17 14:53:24,304 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 90.
+2026-11-17 14:53:31,887 INFO worker-72 train_kge.run: epoch 91/100: loss 0.01616078, 29.35 s, 2789.5 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:53:55,813 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 91.
+2026-11-17 14:54:01,783 INFO worker-72 train_kge.run: epoch 92/100: loss 0.01612974, 29.90 s, 2819.4 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:54:22,648 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 92.
+2026-11-17 14:54:25,510 INFO worker-72 train_kge.run: epoch 93/100: loss 0.01599820, 23.73 s, 2843.1 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:54:54,459 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 93.
+2026-11-17 14:54:57,309 INFO worker-72 train_kge.run: epoch 94/100: loss 0.01590466, 31.80 s, 2874.9 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:55:24,515 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 94.
+2026-11-17 14:55:27,440 INFO worker-72 train_kge.run: epoch 95/100: loss 0.01584774, 30.13 s, 2905.0 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:55:50,500 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 95.
+2026-11-17 14:55:53,177 INFO worker-72 train_kge.run: epoch 96/100: loss 0.01573723, 25.74 s, 2930.8 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:56:14,693 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 96.
+2026-11-17 14:56:18,724 INFO worker-72 train_kge.run: epoch 97/100: loss 0.01563952, 25.55 s, 2956.3 s of training so far, peak GPU memory 12.87 GB.
+2026-11-17 14:56:42,861 INFO worker-72 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 97.
+2026-11-17 14:56:42,974 WARNING worker-72 py.warnings: /workspace/venvs/skgg-train/lib/python3.10/site-packages/torch/nn/functional.py:2621: UserWarning: nvmlDeviceGetComputeRunningProcesses failed; omitting per-process memory info from CUDA out-of-memory messages. This is expected on platforms with partial NVML support such as Tegra/Jetson. (Triggered internally at /__w/pytorch/pytorch/c10/cuda/CUDACachingAllocator.cpp:1383.)
+  return torch.embedding(weight, input, padding_idx, scale_grad_by_freq, sparse)
+
+2026-11-17 14:56:42,990 WARNING worker-72 pykeen.training.training_loop: The training loop just failed during epoch 98 due to error CUDA out of memory. Tried to allocate 2.00 MiB. GPU 0 has a total capacity of 23.62 GiB of which 960.00 KiB is free. Of the allocated memory 137.79 MiB is allocated by PyTorch, and 210.00 KiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf).
+2026-11-17 14:56:42,996 ERROR worker-72 train_kge: YAGO3-10_ours_r75: TransE failed (exp_results).
+Traceback (most recent call last):
+  File "/workspace/synthetic-knowledge-graph-generator/scripts/train_kge.py", line 880, in train_job
+    train_model(
+  File "/workspace/synthetic-knowledge-graph-generator/scripts/train_kge.py", line 751, in train_model
+    result = pipeline(**kwargs)
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/pykeen/pipeline/api.py", line 1540, in pipeline
+    stopper_instance, configuration, losses, train_seconds = _handle_training(
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/pykeen/pipeline/api.py", line 1181, in _handle_training
+    losses = training_loop_instance.train(
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/pykeen/training/training_loop.py", line 383, in train
+    result = self._train(
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/pykeen/training/training_loop.py", line 762, in _train
+    raise e
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/pykeen/training/training_loop.py", line 707, in _train
+    epoch_loss = self._train_epoch(
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/pykeen/training/training_loop.py", line 466, in _train_epoch
+    batch_loss = self._forward_pass(
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/pykeen/training/training_loop.py", line 840, in _forward_pass
+    loss = self._process_batch(
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/pykeen/training/slcwa.py", line 157, in _process_batch
+    return self._process_batch_static(
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/pykeen/training/slcwa.py", line 132, in _process_batch_static
+    positive_scores = model.score_hrt(positive_batch, mode=mode)
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/pykeen/models/nbase.py", line 495, in score_hrt
+    h, r, t = self._get_representations(h=hrt_batch[:, 0], r=hrt_batch[:, 1], t=hrt_batch[:, 2], mode=mode)
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/pykeen/models/nbase.py", line 671, in _get_representations
+    hr, rr, tr = (
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/pykeen/models/nbase.py", line 672, in <genexpr>
+    [representation(indices=indices) for representation in representations]
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/pykeen/models/nbase.py", line 672, in <listcomp>
+    [representation(indices=indices) for representation in representations]
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1783, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1794, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/pykeen/nn/representation.py", line 236, in forward
+    x = self._plain_forward(indices=indices)
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/pykeen/nn/representation.py", line 498, in _plain_forward
+    x = self._embeddings(indices.to(self.device))
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1783, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1794, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/torch/nn/modules/sparse.py", line 189, in forward
+    return F.embedding(
+  File "/workspace/venvs/skgg-train/lib/python3.10/site-packages/torch/nn/functional.py", line 2621, in embedding
+    return torch.embedding(weight, input, padding_idx, scale_grad_by_freq, sparse)
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 2.00 MiB. GPU 0 has a total capacity of 23.62 GiB of which 960.00 KiB is free. Of the allocated memory 137.79 MiB is allocated by PyTorch, and 210.00 KiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)
+2026-11-17 15:18:51,051 INFO worker-4 train_kge.run: ===== TransE on YAGO3-10_ours_r75 =====
+2026-11-17 15:18:51,055 INFO worker-4 train_kge.run: Command: scripts/train_kge.py --datasets SGKG1_kbgen_r100 SGKG1_ours_r100 SGKG4_kbgen_r100 SGKG4_ours_r100 SGKG2_kbgen_r100 SGKG2_ours_r100 SGKG3_kbgen_r100 SGKG3_ours_r100 family_ours_r100 family_ours_r50 family_ours_r75 family_ours_r25 family_ours_std1 family_kbgen_r50 family_kbgen_r100 family_kbgen_r25 family_kbgen_r75 family_kbgen_std1 YAGO3-10_ours_r25 YAGO3-10_ours_r50 YAGO3-10_ours_r75 YAGO3-10_ours_r100 YAGO3-10_N_1_ours_r25 YAGO3-10_N_1_ours_r50 YAGO3-10_N_1_ours_r75 YAGO3-10_N_1_ours_r100 YAGO3-10_N_M_ours_r25 YAGO3-10_N_M_ours_r50 YAGO3-10_N_M_ours_r75 YAGO3-10_N_M_ours_r100 YAGO3-10_1_N_ours_r25 YAGO3-10_1_N_ours_r50 YAGO3-10_1_N_ours_r75 YAGO3-10_1_N_ours_r100 YAGO3-10_N_M_kbgen_r100 YAGO3-10_N_M_kbgen_r25 YAGO3-10_N_M_kbgen_r50 YAGO3-10_N_M_kbgen_r75 YAGO3-10_kbgen_r100 YAGO3-10_kbgen_r25 YAGO3-10_kbgen_r50 YAGO3-10_kbgen_r75 YAGO3-10_N_1_kbgen_r100 YAGO3-10_N_1_kbgen_r75 YAGO3-10_N_1_kbgen_r25 YAGO3-10_N_1_kbgen_r50 YAGO3-10_1_1_ours_r75 YAGO3-10_1_N_kbgen_r75 YAGO3-10_1_N_kbgen_r100 YAGO3-10_1_N_kbgen_r25 YAGO3-10_1_N_kbgen_r50 WN18RRN_M_ours_std1 WN18RR_ours_std1 WN18RRN_M_ours_r25 WN18RR_ours_r50 WN18RRN_M_ours_r100 WN18RRN_M_ours_r75 WN18RR_ours_r100 WN18RR_ours_r25 WN18RR_ours_r75 WN18RRN_M_ours_r50 WN18RRN_M_kbgen_r100 WN18RRN_M_kbgen_r25 WN18RRN_M_kbgen_r50 WN18RRN_M_kbgen_r75 WN18RRN_M_kbgen_std1 WN18RR_kbgen_r100 WN18RR_kbgen_r25 WN18RR_kbgen_r50 WN18RR_kbgen_r75 WN18RR_kbgen_std1 WN18RR1_1_ours_r100 WN18RR1_1_ours_r25 WN18RR1_1_ours_r50 WN18RR1_1_ours_r75 WN18RR1_1_kbgen_r100 WN18RR1_1_kbgen_r25 WN18RR1_1_kbgen_r50 WN18RR1_1_kbgen_r75 WN18RRN_1_ours_r100 WN18RRN_1_ours_r25 WN18RRN_1_ours_r50 WN18RRN_1_ours_r75 WN18RRN_1_kbgen_r100 WN18RRN_1_kbgen_r25 WN18RRN_1_kbgen_r50 WN18RRN_1_kbgen_r75 WN18RR1_N_ours_r100 WN18RR1_N_ours_r25 WN18RR1_N_ours_r75 WN18RR1_N_ours_r50 WN18RR1_N_kbgen_r25 WN18RR1_N_kbgen_r50 WN18RR1_N_kbgen_r100 WN18RR1_N_kbgen_r75 --keep-order --skip-models CompGCN --workers 48 --threads 1 --upload
+2026-11-17 15:18:51,060 INFO worker-4 train_kge.run: Host 2f3059f595bf, PID 35437, process worker-4, device MIG-aa189a48-6e2b-5236-817e-631d999465b1 (NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 1g.24gb).
+2026-11-17 15:18:51,106 INFO worker-4 train_kge.run: Python 3.10.22, PyTorch 2.14.1+cu130 (CUDA 13.0, cuDNN 92400), PyKEEN 1.11.1, NumPy 2.2.6, 1 threads.
+2026-11-17 15:18:51,108 INFO worker-4 train_kge.run: Settings: {'num_epochs': 100, 'batch_size': 4096, 'embedding_dim': 50, 'random_seed': 1235, 'create_inverse_triples': True, 'filtered_negative_sampling': True, 'compgcn_batch_size': 131072, 'compgcn_learning_rate': 0.03}
+2026-11-17 15:18:51,249 INFO worker-4 train_kge.run: Split exp_datasets/YAGO3-10_ours_r75/train: 870654 lines, sha256 79eec0a46338abafa5f89d45bcb6c4967b8654bb19e7b691e4d9f822c29bdf37.
+2026-11-17 15:18:51,253 INFO worker-4 train_kge.run: Split exp_datasets/YAGO3-10_ours_r75/valid: absent, read as empty.
+2026-11-17 15:18:51,300 INFO worker-4 train_kge.run: Split exp_datasets/YAGO3-10_ours_r75/test: 217664 lines, sha256 f9e933198e5caa1c27105d8d01aae2350c1091d7ea9260642b9ccb6601ac9e18.
+2026-11-17 15:18:53,380 INFO worker-4 train_kge: YAGO3-10_ours_r75: loading the splits.
+2026-11-17 15:19:06,067 WARNING worker-4 pykeen.triples.triples_factory: Provided empty triples to map.
+2026-11-17 15:19:07,059 INFO worker-4 train_kge: YAGO3-10_ours_r75: training TransE (exp_results).
+2026-11-17 15:19:10,923 INFO worker-4 train_kge.run: Triples: 870654 train (123182 entities, 74 relations, inverse triples True), 0 valid, 217664 test.
+2026-11-17 15:19:10,924 INFO worker-4 train_kge.run: Pipeline arguments: {'model': 'TransE', 'training_loop': <class '__mp_main__.AtomicCheckpointLoop'>, 'model_kwargs': {'embedding_dim': 50}, 'negative_sampler_kwargs': {'filtered': True}, 'training_kwargs': {'num_epochs': 100, 'batch_size': 4096, 'use_tqdm': False, 'use_tqdm_batch': False, 'checkpoint_directory': PosixPath('exp_checkpoints/YAGO3-10_ours_r75'), 'checkpoint_name': 'TransE.pt', 'checkpoint_frequency': 0, 'callbacks': <__mp_main__.StatusCallback object at 0x7acadd938400>}, 'random_seed': 1235, 'evaluation_kwargs': {'batch_size': 32, 'use_tqdm': False}}
+2026-11-17 15:19:11,279 INFO worker-4 pykeen.pipeline.api: loaded random seed 1235 from checkpoint.
+2026-11-17 15:19:11,297 INFO worker-4 pykeen.pipeline.api: Using device: None
+2026-11-17 15:19:11,312 INFO worker-4 pykeen.nn.representation: Inferred unique=False for Embedding()
+2026-11-17 15:19:11,334 INFO worker-4 pykeen.nn.representation: Inferred unique=False for Embedding()
+2026-11-17 15:19:11,396 INFO worker-4 pykeen.training.training_loop: => loading checkpoint 'exp_checkpoints/YAGO3-10_ours_r75/TransE.pt'
+2026-11-17 15:19:11,460 INFO worker-4 pykeen.training.training_loop: => loaded checkpoint 'exp_checkpoints/YAGO3-10_ours_r75/TransE.pt' stopped after having finished epoch 97
+2026-11-17 15:19:11,463 INFO worker-4 train_kge: Loaded the state after epoch 97.
+2026-11-17 15:19:11,464 INFO worker-4 pykeen.stoppers.stopper: => loading stopper summary dict from training loop checkpoint in 'exp_checkpoints/YAGO3-10_ours_r75/TransE.pt'
+2026-11-17 15:19:11,505 INFO worker-4 pykeen.stoppers.stopper: => loaded stopper summary dictionary from checkpoint in 'exp_checkpoints/YAGO3-10_ours_r75/TransE.pt'
+2026-11-17 15:19:11,508 WARNING worker-4 pykeen.training.training_loop: the training loop was configured with a stopper but no stopper configuration was saved in the checkpoint
+2026-11-17 15:19:11,510 INFO worker-4 pykeen.triples.triples_factory: Creating inverse triples.
+2026-11-17 15:19:18,530 INFO worker-4 train_kge.run: epoch 98/100: loss 0.01559877, 6.52 s, 2962.8 s of training so far, peak GPU memory 0.15 GB.
+2026-11-17 15:19:27,148 INFO worker-4 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 98.
+2026-11-17 15:19:33,862 INFO worker-4 train_kge.run: epoch 99/100: loss 0.01551546, 15.33 s, 2978.2 s of training so far, peak GPU memory 0.15 GB.
+2026-11-17 15:19:44,464 INFO worker-4 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 99.
+2026-11-17 15:19:47,337 INFO worker-4 train_kge.run: epoch 100/100: loss 0.01540505, 13.47 s, 2991.6 s of training so far, peak GPU memory 0.15 GB.
+2026-11-17 15:20:03,025 INFO worker-4 train_kge: YAGO3-10_ours_r75 TransE: epoch 100/100, 29.9 s per epoch, 0 min left.
+2026-11-17 15:20:03,309 INFO worker-4 pykeen.training.training_loop: => Saved checkpoint after having finished epoch 100.
+2026-11-17 15:20:26,110 INFO worker-4 root: When evaluating the test dataset, validation triples are added to the set of known positive triples which are filtered out when performing filtered evaluation following the approach described by (Bordes et al., 2013).
+2026-11-17 15:24:18,187 INFO worker-4 pykeen.evaluation.evaluator: Evaluation took 232.07s seconds
+2026-11-17 15:24:18,267 INFO worker-4 train_kge.run: Test metrics: {"head.optimistic.z_arithmetic_mean_rank": 606.5555943197529, "tail.optimistic.z_arithmetic_mean_rank": 742.7925490269967, "both.optimistic.z_arithmetic_mean_rank": 954.5276314436378, "head.realistic.z_arithmetic_mean_rank": 606.555506470583, "tail.realistic.z_arithmetic_mean_rank": 742.7925039291052, "both.realistic.z_arithmetic_mean_rank": 954.5275284647404, "head.pessimistic.z_arithmetic_mean_rank": 606.5553900741372, "tail.pessimistic.z_arithmetic_mean_rank": 742.7924515522559, "both.pessimistic.z_arithmetic_mean_rank": 954.5274184126315, "head.optimistic.z_inverse_harmonic_mean_rank": 1278.319630535334, "tail.optimistic.z_inverse_harmonic_mean_rank": 8416.177504901056, "both.optimistic.z_inverse_harmonic_mean_rank": 6831.025447922289, "head.realistic.z_inverse_harmonic_mean_rank": 1278.3194447857425, "tail.realistic.z_inverse_harmonic_mean_rank": 8416.176579473722, "both.realistic.z_inverse_harmonic_mean_rank": 6831.024162457156, "head.pessimistic.z_inverse_harmonic_mean_rank": 1278.3191278540398, "tail.pessimistic.z_inverse_harmonic_mean_rank": 8416.174254687749, "both.pessimistic.z_inverse_harmonic_mean_rank": 6831.022803470806, "head.optimistic.inverse_geometric_mean_rank": 0.0004272606188564936, "tail.optimistic.inverse_geometric_mean_rank": 0.0030515883740343183, "both.optimistic.inverse_geometric_mean_rank": 0.001141850925990423, "head.realistic.inverse_geometric_mean_rank": 0.0004272600344847888, "tail.realistic.inverse_geometric_mean_rank": 0.003051584819331765, "both.realistic.inverse_geometric_mean_rank": 0.001141848973929882, "head.pessimistic.inverse_geometric_mean_rank": 0.00042725994714368025, "tail.pessimistic.inverse_geometric_mean_rank": 0.0030515832026090876, "both.pessimistic.inverse_geometric_mean_rank": 0.0011418490608882147, "head.optimistic.count": 217664.0, "tail.optimistic.count": 217664.0, "both.optimistic.count": 435328.0, "head.realistic.count": 217664.0, "tail.realistic.count": 217664.0, "both.realistic.count": 435328.0, "head.pessimistic.count": 217664.0, "tail.pessimistic.count": 217664.0, "both.pessimistic.count": 435328.0, "head.optimistic.standard_deviation": 23409.233729599648, "tail.optimistic.standard_deviation": 12154.919486624061, "both.optimistic.standard_deviation": 19325.727461950642, "head.realistic.standard_deviation": 23409.244140625, "tail.realistic.standard_deviation": 12154.9267578125, "both.realistic.standard_deviation": 19325.734375, "head.pessimistic.standard_deviation": 23409.251785611665, "tail.pessimistic.standard_deviation": 12154.933047391547, "both.pessimistic.standard_deviation": 19325.743710678496, "head.optimistic.adjusted_arithmetic_mean_rank_index": 0.7522537598268688, "tail.optimistic.adjusted_arithmetic_mean_rank_index": 0.9192150751317197, "both.optimistic.adjusted_arithmetic_mean_rank_index": 0.836174172654976, "head.realistic.adjusted_arithmetic_mean_rank_index": 0.7522536508758197, "tail.realistic.adjusted_arithmetic_mean_rank_index": 0.9192150193225147, "both.realistic.adjusted_arithmetic_mean_rank_index": 0.8361740824446022, "head.pessimistic.adjusted_arithmetic_mean_rank_index": 0.7522535065202738, "tail.pessimistic.adjusted_arithmetic_mean_rank_index": 0.9192149545055082, "both.pessimistic.adjusted_arithmetic_mean_rank_index": 0.8361739860380362, "head.optimistic.median_rank": 2539.0, "tail.optimistic.median_rank": 323.0, "both.optimistic.median_rank": 1035.0, "head.realistic.median_rank": 2539.0, "tail.realistic.median_rank": 323.0, "both.realistic.median_rank": 1035.0, "head.pessimistic.median_rank": 2539.0, "tail.pessimistic.median_rank": 323.0, "both.pessimistic.median_rank": 1035.0, "head.optimistic.harmonic_mean_rank": 97.97994756077735, "tail.optimistic.harmonic_mean_rank": 15.151913818436999, "both.optimistic.harmonic_mean_rank": 26.245192172691265, "head.realistic.harmonic_mean_rank": 97.97996520996094, "tail.realistic.harmonic_mean_rank": 15.151915550231934, "both.realistic.harmonic_mean_rank": 26.245197296142578, "head.pessimistic.harmonic_mean_rank": 97.97998570666374, "tail.pessimistic.harmonic_mean_rank": 15.151919661049721, "both.pessimistic.harmonic_mean_rank": 26.24520230597747, "head.optimistic.inverse_harmonic_mean_rank": 0.010206169985748319, "tail.optimistic.inverse_harmonic_mean_rank": 0.0659982634525805, "both.optimistic.inverse_harmonic_mean_rank": 0.03810221671916441, "head.realistic.inverse_harmonic_mean_rank": 0.01020616851747036, "tail.realistic.inverse_harmonic_mean_rank": 0.06599825620651245, "both.realistic.inverse_harmonic_mean_rank": 0.03810220956802368, "head.pessimistic.inverse_harmonic_mean_rank": 0.010206166012249059, "tail.pessimistic.inverse_harmonic_mean_rank": 0.06599823800350854, "both.pessimistic.inverse_harmonic_mean_rank": 0.038102202007878797, "head.optimistic.median_absolute_deviation": 3675.370899675387, "tail.optimistic.median_absolute_deviation": 472.950107703287, "both.optimistic.median_absolute_deviation": 1518.1846717497365, "head.realistic.median_absolute_deviation": 3675.37109375, "tail.realistic.median_absolute_deviation": 472.9501037597656, "both.realistic.median_absolute_deviation": 1518.1846923828125, "head.pessimistic.median_absolute_deviation": 3675.370899675387, "tail.pessimistic.median_absolute_deviation": 472.950107703287, "both.pessimistic.median_absolute_deviation": 1518.1846717497365, "head.optimistic.adjusted_arithmetic_mean_rank": 0.24775858403537038, "tail.optimistic.adjusted_arithmetic_mean_rank": 0.08079985035013525, "both.optimistic.adjusted_arithmetic_mean_rank": 0.1638394759946297, "head.realistic.adjusted_arithmetic_mean_rank": 0.24775869298463163, "tail.realistic.adjusted_arithmetic_mean_rank": 0.08079990615843409, "both.realistic.adjusted_arithmetic_mean_rank": 0.16383956620353093, "head.pessimistic.adjusted_arithmetic_mean_rank": 0.24775883733780885, "tail.pessimistic.adjusted_arithmetic_mean_rank": 0.08079997097438818, "both.pessimistic.adjusted_arithmetic_mean_rank": 0.1638396626085234, "head.optimistic.inverse_arithmetic_mean_rank": 6.623049315846117e-05, "tail.optimistic.inverse_arithmetic_mean_rank": 0.00020095585593100002, "both.optimistic.inverse_arithmetic_mean_rank": 9.962638800034246e-05, "head.realistic.inverse_arithmetic_mean_rank": 6.62304664729163e-05, "tail.realistic.inverse_arithmetic_mean_rank": 0.00020095572108402848, "both.realistic.inverse_arithmetic_mean_rank": 9.962633339455351e-05, "head.pessimistic.inverse_arithmetic_mean_rank": 6.623042544606149e-05, "tail.pessimistic.inverse_arithmetic_mean_rank": 0.00020095555592903588, "both.pessimistic.inverse_arithmetic_mean_rank": 9.962627452557156e-05, "head.optimistic.z_geometric_mean_rank": 442.30571144855674, "tail.optimistic.z_geometric_mean_rank": 463.3753852395069, "both.optimistic.z_geometric_mean_rank": 647.487326975863, "head.realistic.z_geometric_mean_rank": 442.30567741875177, "tail.realistic.z_geometric_mean_rank": 463.3753812888821, "both.realistic.z_geometric_mean_rank": 647.4873055776734, "head.pessimistic.z_geometric_mean_rank": 442.3056730204278, "tail.pessimistic.z_geometric_mean_rank": 463.37537951947576, "both.pessimistic.z_geometric_mean_rank": 647.4873059858836, "head.optimistic.geometric_mean_rank": 2340.4918587544234, "tail.optimistic.geometric_mean_rank": 327.69819432689775, "both.optimistic.geometric_mean_rank": 875.7710636636881, "head.realistic.geometric_mean_rank": 2340.4951171875, "tail.realistic.geometric_mean_rank": 327.6985778808594, "both.realistic.geometric_mean_rank": 875.7725219726562, "head.pessimistic.geometric_mean_rank": 2340.4955383372667, "tail.pessimistic.geometric_mean_rank": 327.6987496670598, "both.pessimistic.geometric_mean_rank": 875.7724941527088, "head.optimistic.adjusted_inverse_harmonic_mean_rank": 0.01010564356808558, "tail.optimistic.adjusted_inverse_harmonic_mean_rank": 0.0659049959767518, "both.optimistic.adjusted_inverse_harmonic_mean_rank": 0.038005343555352115, "head.realistic.adjusted_inverse_harmonic_mean_rank": 0.010105642099658498, "tail.realistic.adjusted_inverse_harmonic_mean_rank": 0.06590498872996017, "both.realistic.adjusted_inverse_harmonic_mean_rank": 0.03800533640349119, "head.pessimistic.adjusted_inverse_harmonic_mean_rank": 0.010105639594182758, "tail.pessimistic.adjusted_inverse_harmonic_mean_rank": 0.06590497052513855, "both.pessimistic.adjusted_inverse_harmonic_mean_rank": 0.03800532884258492, "head.optimistic.arithmetic_mean_rank": 15098.785352653631, "tail.optimistic.arithmetic_mean_rank": 4976.217266061452, "both.optimistic.arithmetic_mean_rank": 10037.501309357542, "head.realistic.arithmetic_mean_rank": 15098.7919921875, "tail.realistic.arithmetic_mean_rank": 4976.220703125, "both.realistic.arithmetic_mean_rank": 10037.5068359375, "head.pessimistic.arithmetic_mean_rank": 15098.800789289915, "tail.pessimistic.arithmetic_mean_rank": 4976.2246949426635, "both.pessimistic.arithmetic_mean_rank": 10037.512742116289, "head.optimistic.variance": 547992223.8070258, "tail.optimistic.variance": 147742067.72631332, "both.optimistic.variance": 373483741.9335933, "head.realistic.variance": 547992704.0, "tail.realistic.variance": 147742240.0, "both.realistic.variance": 373484032.0, "head.pessimistic.variance": 547993069.1621629, "tail.pessimistic.variance": 147742397.38657114, "both.pessimistic.variance": 373484369.9708295, "head.optimistic.adjusted_geometric_mean_rank_index": 0.9476521787834605, "tail.optimistic.adjusted_geometric_mean_rank_index": 0.9927904085293618, "both.optimistic.adjusted_geometric_mean_rank_index": 0.9805613811768901, "head.realistic.adjusted_geometric_mean_rank_index": 0.9476521058736653, "tail.realistic.adjusted_geometric_mean_rank_index": 0.9927904000650746, "both.realistic.adjusted_geometric_mean_rank_index": 0.9805613487712546, "head.pessimistic.adjusted_geometric_mean_rank_index": 0.9476520964501349, "tail.pessimistic.adjusted_geometric_mean_rank_index": 0.9927903962740885, "both.pessimistic.adjusted_geometric_mean_rank_index": 0.9805613493894522, "head.optimistic.inverse_median_rank": 0.00039385584875935406, "tail.optimistic.inverse_median_rank": 0.0030959752321981426, "both.optimistic.inverse_median_rank": 0.000966183574879227, "head.realistic.inverse_median_rank": 0.00039385585114359856, "tail.realistic.inverse_median_rank": 0.0030959751456975937, "both.realistic.inverse_median_rank": 0.0009661835501901805, "head.pessimistic.inverse_median_rank": 0.00039385584875935406, "tail.pessimistic.inverse_median_rank": 0.0030959752321981426, "both.pessimistic.inverse_median_rank": 0.000966183574879227, "head.optimistic.hits_at_1": 0.002526830344016466, "tail.optimistic.hits_at_1": 0.030423037341958246, "both.optimistic.hits_at_1": 0.016474933842987358, "head.realistic.hits_at_1": 0.002526830344016466, "tail.realistic.hits_at_1": 0.030423037341958246, "both.realistic.hits_at_1": 0.016474933842987358, "head.pessimistic.hits_at_1": 0.002526830344016466, "tail.pessimistic.hits_at_1": 0.030423037341958246, "both.pessimistic.hits_at_1": 0.016474933842987358, "head.optimistic.hits_at_3": 0.0072634886798000585, "tail.optimistic.hits_at_3": 0.06578947368421052, "both.optimistic.hits_at_3": 0.03652648118200529, "head.realistic.hits_at_3": 0.0072634886798000585, "tail.realistic.hits_at_3": 0.06578947368421052, "both.realistic.hits_at_3": 0.03652648118200529, "head.pessimistic.hits_at_3": 0.0072634886798000585, "tail.pessimistic.hits_at_3": 0.06578947368421052, "both.pessimistic.hits_at_3": 0.03652648118200529, "head.optimistic.hits_at_5": 0.011168590120552779, "tail.optimistic.hits_at_5": 0.09063051308438695, "both.optimistic.hits_at_5": 0.05089955160246986, "head.realistic.hits_at_5": 0.011168590120552779, "tail.realistic.hits_at_5": 0.09063051308438695, "both.realistic.hits_at_5": 0.05089955160246986, "head.pessimistic.hits_at_5": 0.011168590120552779, "tail.pessimistic.hits_at_5": 0.09063051308438695, "both.pessimistic.hits_at_5": 0.05089955160246986, "head.optimistic.hits_at_10": 0.01980575566009997, "tail.optimistic.hits_at_10": 0.1339679506027639, "both.optimistic.hits_at_10": 0.07688685313143193, "head.realistic.hits_at_10": 0.01980575566009997, "tail.realistic.hits_at_10": 0.1339679506027639, "both.realistic.hits_at_10": 0.07688685313143193, "head.pessimistic.hits_at_10": 0.01980575566009997, "tail.pessimistic.hits_at_10": 0.1339679506027639, "both.pessimistic.hits_at_10": 0.07688685313143193, "head.optimistic.z_hits_at_k": 1011.6202247948836, "tail.optimistic.z_hits_at_k": 6932.760503272533, "both.optimistic.z_hits_at_k": 5597.582134094323, "head.realistic.z_hits_at_k": 1011.6202247948836, "tail.realistic.z_hits_at_k": 6932.760503272533, "both.realistic.z_hits_at_k": 5597.582134094323, "head.pessimistic.z_hits_at_k": 1011.6202247948836, "tail.pessimistic.z_hits_at_k": 6932.760503272533, "both.pessimistic.z_hits_at_k": 5597.582134094323, "head.optimistic.adjusted_hits_at_k": 0.01972464411275644, "tail.optimistic.adjusted_hits_at_k": 0.1338976346306239, "both.optimistic.adjusted_hits_at_k": 0.07681118381603062, "head.realistic.adjusted_hits_at_k": 0.01972464411275644, "tail.realistic.adjusted_hits_at_k": 0.1338976346306239, "both.realistic.adjusted_hits_at_k": 0.07681118381603062, "head.pessimistic.adjusted_hits_at_k": 0.01972464411275644, "tail.pessimistic.adjusted_hits_at_k": 0.1338976346306239, "both.pessimistic.adjusted_hits_at_k": 0.07681118381603062}
+2026-11-17 15:24:21,745 INFO worker-4 pykeen.triples.triples_factory: Stored TriplesFactory(num_entities=123182, num_relations=74, create_inverse_triples=True, num_triples=870654) to file:///workspace/synthetic-knowledge-graph-generator/exp_checkpoints/YAGO3-10_ours_r75/TransE.saving/training_triples
+2026-11-17 15:24:22,177 INFO worker-4 pykeen.pipeline.api: Saved to directory: /workspace/synthetic-knowledge-graph-generator/exp_checkpoints/YAGO3-10_ours_r75/TransE.saving
+2026-11-17 15:24:37,480 INFO worker-4 train_kge: YAGO3-10_ours_r75: finished TransE in 2992 s of training, MRR 0.0381, Hits@10 0.0769 (exp_results).
+2026-11-17 15:24:37,484 INFO worker-4 train_kge.run: Status: {"dataset": "YAGO3-10_ours_r75", "model": "TransE", "num_epochs": 100, "status": "finished", "epoch": 100, "losses": [0.8821741602790187, 0.48851795347643573, 0.3109163373988559, 0.22472587728024648, 0.17789458973167088, 0.14991823741247956, 0.1305870130273378, 0.11633516192226342, 0.10525637072786478, 0.09651071277442673, 0.08941130544727957, 0.08329061868255128, 0.07800759997726046, 0.07324790507729904, 0.06913829844077708, 0.06608464681661465, 0.06263006581736842, 0.05966089344080625, 0.057079957728164855, 0.05489393032457627, 0.05220624160878535, 0.05054512367247136, 0.04832068264939136, 0.047063318286703223, 0.04493395572292133, 0.043685510164310395, 0.04241701910718226, 0.04084475922612517, 0.039747270602435575, 0.03853436258617141, 0.03741057235485231, 0.03612801718127699, 0.03544503285991194, 0.03458642333903363, 0.03374440309989481, 0.03259963354209499, 0.03220636192534311, 0.03125765458396483, 0.030599766358418365, 0.029770198492377015, 0.029346927423292483, 0.028499491434072106, 0.028196897069123428, 0.027702105472065475, 0.027242233749356626, 0.026380626148076406, 0.02620055477961268, 0.0256531504004704, 0.025287244018569518, 0.024669182154529252, 0.02432527835590179, 0.02403191365126713, 0.023629269134165815, 0.023200811757028383, 0.023018381309131503, 0.022765149318661207, 0.022397831650756893, 0.022013661281113893, 0.02194576170907614, 0.021460575082212545, 0.021129032352091, 0.020855879161874175, 0.02053005473268494, 0.02033478817618299, 0.020304870306396147, 0.020066151832680748, 0.01974018574626723, 0.019636381115816847, 0.019249366272783057, 0.01908431506492722, 0.018812344945145186, 0.01881051450058328, 0.018612714615506187, 0.018420679792062217, 0.01838554377873109, 0.018147777306886628, 0.017888644264197687, 0.01781681598002362, 0.01765324796239535, 0.017563881238861264, 0.01722605180808566, 0.01737142251061162, 0.017235859032685347, 0.016965580406760526, 0.016885330362743894, 0.016718964695825542, 0.016633614169722293, 0.016603490893025073, 0.0163256353108396, 0.016375273260607125, 0.016160779982420482, 0.016129737407266392, 0.01599820190384774, 0.01590465972781566, 0.01584773655202537, 0.015737232039442085, 0.015639524576757016, 0.01559877083440062, 0.015515464285887043, 0.015405046939412612], "train_seconds": 2991.646990554873, "evaluate_seconds": 232.08211135864258, "metrics": {"mrr": 0.03810220956802368, "mean_rank": 10037.5068359375, "hits_at_1": 0.016474933842987358, "hits_at_3": 0.03652648118200529, "hits_at_5": 0.05089955160246986, "hits_at_10": 0.07688685313143193}, "error": null, "updated_at": "2026-11-17T15:24:23+00:00"}
