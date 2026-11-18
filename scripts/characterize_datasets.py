@@ -55,19 +55,32 @@ Writes to `--output-dir` (default `exp_analysis`):
   source datasets with an ours or kbgen copy at that level, PyGraft's included.
   `--skip-levels std1 pca1` leaves those copies out of this table only, written
   as `size_mse_without_std1.*` and so on.
+- `structural_tables/size_error_<level>.csv`, `.md` and `.tex`, for each level
+  of `--size-levels` (e.g. `--size-levels r100`): one row per source dataset,
+  and for each generator the difference copy - original and the squared
+  relative error of the number of entities and of triples.
 
 `--set` picks the datasets: `base` (default), the `_ours`, `_kbgen` or
 `_pygraft` copies (read from `<folder>/<folder>.tsv`), including their
 rule-level copies (`<source>_<set>_r50`, `<source>_<set>_std1`, ...), or `all`.
 Only the Python standard library is used, and one dataset is read at a time.
 
+The two CSV files are also a cache: each graph's row keeps the SHA-256 of its
+triple file, the `--pattern-threshold` and DESCRIPTOR_VERSION, and a later run
+reuses the row and the graph's relation rows when all three match, so only new
+or changed graphs are read. Every table is then built from these rows. The rule
+columns are always read again from `<folder>.csv`. `--recount` counts every
+graph again.
+
     python scripts/characterize_datasets.py
     python scripts/characterize_datasets.py --datasets french family
     python scripts/characterize_datasets.py --set all
+    python scripts/characterize_datasets.py --set all --size-levels r100
 """
 
 import argparse
 import csv
+import hashlib
 import math
 import re
 import statistics
@@ -78,6 +91,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 COPY_SETS = ("ours", "kbgen", "pygraft")
+# Written in the `descriptor_version` column of each graph's row. Increase it
+# when `characterize` or `relation_rows` change what they compute, so the rows
+# of the CSV files counted before are counted again instead of reused.
+DESCRIPTOR_VERSION = 1
 CARDINALITY_THRESHOLD = 1.5
 CARDINALITY_CLASSES = ("1-1", "1-N", "N-1", "N-M")
 RULE_PATTERNS = (
@@ -490,6 +507,8 @@ def characterize(
 def write_csv(
     path: Path, rows: list[dict[str, object]], first: tuple[str, ...] = ()
 ) -> None:
+    """Floats are written in full (`repr`), so a row read back from the cache
+    gives the same tables as the row counted."""
     if not rows:
         return
     fields = list(first) + [k for k in rows[0] if k not in first]
@@ -498,7 +517,7 @@ def write_csv(
         writer.writeheader()
         for row in rows:
             writer.writerow(
-                {k: f"{v:.6g}" if isinstance(v, float) else v for k, v in row.items()}
+                {k: repr(v) if isinstance(v, float) else v for k, v in row.items()}
             )
 
 
@@ -912,7 +931,7 @@ def write_level_tables(out: Path, rows: list[dict[str, object]], level: str) -> 
                     [
                         r["dataset"],
                         r["label"],
-                        *(f"{v:.6g}" if isinstance(v, float) else v for v in vals),
+                        *(repr(v) if isinstance(v, float) else v for v in vals),
                     ]
                 )
         md = [
@@ -1098,6 +1117,182 @@ def write_size_mse(out: Path, table: list[dict[str, object]], skip: set[str]) ->
     return stem
 
 
+def size_errors(rows: list[dict[str, object]], level: str) -> list[dict[str, object]]:
+    """Per source dataset, generator and size descriptor at the rule level
+    `level`: the original and copy values, their difference copy - original and
+    the squared relative error ((copy - original) / original)², the quantity
+    `size_mse` averages. Empty cells for a missing copy; PyGraft's copy, made
+    without rules, is the same at every level."""
+    table = []
+    for row in method_rows(rows, level):
+        for _, copy_set in METHOD_COLUMNS[1:]:
+            for _, key in SIZE_COLUMNS:
+                original = int(float(row[f"base:{key}"]))  # type: ignore[arg-type]
+                copy = row[f"{copy_set}:{key}"]
+                difference: object = ""
+                squared_error: object = ""
+                if copy != "":
+                    copy = int(float(copy))  # type: ignore[arg-type]
+                    difference = copy - original
+                    squared_error = (difference / original) ** 2
+                table.append(
+                    {
+                        "dataset": row["dataset"],
+                        "label": row["label"],
+                        "family": row["family"],
+                        "level": level,
+                        "generator": copy_set,
+                        "descriptor": key,
+                        "original": original,
+                        "copy": copy,
+                        "difference": difference,
+                        "squared_error": squared_error,
+                    }
+                )
+    return table
+
+
+def format_difference(value: object, latex: bool = False) -> str:
+    """A signed difference with thousands separators, `–` when missing."""
+    if value == "":
+        return "–"
+    text = f"{int(value):+,}"  # type: ignore[call-overload]
+    return f"${text.replace(',', '{,}')}$" if latex else text
+
+
+def write_size_errors(out: Path, table: list[dict[str, object]], level: str) -> str:
+    """`structural_tables/size_error_<level>.csv`, `.md` and `.tex` from the rows of
+    `size_errors`: one row per source dataset, and for each generator and size
+    descriptor the difference copy - original (Δ) and the squared relative error
+    (SE), the smallest SE of each row and descriptor in bold in LaTeX. Returns the
+    stem written."""
+    folder = out / "structural_tables"
+    folder.mkdir(parents=True, exist_ok=True)
+    stem = f"size_error_{level}"
+    write_csv(folder / f"{stem}.csv", table)
+    cells = {
+        (str(r["dataset"]), str(r["generator"]), str(r["descriptor"])): r for r in table
+    }
+    sources = list(dict.fromkeys(str(r["dataset"]) for r in table))
+    first = {str(r["dataset"]): r for r in reversed(table)}
+    methods = [(name, s) for name, s in METHOD_COLUMNS if s != "base"]
+    md = [
+        f"# Entity and triple counts of each copy against its original, level {level}",
+        "",
+        "Generated by `scripts/characterize_datasets.py`. One row per source "
+        "dataset; KBgen and NAME (this generator) at rule level "
+        f"{level}, PyGraft made without rules. For the number of entities |V| and "
+        "of distinct triples |E|, Δ is copy − original and SE the squared "
+        "relative error ((copy − original) / original)², the quantity averaged in "
+        "`size_mse.md`. – marks a copy that does not exist.",
+        "",
+        "| Dataset | "
+        + " | ".join(
+            f"{name} {sym} {h.replace('|', chr(92) + '|')}"
+            for name, _ in methods
+            for h, _ in SIZE_COLUMNS
+            for sym in ("Δ", "SE")
+        )
+        + " |",
+        "|---|" + "---:|" * (len(methods) * len(SIZE_COLUMNS) * 2),
+    ]
+    for source in sources:
+        values = []
+        for _, s in methods:
+            for _, key in SIZE_COLUMNS:
+                cell = cells[source, s, key]
+                values.append(format_difference(cell["difference"]))
+                values.append(format_value(cell["squared_error"], "sci"))
+        md.append(f"| {first[source]['label']} | " + " | ".join(values) + " |")
+    (folder / f"{stem}.md").write_text("\n".join(md) + "\n", encoding="utf-8")
+
+    n = 2 * len(SIZE_COLUMNS)
+    tex = [
+        "% Generated by scripts/characterize_datasets.py",
+        f"% Entity and triple counts of each copy against its original, level {level}:",
+        "% difference copy - original and squared relative error "
+        "((copy - original) / original)^2.",
+        "\\begin{tabular}{l" + "|".join(["r" * n] * len(methods)) + "}",
+        "\\toprule",
+        " & "
+        + " & ".join(
+            f"\\multicolumn{{{n}}}{{c{'|' if i < len(methods) - 1 else ''}}}{{{name}}}"
+            for i, (name, _) in enumerate(methods)
+        )
+        + " \\\\",
+        "Dataset & "
+        + " & ".join(
+            f"${sym}{h}$"
+            for _ in methods
+            for h, _ in SIZE_COLUMNS
+            for sym in ("\\Delta", "\\mathrm{SE}\\,")
+        )
+        + " \\\\",
+        "\\midrule",
+    ]
+    previous = None
+    for source in sources:
+        if previous is not None and first[source]["family"] != previous:
+            tex.append("\\midrule")
+        previous = first[source]["family"]
+        best = {
+            key: min(
+                (
+                    float(v)  # type: ignore[arg-type]
+                    for _, s in methods
+                    if (v := cells[source, s, key]["squared_error"]) != ""
+                ),
+                default=None,
+            )
+            for _, key in SIZE_COLUMNS
+        }
+        row = []
+        for _, s in methods:
+            for _, key in SIZE_COLUMNS:
+                cell = cells[source, s, key]
+                row.append(format_difference(cell["difference"], latex=True))
+                value = cell["squared_error"]
+                text = format_value(value, "sci", latex=True)
+                if value != "" and float(value) == best[key]:  # type: ignore[arg-type]
+                    text = f"$\\mathbf{{{text.strip('$')}}}$"
+                row.append(text)
+        label = str(first[source]["label"]).replace("_", "\\_")
+        tex.append(f"{label} & " + " & ".join(row) + " \\\\")
+    tex += ["\\bottomrule", "\\end{tabular}"]
+    (folder / f"{stem}.tex").write_text("\n".join(tex) + "\n", encoding="utf-8")
+    return stem
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        while chunk := f.read(1 << 20):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def load_cache(
+    out: Path,
+) -> tuple[dict[str, dict[str, object]], dict[str, list[dict[str, object]]]]:
+    """The rows of the `dataset_characteristics.csv` and
+    `relation_characteristics.csv` written by an earlier run, by dataset, with
+    their values as the strings written. Empty if a file is missing; a row
+    without `sha256` (written before the cache) never matches."""
+    rows: dict[str, dict[str, object]] = {}
+    relations: dict[str, list[dict[str, object]]] = defaultdict(list)
+    graph_csv = out / "dataset_characteristics.csv"
+    relation_csv = out / "relation_characteristics.csv"
+    if not graph_csv.is_file() or not relation_csv.is_file():
+        return rows, relations
+    with graph_csv.open(encoding="utf-8", newline="") as f:
+        for row in csv.DictReader(f):
+            rows[row["dataset"]] = dict(row)
+    with relation_csv.open(encoding="utf-8", newline="") as f:
+        for row in csv.DictReader(f):
+            relations[row["dataset"]].append(dict(row))
+    return rows, relations
+
+
 def find_datasets(root: Path, chosen_set: str, names: list[str] | None) -> list[str]:
     found = []
     for folder in sorted(p for p in root.iterdir() if p.is_dir()):
@@ -1155,6 +1350,21 @@ def main() -> None:
         help="copies left out of the size MSE table (structural_tables/size_mse_"
         "without_<level>.*); every other output keeps them",
     )
+    parser.add_argument(
+        "--size-levels",
+        nargs="+",
+        default=[],
+        metavar="LEVEL",
+        help="rule levels (e.g. r100) whose per-graph size table "
+        "structural_tables/size_error_<level>.* is written: difference and squared "
+        "relative error of |V| and |E| of each copy",
+    )
+    parser.add_argument(
+        "--recount",
+        action="store_true",
+        help="count every graph again instead of reusing the rows of the "
+        "existing CSV files whose triple file is unchanged",
+    )
     args = parser.parse_args()
 
     names = find_datasets(args.root, args.set, args.datasets)
@@ -1162,17 +1372,43 @@ def main() -> None:
         sys.exit(f"No dataset found under {args.root}")
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    rows, relation_table = [], []
+    cached_rows, cached_relations = (
+        ({}, {}) if args.recount else load_cache(args.output_dir)
+    )
+    rows: list[dict[str, object]] = []
+    relation_table: list[dict[str, object]] = []
+    counted = 0
     for name in names:
         start = time.perf_counter()
-        row, relations = characterize(args.root, name, args.pattern_threshold)
+        digest = file_sha256(triples_path(args.root, name))
+        cached = cached_rows.get(name)
+        if (
+            cached is not None
+            and cached.get("sha256") == digest
+            and cached.get("descriptor_version") == str(DESCRIPTOR_VERSION)
+            and float(str(cached.get("pattern_threshold") or "nan"))
+            == args.pattern_threshold
+        ):
+            row = cached
+            row.update(rule_descriptors(args.root / name / f"{name}.csv"))
+            relations = cached_relations.get(name, [])
+            how = "cached"
+        else:
+            row, relations = characterize(args.root, name, args.pattern_threshold)
+            row["sha256"] = digest
+            row["pattern_threshold"] = args.pattern_threshold
+            row["descriptor_version"] = DESCRIPTOR_VERSION
+            counted += 1
+            how = f"{time.perf_counter() - start:.1f} s"
         rows.append(row)
         relation_table.extend(relations)
         print(
-            f"{name}: {row['entities']:,} entities, {row['relations']} relations, "
-            f"{row['triples']:,} triples ({time.perf_counter() - start:.1f} s)",
+            f"{name}: {int(str(row['entities'])):,} entities, "
+            f"{row['relations']} relations, "
+            f"{int(str(row['triples'])):,} triples ({how})",
             flush=True,
         )
+    print(f"Counted {counted} graphs, reused {len(names) - counted} from the CSV")
 
     rows.sort(key=sort_key)
     order = {row["dataset"]: i for i, row in enumerate(rows)}
@@ -1193,6 +1429,12 @@ def main() -> None:
     mse_table = size_mse(rows, skip)
     if mse_table:
         stem = write_size_mse(out, mse_table, skip)
+        print(f"Wrote structural_tables/{stem}.{{csv,md,tex}}")
+    for level in args.size_levels:
+        if not any(r["set"] in ("ours", "kbgen") and r["level"] == level for r in rows):
+            print(f"No ours or kbgen copy at level {level}; no size table written")
+            continue
+        stem = write_size_errors(out, size_errors(rows, level), level)
         print(f"Wrote structural_tables/{stem}.{{csv,md,tex}}")
     print(
         "Wrote dataset_characteristics.{csv,md,tex}, structural_comparison."
