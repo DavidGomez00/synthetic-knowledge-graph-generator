@@ -1,0 +1,27 @@
+### 2026-11-19 12:00:45 link_base: start
+### 2026-11-19 12:00:45 link_base: done in 0.0 s
+### 2026-11-19 12:00:45 csv_to_amie: start
+### 2026-11-19 12:00:45 csv->amie: 3 of 240 rules
+### 2026-11-19 12:00:45 csv_to_amie: done in 0.0 s
+### 2026-11-19 12:00:45 learn_M3: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/GitHub/synthetic-knowledge-graph-generator/runs/rule-levels/kbgen/learn_model.py french-pca1.npz -m M3 -r french-pca1-AmieRules.txt
+Namespace(input='french-pca1.npz', model='M3', source_kb_models=['M1', 'M2', 'M3'], rules_path='french-pca1-AmieRules.txt')
+learning M3 model
+rules successfully parsed: 3
+saving model to french-pca1-M3.pkl
+### 2026-11-19 12:00:46 learn_M3: done in 1.2 s
+### 2026-11-19 12:00:46 synthesize: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/GitHub/synthetic-knowledge-graph-generator/runs/rule-levels/kbgen/synthesize.py french-pca1-M3.pkl french-pca1.kbgenm3.nt -s 1.0
+Namespace(input='french-pca1-M3.pkl', output='french-pca1.kbgenm3.nt', size=1.0, nentities=None, nfacts=None, debug=False)
+Synthesizing HORN model
+  0%|          | 0/2222 [00:00<?, ?it/s]100%|██████████| 2222/2222 [00:00<00:00, 43522.34it/s]
+  0%|          | 0/6572 [00:00<?, ?it/s]  6%|▌         | 380/6572 [00:00<00:01, 3795.61it/s] 13%|█▎        | 836/6572 [00:00<00:01, 4241.34it/s] 20%|█▉        | 1300/6572 [00:00<00:01, 4420.62it/s] 27%|██▋       | 1743/6572 [00:00<00:01, 4289.38it/s] 33%|███▎      | 2173/6572 [00:00<00:01, 3954.80it/s] 40%|████      | 2644/6572 [00:00<00:00, 4191.05it/s] 47%|████▋     | 3088/6572 [00:00<00:00, 4268.21it/s] 54%|█████▎    | 3519/6572 [00:00<00:00, 4242.04it/s] 60%|██████    | 3947/6572 [00:00<00:00, 4252.57it/s] 67%|██████▋   | 4374/6572 [00:01<00:00, 4079.65it/s] 73%|███████▎  | 4785/6572 [00:01<00:00, 3779.80it/s] 79%|███████▊  | 5169/6572 [00:01<00:00, 3624.79it/s] 84%|████████▍ | 5542/6572 [00:01<00:00, 3653.37it/s] 90%|█████████ | 5928/6572 [00:01<00:00, 3709.19it/s] 96%|█████████▌| 6318/6572 [00:01<00:00, 3761.52it/s]/home/david/.pyenv/versions/KG/lib/python3.10/site-packages/rdflib/plugins/serializers/nt.py:39: UserWarning: NTSerializer always uses UTF-8 encoding. Given encoding was: None
+  warnings.warn(
+100%|██████████| 6572/6572 [00:01<00:00, 3488.03it/s]
+### 2026-11-19 12:00:49 synthesize: done in 2.8 s
+### 2026-11-19 12:00:49 write_output: start
+### 2026-11-19 12:00:49 output: 6572 facts and 2233 type and schema triples written
+### 2026-11-19 12:00:49 write_output: done in 0.0 s
+### 2026-11-19 12:00:49 stats: start
+### 2026-11-19 12:00:49 stats: 12554 input, 6572 kept, 8805 synthetic triples; 3/3 rules parsed
+### 2026-11-19 12:00:49 stats: done in 0.0 s

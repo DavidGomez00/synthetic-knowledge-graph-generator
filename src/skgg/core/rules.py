@@ -12,7 +12,7 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Protocol
 
 import pandas as pd
 
@@ -20,10 +20,11 @@ from skgg.core.utils import format_term
 
 logger = logging.getLogger(__name__)
 
-# The confidence that makes a rule complete (`HornRule.is_complete`): std confidence
-# in the std setting, the default, and PCA confidence in the PCA setting.
-Completeness = Literal["std", "pca"]
-COMPLETENESS: tuple[Completeness, ...] = ("std", "pca")
+# PCA confidence that makes a rule complete (`HornRule.is_complete`), and that a rule
+# needs to be kept when no PCA threshold is given (`rule_thresholds`). Until
+# 2026-11-19 the generator also had a std setting, where std confidence 1 made a
+# rule complete; commit 2c7dfd5d has it.
+COMPLETE_CONFIDENCE = 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -138,8 +139,6 @@ class HornRule:
         head_coverage: Head coverage of the rule.
         functional_variable: The head variable AMIE computed the PCA confidence
             on (e.g. `?b`), or None if the rules CSV doesn't give it.
-        completeness: The setting the rule was parsed under, which picks the
-            confidence that makes it complete (see `is_complete`).
     """
 
     signature: RuleSignature
@@ -150,7 +149,6 @@ class HornRule:
     functional_variable: str | None = None
     classification: str = "UNKNOWN"
     closed: bool = False
-    completeness: Completeness = "std"
 
     @property
     def head(self) -> Atom:
@@ -197,19 +195,13 @@ class HornRule:
 
     @property
     def is_complete(self) -> bool:
-        """Whether the rule is complete: the confidence of its setting
-        (`completeness`) is >= `DEFAULT_STD_THRESHOLD` (1). In the std setting that is
-        std confidence, so the rule holds for every body grounding of the source; in
-        the PCA setting it is PCA confidence, so the rule holds for every body
-        grounding whose functional variable has a value for the head relation.
-        Since PCA confidence is never below std confidence, the PCA setting only
-        adds complete rules. Completion forward-chains the complete rules only; the
-        others are partial rules, whose groundings the EDB builds together with
-        their heads (see `grounding_target`)."""
-        confidence = (
-            self.pca_confidence if self.completeness == "pca" else self.std_confidence
-        )
-        return (confidence or 0.0) >= DEFAULT_STD_THRESHOLD
+        """Whether the rule is complete: its PCA confidence is >=
+        `COMPLETE_CONFIDENCE` (1), so it holds for every body grounding of the source
+        whose functional variable has a value for the head relation. Completion
+        forward-chains the complete rules only; the others are partial rules, whose
+        groundings the EDB builds together with their heads (see
+        `grounding_target`)."""
+        return (self.pca_confidence or 0.0) >= COMPLETE_CONFIDENCE
 
     @property
     def grounding_target(self) -> int:
@@ -238,8 +230,8 @@ class HornRule:
 # Rule parsing.
 # ---------------------------------------------------------------------------
 ATOM_PATTERN = re.compile(r"(\?\w+)\s+(\S+)\s+(\S+)")
-# Confidence a rule needs to be complete, and to be kept when no PCA threshold is
-# given: std confidence in the std setting, PCA confidence in the PCA setting.
+# Std confidence of the rules that hold on every body grounding of a graph, the rule
+# set `cli/complete.py` completes a real graph with.
 DEFAULT_STD_THRESHOLD = 1.0
 
 
@@ -291,14 +283,12 @@ def _parse_head(head_str: str, term_mapping: dict[str, str]) -> Atom:
 def _parse_horn_rule(
     row: _RuleRow,
     term_mapping: dict[str, str],
-    completeness: Completeness = "std",
 ) -> HornRule:
     """Extracts a HornRule object from a pandas DataFrame row.
 
     Args:
         row: A named tuple representing a row form the rules DataFrame. Its
             `rule_id` becomes the rule's identifier.
-        completeness: The setting that decides whether the rule is complete.
 
     Returns:
         A populated HornRule instance.
@@ -327,7 +317,6 @@ def _parse_horn_rule(
             else str(functional_variable).strip() or None
         ),
         classification=row.classification,
-        completeness=completeness,
     )
 
     return rule
@@ -348,7 +337,6 @@ def parse_rule_set(
     term_mapping: dict[str, str],
     pca_threshold: float | None = None,
     std_threshold: float | None = None,
-    completeness: Completeness = "std",
 ) -> dict[str, HornRule]:
     """Parse a rules CSV into a dict of HornRules identified by rule_id.
 
@@ -362,9 +350,6 @@ def parse_rule_set(
             None to not filter on PCA confidence.
         std_threshold: Minimum std confidence a rule must have to be kept, or
             None to not filter on std confidence.
-        completeness: The setting of the rules (`HornRule.completeness`): "std"
-            makes the rules with std confidence 1 complete, "pca" those with PCA
-            confidence 1. It doesn't filter any rule.
 
     A rule that meets every threshold given is classified "POSITIVE" and kept.
     A rule missing one of the confidences filtered on is classified "UNKNOWN",
@@ -378,8 +363,6 @@ def parse_rule_set(
         ValueError: If the CSV has no `rule_id` column, or a rule_id is empty
             or repeated.
     """
-    if completeness not in COMPLETENESS:
-        raise ValueError(f"Unknown completeness setting {completeness!r}.")
     rule_dataframe = pd.read_csv(rules_file, dtype={"rule_id": str})
 
     if "rule_id" not in rule_dataframe.columns:
@@ -434,7 +417,6 @@ def parse_rule_set(
         rule = _parse_horn_rule(
             row=row,
             term_mapping=term_mapping,
-            completeness=completeness,
         )
 
         rules[rule.rule_id] = rule
@@ -442,37 +424,24 @@ def parse_rule_set(
     return rules
 
 
-def rule_thresholds(
-    completeness: Completeness, pca_threshold: float | None
-) -> dict[str, float]:
+def rule_thresholds(pca_threshold: float | None) -> dict[str, float]:
     """The thresholds `parse_rule_set` keeps a run's rules with: the PCA threshold
-    if one is given, in either setting, or else the rules that are complete in the
-    setting, std confidence >= `DEFAULT_STD_THRESHOLD` (1) in the std setting and
-    PCA confidence >= 1 in the PCA setting."""
-    if pca_threshold is not None:
-        return {"pca_threshold": pca_threshold}
-    if completeness == "pca":
-        return {"pca_threshold": DEFAULT_STD_THRESHOLD}
-    return {"std_threshold": DEFAULT_STD_THRESHOLD}
+    if one is given, or else the complete rules, PCA confidence >=
+    `COMPLETE_CONFIDENCE` (1)."""
+    return {
+        "pca_threshold": COMPLETE_CONFIDENCE if pca_threshold is None else pca_threshold
+    }
 
 
-def rule_filter_label(
-    pca_threshold: float | None, completeness: Completeness = "std"
-) -> str:
+def rule_filter_label(pca_threshold: float | None) -> str:
     """Labels the confidence filter of a run for its graph URIs (see
-    `GraphConfig`). In the std setting: `pca=0.9` for a PCA threshold, or `std=1`
-    for the `DEFAULT_STD_THRESHOLD` kept when there is none. In the PCA setting the
-    label starts with `pca/`: `pca/pca=0.9`, or `pca/pca=1` without a threshold.
-    The prefix keeps a PCA-setting run apart from a std-setting run at the same
-    threshold, which keeps the same rules but makes fewer of them complete.
-    Thresholds are written without trailing zeros, so 1 and 1.0 give the same
-    label."""
-    if completeness == "pca":
-        threshold = DEFAULT_STD_THRESHOLD if pca_threshold is None else pca_threshold
-        return f"pca/pca={threshold:g}"
-    if pca_threshold is not None:
-        return f"pca={pca_threshold:g}"
-    return f"std={DEFAULT_STD_THRESHOLD:g}"
+    `GraphConfig`): `pca=0.9` for a PCA threshold, or `pca=1` for the complete
+    rules kept when there is none. Thresholds are written without trailing zeros,
+    so 1 and 1.0 give the same label. Until 2026-11-19 the std setting labelled its
+    runs `std=1` and `pca=<t>`, and the PCA setting `pca/pca=<t>`; graphs of those
+    runs keep their URIs."""
+    threshold = COMPLETE_CONFIDENCE if pca_threshold is None else pca_threshold
+    return f"pca={threshold:g}"
 
 
 def write_used_rules(

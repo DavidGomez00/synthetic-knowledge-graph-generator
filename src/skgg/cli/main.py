@@ -17,6 +17,7 @@ from skgg.core.config import RunConfig
 from skgg.core.cycles import get_relation_graph, remove_minimal_cyclic_rules
 from skgg.core.queries import (
     copy_graph,
+    copy_predicates,
     get_body_size,
     get_pca_body_size,
     get_predicate_frequencies,
@@ -24,9 +25,7 @@ from skgg.core.queries import (
     get_triple_count,
 )
 from skgg.core.rules import (
-    COMPLETENESS,
     Atom,
-    Completeness,
     HornRule,
     get_impacted_rules,
     get_intensional_preds,
@@ -39,6 +38,7 @@ from skgg.core.rules import (
 from skgg.core.utils import (
     build_term_mapping,
     create_sparql_client,
+    format_term,
     resolve_config_path,
     setup_logging,
     short_term,
@@ -252,7 +252,10 @@ def _format_summary_block(
         "",
     ]
 
-    known_preds = sorted(og_freqs)
+    # Profiles are keyed by the bracketed URI, frequencies by the bare one. A relation
+    # of the base graph without a profile was copied from it (--copy-relations).
+    known_preds = sorted(p for p in og_freqs if f"<{p}>" in profiles)
+    copied_preds = sorted(p for p in og_freqs if f"<{p}>" not in profiles)
     extra_preds = sorted(set(syn_freqs) - set(og_freqs))
 
     name_width = max((len(short_term(p)) for p in known_preds), default=0)
@@ -278,6 +281,16 @@ def _format_summary_block(
             f"  ({syn - og:+{delta_width}d})"
             f"  {f'[{status}]':<8}  [{kind}]"
         )
+
+    if copied_preds:
+        lines += [
+            "",
+            f"Predicates copied from the original ({len(copied_preds)}):",
+            *(
+                f"  {short_term(pred)}  {og_freqs[pred]} -> {syn_freqs.get(pred, 0)}"
+                for pred in copied_preds
+            ),
+        ]
 
     if extra_preds:
         extra_width = max(len(short_term(p)) for p in extra_preds)
@@ -429,9 +442,16 @@ def run_synthetic_graph_experiment(
     base_uri: str | None = None,
     namespace: str | None = None,
     skip_reflexivity: bool = False,
-    completeness: Completeness | None = None,
+    copy_relations: list[str] | None = None,
 ) -> None:
     """Runs a Synthetic Graph generation experiment.
+
+    `copy_relations` names relations (bare terms such as `type`, or IRIs) that are
+    not generated: their profiles are dropped after the metrics are read, so the
+    EDB, completion, the closure tracking and the summary never see them, and after
+    completion every triple of theirs is copied unchanged from the base graph into
+    the synthetic graph (`copy_predicates`). Used for the `type` triples, so each
+    entity keeps the source's class.
 
     `skip_reflexivity` generates as before the self-loop fix (`35a1b81`): no
     relation gets its self-loops placed first, and rule groundings and random
@@ -440,18 +460,10 @@ def run_synthetic_graph_experiment(
 
     `log_level`, if given, overrides `config.logging.level` for this run.
     `pca_threshold`, if given, overrides `config.rules.pca_threshold` for
-    this run's rule filtering only. If neither is set, the rules that are complete
-    in the run's setting are kept instead (`rule_thresholds`).
+    this run's rule filtering only. If neither is set, the complete rules, PCA
+    confidence 1, are kept instead (`rule_thresholds`).
 
-    `completeness`, if given, overrides `config.rules.completeness`: the setting
-    that picks the confidence that makes a rule complete, std confidence 1 in the
-    std setting (the default) and PCA confidence 1 in the PCA setting. The PCA
-    setting treats the rules with PCA confidence 1 as the std setting treats the
-    rules with std confidence 1, and its graph labels start with `pca/`
-    (`pca/pca=1` without a threshold).
-
-    The kept rules whose confidence of the setting is 1 are complete
-    (`HornRule.is_complete`):
+    The kept rules with PCA confidence 1 are complete (`HornRule.is_complete`):
     the EDB builds the groundings of their extensional body up to their support and
     completion forward-chains them. The others are partial: the EDB builds
     round(PCA confidence x support) groundings of their body together with their
@@ -488,8 +500,9 @@ def run_synthetic_graph_experiment(
     own heads.
 
     Raises:
-        ValueError: If one of the run's graphs is the base graph, or a rule
-            predicate has no profile in the base graph.
+        ValueError: If one of the run's graphs is the base graph, a rule
+            predicate has no profile in the base graph, or a copied relation is
+            not in the base graph or is used by a kept rule.
         RuntimeError: If `skip_edb_generation` is True and the EDB graph of this
             run is empty.
     """
@@ -511,9 +524,7 @@ def run_synthetic_graph_experiment(
 
     if pca_threshold is None:
         pca_threshold = config.rules.pca_threshold
-    if completeness is None:
-        completeness = config.rules.completeness
-    rule_filter = rule_filter_label(pca_threshold, completeness)
+    rule_filter = rule_filter_label(pca_threshold)
     if synthetic_uri is None:
         synthetic_uri = config.graph.synthetic_uri(rule_filter)
     edb_uri = config.graph.edb_uri(synthetic_uri)
@@ -523,9 +534,8 @@ def run_synthetic_graph_experiment(
     if base_uri in (edb_uri, synthetic_uri, filled_uri):
         raise ValueError(f"The run's graphs can't include the base graph <{base_uri}>.")
     logger.info(
-        "Rule filter %s (%s setting): EDB at <%s>, synthetic graph at <%s>%s.",
+        "Rule filter %s: EDB at <%s>, synthetic graph at <%s>%s.",
         rule_filter,
-        "PCA" if completeness == "pca" else "std",
         edb_uri,
         synthetic_uri,
         f", filled graph at <{filled_uri}>" if fill else "",
@@ -541,8 +551,7 @@ def run_synthetic_graph_experiment(
     rules = parse_rule_set(
         rules_file=rules_file,
         term_mapping=term_mapping,
-        completeness=completeness,
-        **rule_thresholds(completeness, pca_threshold),
+        **rule_thresholds(pca_threshold),
     )
     unprofiled = (
         set().union(*(r.get_predicates() for r in rules.values()))
@@ -555,16 +564,36 @@ def run_synthetic_graph_experiment(
             "--namespace) matches the base graph's IRIs, or upload the base graph "
             "again."
         )
+    copied_preds = {format_term(r, term_mapping) for r in copy_relations or []}
+    if missing := copied_preds - graph_metrics.profiles.keys():
+        raise ValueError(
+            f"Relations to copy that the base graph <{base_uri}> lacks: "
+            f"{sorted(missing)}."
+        )
+    if used := copied_preds & set().union(
+        *(r.get_predicates() for r in rules.values())
+    ):
+        raise ValueError(
+            f"Relations to copy that kept rules use: {sorted(used)}. A copied "
+            "relation is not generated, so no rule can use it."
+        )
+    for predicate in copied_preds:
+        del graph_metrics.profiles[predicate]
+    if copied_preds:
+        logger.info(
+            "Relations copied from the base graph after completion, not generated: "
+            "%s",
+            ", ".join(sorted(map(short_term, copied_preds))),
+        )
     # Completion forward-chains the complete rules only. The EDB grounds each
     # partial rule with its head, `grounding_target` times.
     complete_rules = {r_id: r for r_id, r in rules.items() if r.is_complete}
     partial_rules = {r_id: r for r_id, r in rules.items() if not r.is_complete}
     logger.info(
-        "%d rules: %d complete (%s confidence 1, forward-chained), %d partial "
+        "%d rules: %d complete (PCA confidence 1, forward-chained), %d partial "
         "(grounded round(PCA confidence x support) times in the EDB, after the "
         "complete rules).",
         len(rules),
-        "PCA" if completeness == "pca" else "std",
         len(complete_rules),
         len(partial_rules),
     )
@@ -708,6 +737,15 @@ def run_synthetic_graph_experiment(
     for rule_id in get_closed_rules(client, synthetic_uri, partial_rules):
         rules[rule_id].closed = True
     progress.log("initial", synthetic_uri)
+    if copied_preds:
+        for predicate, count in copy_predicates(
+            client, base_uri, synthetic_uri, copied_preds
+        ).items():
+            logger.info(
+                "[Copied] %s: %d triples from the base graph.",
+                short_term(predicate),
+                count,
+            )
 
     _log_phase(4, "Filling open relations")
     final_uri = synthetic_uri
@@ -775,23 +813,11 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Keep the rules with at least this PCA confidence, overriding the "
         "config file's rules.pca_threshold for this run only. Without either, the "
-        "rules that are complete in the run's setting are kept (std confidence 1, "
-        "or PCA confidence 1 with --completeness pca). A kept rule that isn't "
-        "complete is partial: the EDB builds round(PCA confidence x support) of its "
-        "groundings with their head, and completion doesn't apply it. The rule "
-        "filter names the run's graphs, e.g. http://FrenchRoyalty.org/skgg/pca=0.9 "
-        "or .../skgg/std=1, and .../skgg/pca/pca=0.9 in the PCA setting.",
-    )
-    parser.add_argument(
-        "--completeness",
-        choices=COMPLETENESS,
-        default=None,
-        help="The confidence that makes a rule complete (forward-chained in "
-        "completion): std (std confidence 1) or pca (PCA confidence 1), "
-        "overriding the config file's rules.completeness (default std) for this "
-        "run only. In the PCA setting the rules with PCA confidence 1 are kept "
-        "when no PCA threshold is set, and the graphs are under .../skgg/pca/, "
-        "e.g. http://FrenchRoyalty.org/skgg/pca/pca=1.",
+        "complete rules (PCA confidence 1) are kept. A kept rule with PCA "
+        "confidence below 1 is partial: the EDB builds round(PCA confidence x "
+        "support) of its groundings with their head, and completion doesn't apply "
+        "it. The rule filter names the run's graphs, e.g. "
+        "http://FrenchRoyalty.org/skgg/pca=0.9, or .../skgg/pca=1 without it.",
     )
     parser.add_argument(
         "--synthetic-uri",
@@ -822,6 +848,16 @@ def _parse_args() -> argparse.Namespace:
         "self-loops by chance. By default each relation gets exactly the source's "
         "self-loops.",
     )
+    parser.add_argument(
+        "--copy-relations",
+        nargs="+",
+        default=None,
+        metavar="RELATION",
+        help="Relations that are not generated but copied unchanged from the base "
+        "graph into the synthetic graph after completion, e.g. type: each entity "
+        "keeps the source's class. They have no frequency target, and no kept rule "
+        "may use them.",
+    )
     return parser.parse_args()
 
 
@@ -837,5 +873,5 @@ if __name__ == "__main__":
         base_uri=args.base_uri,
         namespace=args.namespace,
         skip_reflexivity=args.skip_reflexivity,
-        completeness=args.completeness,
+        copy_relations=args.copy_relations,
     )

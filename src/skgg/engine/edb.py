@@ -871,39 +871,6 @@ def generate_extensional_predicates(
             chunk_size=chunk_size,
             buffer=buffer,
         )
-    before_warm_up = {p: pr.frequency for p, pr in profiles.items()}
-
-    # Warm-up: Direct matches for any predicate untill no new triples.
-    logger.info("Start warm-up.")
-
-    while True:
-        if count := check_direct_matches(
-            client=client,
-            edb_uri=edb_uri,
-            profiles=directed_profiles,
-            term_mapping=term_mapping,
-            chunk_size=chunk_size,
-            buffer=buffer,
-            checked=direct_checked,
-        ):
-            logger.info("[Warm-up] Added %d direct matches to EDB.", count)
-        else:
-            break
-
-    update_closed_preds(profiles=profiles)
-
-    # Direct matches cover every predicate, so intensional ones may get triples too.
-    if warm_preds := {
-        p for p, pr in profiles.items() if pr.frequency < before_warm_up[p]
-    }:
-        logger.info(
-            "[Warm-up] Relations with direct matches (%d, added/target): %s",
-            len(warm_preds),
-            _format_relations(warm_preds, profiles, targets, intensional_preds),
-        )
-    else:
-        logger.info("[Warm-up] No direct matches.")
-
     # Complete rules are grounded before any partial rule, so they get the budget
     # first; each group is ordered on its own (a complete rule never waits for a
     # partial one).

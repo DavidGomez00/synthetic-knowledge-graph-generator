@@ -43,12 +43,22 @@ whose `ours_same_as` is set is skipped, as the generator skips it. --force redoe
 steps only, never `work/D/`. The summary goes to `<results dir>/rule-levels/`.
 The generator's `_used.csv` files are read from `<root>` whatever `--level-root` is,
 or from `--used-rules-dir` (`<dir>/D_ours_L_used.csv`) for rules selected without
-making the generator's copy (runs/rule-levels-entities/select_rules.py).
+making the generator's copy.
 
-By default kbgen synthesizes as many entities as the subjects of the graph it loads
-(its `n_entities`). With --entities source, synthesize.py gets `-ne N`, N being the
-unique entities of the distinct triples of D.unified.tsv, the number PyGraft is given
-as num_entities. The summary records both (`entities_mode`, `desired_entities`).
+kbgen synthesizes as many entities as the subjects of the graph it loads (its
+`n_entities`). The option --entities source, which passed synthesize.py `-ne N` with
+the source's unique entities, and the copies it made (exp_datasets_kbgen_entities/,
+recorded in runs/rule-levels-entities/) were removed on 2026-11-19; commit 2c7dfd5d
+keeps them. `summary.csv` keeps the columns `entities_mode` and `desired_entities`,
+empty for the runs made since.
+
+The copy keeps every triple of kbgen's output. A relation in predicate position gets
+the source's relation name back, `rdf:type` is written `type` as in the source's
+.tsv files, and every other term keeps kbgen's name: `Entity_3 type Type_0` for the
+classes kbgen synthesizes from the source's `type` triples, `Type_0 type
+http://www.w3.org/2002/07/owl#Class` and `relation_2 type
+http://www.w3.org/2002/07/owl#ObjectProperty` for its schema. --drop-type-triples
+drops every `rdf:type` line instead, as the copies made before 2026-11-19 did.
 
 Every copy keeps the logs and records of the run that made it, next to it:
 `<copy>.log`, `<copy>.base.log`, `<copy>.stats.json` and `<copy>.rules.txt`
@@ -262,12 +272,12 @@ def order_by_earlier_times(todo: list[Dataset], summary: Path) -> list[Dataset]:
 # Pipeline steps
 # ---------------------------------------------------------------------------
 class Runner:
-    def __init__(self, ds: Dataset, fc, python: str, size: float, force: bool, entities: str = "kept"):
+    def __init__(self, ds: Dataset, fc, python: str, size: float, force: bool,
+                 drop_type_triples: bool = False):
         self.ds, self.fc, self.python, self.size, self.force = ds, fc, python, size, force
-        # "kept": kbgen's own entity count (the subjects of the graph it loads);
-        # "source": synthesize.py -ne with the unique entities of D.unified.tsv.
-        self.entities = entities
-        self._source_entities: int | None = None
+        # Drop every rdf:type line of kbgen's output, as the copies made before
+        # 2026-11-19 did; by default every triple is kept.
+        self.drop_type_triples = drop_type_triples
         self.term_mapping = fc.build_term_mapping(NAMESPACE)
         ds.base_work.mkdir(parents=True, exist_ok=True)
         ds.work.mkdir(parents=True, exist_ok=True)
@@ -305,24 +315,8 @@ class Runner:
             subprocess.run(cmd, cwd=cwd or self.ds.work, stdout=log, stderr=subprocess.STDOUT, check=True,
                            env={**os.environ, "PYTHONUNBUFFERED": "1", "MPLBACKEND": "Agg"})
 
-    def source_entities(self) -> int:
-        """The unique entities (subjects and objects) of the distinct triples of
-        D.unified.tsv, the number PyGraft was given as num_entities."""
-        if self._source_entities is None:
-            seen, entities = set(), set()
-            for _, t in self.fc.read_tsv(self.ds.triples):
-                if t is None or t in seen:
-                    continue
-                seen.add(t)
-                entities.update((t[0], t[2]))
-            self._source_entities = len(entities)
-        return self._source_entities
-
     def synthesize_args(self) -> list[str]:
-        args = [self.ds.models["M3"].name, self.ds.synth_nt.name, "-s", str(self.size)]
-        if self.entities == "source":
-            args += ["-ne", str(self.source_entities())]
-        return args
+        return [self.ds.models["M3"].name, self.ds.synth_nt.name, "-s", str(self.size)]
 
     def link_base(self) -> None:
         """Links work/D's tensor and M2 into the level's folder under the level's names,
@@ -379,20 +373,32 @@ class Runner:
         with self.ds.models["M3"].open("rb") as f:
             model = pickle.load(f)
         names = self.relation_names(model)
-        schema = written = 0
+        facts = typed = dropped = 0
         self.ds.output.parent.mkdir(parents=True, exist_ok=True)
         with self.ds.synth_tsv.open(encoding="utf-8") as src, self.ds.output.open("w", encoding="utf-8") as out:
             for line in src:
                 s, p, o = line.rstrip("\n").split("\t")
-                if p == RDF_TYPE:
-                    schema += 1
+                if p == RDF_TYPE and self.drop_type_triples:
+                    dropped += 1
                     continue
-                row = (s.removeprefix(SYNTH_PREFIX), names[p], o.removeprefix(SYNTH_PREFIX))
-                if any("http" in t or "/" in t for t in (row[0], row[2])):
+                subject, obj = s.removeprefix(SYNTH_PREFIX), o.removeprefix(SYNTH_PREFIX)
+                if p in names:
+                    row = (subject, names[p], obj)
+                    facts += 1
+                else:
+                    # kbgen's entity types and schema: rdf:type as the source writes it,
+                    # any other predicate and the owl/rdfs objects as full IRIs.
+                    row = (subject, "type" if p == RDF_TYPE else p, obj)
+                    typed += 1
+                # Every subject is a term kbgen synthesized, and so is every object
+                # of a fact between entities.
+                if any("http" in t or "/" in t for t in (row[0], *(row[2:] if p in names else ()))):
                     raise RuntimeError(f"unmapped term in synthetic triple: {line.strip()}")
                 out.write("\t".join(row) + "\n")
-                written += 1
-        self.note(f"output: {written} facts written, {schema} schema triples dropped")
+        if self.drop_type_triples:
+            self.note(f"output: {facts} facts written, {dropped} rdf:type triples dropped")
+        else:
+            self.note(f"output: {facts} facts and {typed} type and schema triples written")
 
     def run_base(self) -> None:
         """The steps that don't depend on the rules, in work/D."""
@@ -483,8 +489,6 @@ class Runner:
             "dropped_share": round(1 - n_kept / n_in, 4),
             "kept_entities": len(kept_ents),
             "model_entities": model_entities,
-            "entities_mode": self.entities,
-            "desired_entities": self.source_entities() if self.entities == "source" else model_entities,
             "kept_relations": sum(1 for r in kept if kept[r]),
             "synthetic_triples": n_syn,
             "synthetic_vs_kept": round(n_syn / n_kept, 4) if n_kept else None,
@@ -666,10 +670,9 @@ def main() -> int:
     p.add_argument("--rules-from-ours", action="store_true",
                    help="with --levels, give kbgen at each level the rules of this project's generator, "
                         "D_ours_L/D_ours_L_used.csv")
-    p.add_argument("--entities", choices=["kept", "source"], default="kept",
-                   help="entities to synthesize: kbgen's own count, the subjects of the graph it loads "
-                        "(kept, the default), or the unique entities of D.unified.tsv, passed as "
-                        "synthesize.py -ne (source)")
+    p.add_argument("--drop-type-triples", action="store_true",
+                   help="drop every rdf:type line of kbgen's output (entity types and schema), as the "
+                        "copies made before 2026-11-19 did; by default every triple is kept")
     p.add_argument("--order-from", type=Path, default=None,
                    help="with --levels, start the levels that took longest in this earlier "
                         "summary.csv (seconds_synthesize) first; levels it lacks go first")
@@ -699,7 +702,8 @@ def main() -> int:
 
     def process(ds: Dataset, base_only: bool = False) -> None:
         try:
-            runner = Runner(ds, fc, args.python, args.size, args.force and not base_only, args.entities)
+            runner = Runner(ds, fc, args.python, args.size, args.force and not base_only,
+                            args.drop_type_triples)
             runner.run_base() if base_only else runner.run()
             logger.info("[%s] finished%s", ds.tag, " the steps shared by its levels" if base_only else "")
         except Exception:

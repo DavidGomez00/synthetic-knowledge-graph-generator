@@ -3,13 +3,13 @@
 For each graph of `results_table.AGREEMENT_GRAPHS`, reads its mined rules
 (`<graph>.csv`) and its triples (`<graph>.unified.tsv`) and reproduces the rule
 selection of `cli/main.py` with its default filter: `parse_rule_set` keeps the
-rules with std confidence 1, and `remove_minimal_cyclic_rules` removes the
+rules with PCA confidence 1, and `remove_minimal_cyclic_rules` removes the
 fewest of them that leave the relation graph with no cycle, exempting the
 symmetric rules whose relation has the same domain and range counts
 (`get_undirected_rule_ids`, with the counts computed from the triple file
 instead of the graph database). The rules left are the ones the generator used.
 
-Per graph, the table gives the relations, the rules mined, the rules with std
+Per graph, the table gives the relations, the rules mined, the rules with PCA
 confidence 1, the rules removed for cycles, the rules used and their patterns
 (symmetry, inversion, hierarchy, composition, intersection, classified as in
 `characterize_datasets.py`). For all mined rules and for the used ones, it
@@ -37,7 +37,7 @@ from characterize_datasets import RULE_PATTERNS, classify_rule
 from results_table import AGREEMENT_GRAPHS, DECIMALS, HEADER, MISSING, latex_name
 
 from skgg.core.cycles import remove_minimal_cyclic_rules
-from skgg.core.rules import DEFAULT_STD_THRESHOLD, parse_rule_set
+from skgg.core.rules import COMPLETE_CONFIDENCE, parse_rule_set
 from skgg.core.utils import build_term_mapping, format_term
 from skgg.engine.edb import get_undirected_rule_ids
 from skgg.engine.metrics import PredicateProfile
@@ -53,7 +53,7 @@ USED_PATTERNS = [p for p in RULE_PATTERNS if p != "other"]
 COLUMNS = (
     ("$|R|$", "relations", False),
     ("Mined", "rules_mined", False),
-    ("Std=1", "rules_std1", False),
+    ("PCA=1", "rules_pca1", False),
     ("Removed", "rules_removed", False),
     ("Used", "rules_used", False),
     ("Sym.", "used_symmetry", False),
@@ -280,9 +280,9 @@ def describe(root: Path, graph: str) -> dict[str, object]:
     rules = parse_rule_set(
         rules_file=rules_file,
         term_mapping=term_mapping,
-        std_threshold=DEFAULT_STD_THRESHOLD,
+        pca_threshold=COMPLETE_CONFIDENCE,
     )
-    std1 = len(rules)
+    pca1 = len(rules)
     removed = remove_minimal_cyclic_rules(
         rules, exempt=get_undirected_rule_ids(rules, profiles)
     )
@@ -299,7 +299,7 @@ def describe(root: Path, graph: str) -> dict[str, object]:
     row.update(
         relations=len(frequencies),
         rules_mined=len(mined),
-        rules_std1=std1,
+        rules_pca1=pca1,
         rules_removed=len(removed),
         rules_used=len(rules),
         **{f"used_{p}": patterns[p] for p in RULE_PATTERNS},
@@ -325,7 +325,7 @@ def build_table(rows: list[dict[str, object]], groups: list[int]) -> str:
         "\\setlength{\\tabcolsep}{3pt}",
         "\\renewcommand{\\arraystretch}{0.8}",
         "\\caption{Rule set of each graph. $|R|$: relations; Mined: rules mined "
-        "by AMIE; Std=1: rules with standard confidence 1, the generator's "
+        "by AMIE; PCA=1: rules with PCA confidence 1, the generator's "
         "filter; Removed: rules removed to break cycles between relations; Used: "
         "rules the generator used, and how many of them are symmetry, inversion "
         "and composition rules. Support: total support of the rules, the "
@@ -377,7 +377,7 @@ def main() -> None:
             row = describe(args.root, graph)
             rows.append(row)
             print(
-                f"{graph}: {row.get('rules_std1', MISSING)} std=1 rules, "
+                f"{graph}: {row.get('rules_pca1', MISSING)} PCA=1 rules, "
                 f"{row.get('rules_used', MISSING)} used",
                 flush=True,
             )

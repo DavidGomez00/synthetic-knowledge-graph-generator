@@ -584,6 +584,37 @@ def copy_graph(
     )
 
 
+def copy_predicates(
+    client: SPARQLWrapper,
+    source_graph_uri: str,
+    target_graph_uri: str,
+    predicates: Iterable[str],
+) -> dict[str, int]:
+    """Adds every triple of some predicates from one graph to another, unchanged.
+
+    Args:
+        client: The SPARQL wrapper client used to execute queries.
+        source_graph_uri: The URI of the named graph to copy from.
+        target_graph_uri: The URI of the named graph to copy to.
+        predicates: The predicates, formatted as in the queries (`<IRI>`).
+
+    Returns:
+        Each predicate's number of triples in the source graph, all of which are
+        in the target graph afterwards.
+    """
+    predicates = sorted(set(predicates))
+    if not predicates:
+        return {}
+    query = f"""
+    INSERT {{ GRAPH <{target_graph_uri}> {{ ?s ?p ?o }} }}
+    WHERE {{
+      VALUES ?p {{ {" ".join(predicates)} }}
+      GRAPH <{source_graph_uri}> {{ ?s ?p ?o }}
+    }}"""
+    _execute_update_query(client, query)
+    return {p: get_frequency(client, p, source_graph_uri) for p in predicates}
+
+
 def initialize_graph(
     client: SPARQLWrapper,
     source: str | None,

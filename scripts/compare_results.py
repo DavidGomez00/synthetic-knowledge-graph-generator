@@ -10,7 +10,7 @@ metric). Run report_results.py first, and again when more runs finish:
     python kgc_benchmark/report_results.py
 
 A copy's variant is its generator and the threshold of the rules it was made from,
-as `ours_std1` (rules with std confidence 1) or `kbgen_r25` (rule level r25).
+as `ours_pca1` (rules with PCA confidence 1) or `kbgen_r25` (rule level r25).
 PyGraft's copies (`pygraft`) are made without rules, so they are in the version of
 every threshold. A graph version is a family at one threshold: the original, every
 generator's copy at that threshold and PyGraft's copy, such as `french1_N` at
@@ -35,7 +35,7 @@ metric, the versions in table order on the x axis, the rank (1 = best, ties shar
 the best rank) on the y axis, one line per model, with a fixed color and marker
 shape per model in every chart (style of kgc_benchmark/plot_style.py).
 
-For each original graph with copies at the rule thresholds (MSE_THRESHOLDS: std1,
+For each original graph with copies at the rule thresholds (MSE_THRESHOLDS: pca1,
 r25, r50, r75, r100), it writes `<analysis>/results_tables/<family>/mse`, also as
 LaTeX, Markdown and CSV: one row per threshold, with the mean squared error of each
 metric between the original and kbgen's and our copy at that threshold, computed
@@ -55,6 +55,12 @@ and CSV.
     python scripts/compare_results.py --family french french1_1 french1_N \
         frenchN_1 frenchN_M --summary french
 
+Every run also writes two tables of KBgen's and NAME's r100 copy against the
+original directly in `<output-dir>`, each as `.tex`, `.md` and `.csv`, one row per
+dataset (of `--family`) where both copies have runs, in the order of results_table's
+AGREEMENT_GRAPHS: `spearman_r100` (Spearman's rho of each metric, the higher in
+bold) and `mse_r100` (the mean squared error of each metric, the smaller in bold).
+
 The LaTeX tables are built by scripts/results_table.py's own functions, in the
 format of its tables: columns Original, then the copies under its generator names
 (PyGraft, KBgen, NAME), the best value of each column or metric in bold, $^*$ for
@@ -64,11 +70,19 @@ yet is missing ("-" in LaTeX, empty in Markdown and CSV).
 
     python scripts/compare_results.py                  # every graph version
     python scripts/compare_results.py --family french1_N --thresholds r25
+
+`--skip-models TuckER` leaves TuckER out of Spearman's rho and the MSE: the
+agreement tables are computed again from metrics.csv over the other models, with
+kgc_benchmark/spearman_rho.py's `ranking_agreement`, the MSE tables average over
+the other models, and the captions name the models left out. The metrics and
+ranking tables and the bump charts keep every model.
 """
 
 import argparse
 import sys
 import textwrap
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import matplotlib
@@ -91,6 +105,7 @@ from plot_style import (  # noqa: E402
     PX,
     SURFACE,
 )
+from spearman_rho import ranking_agreement  # noqa: E402
 
 MODELS = results_table.MODELS
 # Header and column of metrics.csv and ranking_agreement.csv of each metric.
@@ -103,7 +118,7 @@ LABELS = {"ours": "Ours", "kbgen": "kbgen", "pygraft": "PyGraft"}
 # Caption text and order of each threshold. A threshold not listed here is
 # named in the caption as it is and comes after these.
 THRESHOLDS = {
-    "std1": "using the rules with std confidence 1",
+    "pca1": "using the rules with PCA confidence 1",
     **{
         f"r{share}": f"using {share}\\% of the rules, those of highest PCA confidence"
         for share in (25, 50, 75)
@@ -114,7 +129,14 @@ THRESHOLDS = {
 # goes in the version of every threshold.
 FULL = "full"
 # The rows of each graph's MSE table, in order.
-MSE_THRESHOLDS = ("std1", "r25", "r50", "r75", "r100")
+MSE_THRESHOLDS = ("pca1", "r25", "r50", "r75", "r100")
+# The level of the copies in the agreement table of every dataset
+# (`<output>/spearman_r100`).
+ALL_LEVEL = "r100"
+# Its rows: results_table's graphs in its order, a group per family (each base
+# graph with its sub-graphs, then the SGKG graphs). Kept here because the tables
+# of this script replace results_table.AGREEMENT_GRAPHS.
+DATASET_ORDER = results_table.AGREEMENT_GRAPHS
 # The generators of the MSE table's columns, in results_table's order.
 MSE_GENERATORS = ("kbgen", "ours")
 # A marker shape per model of MODELS, beside its color: in a bump chart every pair
@@ -123,6 +145,80 @@ MARKERS = ("o", "s", "D", "^", "v", "P", "X")
 # Decimals shown in Markdown.
 DECIMALS = 3
 SIGNIFICANCE = results_table.SIGNIFICANCE
+# The models left out of Spearman's rho and of the MSE (--skip-models); with
+# none, the rhos are read from report_results.py's ranking_agreement.csv files.
+SKIPPED: tuple[str, ...] = ()
+
+
+def rho_models() -> str:
+    """The models ranked by Spearman's rho, as the captions name them."""
+    if not SKIPPED:
+        return "models"
+    return f"models other than {' and '.join(SKIPPED)}"
+
+
+def skip_note() -> str:
+    """The Markdown titles' note on the models left out of Spearman's rho and the
+    MSE."""
+    return f" ({', '.join(SKIPPED)} left out)" if SKIPPED else ""
+
+
+@contextmanager
+def kept_models() -> Iterator[None]:
+    """Within the block, results_table's MODELS holds only the models not in
+    SKIPPED, so its `metric_mse` and `build_mse_table` (the $^\\dagger$ of an
+    error over fewer models) leave the skipped models out."""
+    saved = results_table.MODELS
+    results_table.MODELS = tuple(m for m in saved if m not in SKIPPED)
+    try:
+        yield
+    finally:
+        results_table.MODELS = saved
+
+
+def mse_models() -> str:
+    """The captions' note on the models the MSE is computed over."""
+    kept = len(MODELS) - len(SKIPPED)
+    other = f" other than {' and '.join(SKIPPED)}" if SKIPPED else ""
+    return f"(all {kept}{other} unless marked $^\\dagger$)"
+
+
+def read_agreement(analysis: Path) -> results_table.Agreement:
+    """The rows of Spearman's rho of every graph of results_table's
+    AGREEMENT_GRAPHS, by graph, compared variant and metric, as
+    results_table.read_agreement gives them. With models in SKIPPED, the rhos
+    are computed again from `<analysis>/metrics.csv` with
+    kgc_benchmark/spearman_rho.py's `ranking_agreement` (what report_results.py
+    calls), over the other models."""
+    if not SKIPPED:
+        return results_table.read_agreement(analysis)
+    graphs = {graph for group in results_table.AGREEMENT_GRAPHS for graph in group}
+    scores = pd.read_csv(analysis / "metrics.csv")
+    scores = scores[
+        scores["family"].isin(graphs) & ~scores["model"].isin(SKIPPED)
+    ].rename(columns={"family": "kg", "variant": "graph"})
+    rows = ranking_agreement(scores, REFERENCE, [key for _, key in METRICS])
+    # The CSV rows hold strings, an undefined rho or p-value an empty one.
+    return {
+        (r["kg"], r["compared"], r["metric"]): {
+            k: "" if pd.isna(v) else str(v) for k, v in r.items()
+        }
+        for r in rows.to_dict("records")
+    }
+
+
+def agreement_rows(analysis: Path, family: str) -> pd.DataFrame:
+    """The Spearman's rho rows of one family, as its ranking_agreement.csv has
+    them (columns `compared`, `metric`, `spearman_rho`, `spearman_p`, `models`)."""
+    columns = ["compared", "metric", "spearman_rho", "spearman_p", "models"]
+    if not SKIPPED:
+        path = analysis / family / "ranking_agreement.csv"
+        return pd.read_csv(path) if path.is_file() else pd.DataFrame(columns=columns)
+    results_table.AGREEMENT_GRAPHS = ((family,),)
+    rows = pd.DataFrame(list(read_agreement(analysis).values()), columns=columns)
+    for column in ("spearman_rho", "spearman_p", "models"):
+        rows[column] = pd.to_numeric(rows[column])
+    return rows
 
 
 def generator(variant: str) -> tuple[int, str, str]:
@@ -179,14 +275,13 @@ def latex_tables(
             f"tab:{stem}_metrics",
             bold=False,
         ),
-        "agreement": results_table.build_agreement_table(
-            results_table.read_agreement(analysis)
-        )[0]
+        "agreement": results_table.build_agreement_table(read_agreement(analysis))[0]
         .replace(
             "on each original graph and on the synthetic copy of each generator",
             f"on {caption} and on the synthetic copy of each generator {made}",
         )
-        .replace("\\label{tab:ranking_agreement}", f"\\label{{tab:{stem}_agreement}}"),
+        .replace("\\label{tab:ranking_agreement}", f"\\label{{tab:{stem}_agreement}}")
+        .replace("ranking of the models on", f"ranking of the {rho_models()} on"),
     }
     header = f"% Generated by scripts/compare_results.py from {analysis}"
     return {
@@ -402,9 +497,10 @@ def graph_mse_frame(analysis: Path, family: str) -> pd.DataFrame:
     for threshold in MSE_THRESHOLDS:
         for key in MSE_GENERATORS:
             for name, metric in METRICS:
-                value = results_table.metric_mse(
-                    metrics, family, mse_variant(key, threshold), metric
-                )
+                with kept_models():
+                    value = results_table.metric_mse(
+                        metrics, family, mse_variant(key, threshold), metric
+                    )
                 rows.append(
                     {
                         "threshold": threshold,
@@ -428,20 +524,20 @@ def graph_mse_latex(analysis: Path, family: str, caption: str) -> str:
     rows = [
         [(t, family, [mse_variant(key, t) for key in keys]) for t in MSE_THRESHOLDS]
     ]
-    table, _, _ = results_table.build_mse_table(
-        results_table.read_metrics(analysis / "metrics.csv"),
-        rows,
-        header="Threshold",
-        caption=(
-            f"Mean squared error of {results_table.metric_list(METRICS)} between "
-            f"{caption} and the synthetic copy of each generator using different "
-            f"amounts of rules ({rule_legend()}), computed over the models trained on "
-            f"both (all {len(MODELS)} "
-            "unless marked $^\\dagger$). The smallest error of each threshold and "
-            "metric is in bold."
-        ),
-        label=f"tab:{family.replace('_', '-')}_mse",
-    )
+    with kept_models():
+        table, _, _ = results_table.build_mse_table(
+            results_table.read_metrics(analysis / "metrics.csv"),
+            rows,
+            header="Threshold",
+            caption=(
+                f"Mean squared error of {results_table.metric_list(METRICS)} between "
+                f"{caption} and the synthetic copy of each generator using different "
+                f"amounts of rules ({rule_legend()}), computed over the models trained on "
+                f"both {mse_models()}. The smallest error of each threshold and "
+                "metric is in bold."
+            ),
+            label=f"tab:{family.replace('_', '-')}_mse",
+        )
     header = f"% Generated by scripts/compare_results.py from {analysis}"
     return header + "\n" + table.split("\n", 1)[1]
 
@@ -460,11 +556,11 @@ def graph_agreement_latex(analysis: Path, family: str, caption: str) -> str:
         [(t, family, [mse_variant(key, t) for key in keys]) for t in MSE_THRESHOLDS]
     ]
     table, _, _ = results_table.build_agreement_table(
-        results_table.read_agreement(analysis),
+        read_agreement(analysis),
         rows,
         header="Threshold",
         caption=(
-            "Spearman's $\\rho$ between the ranking of the models on "
+            f"Spearman's $\\rho$ between the ranking of the {rho_models()} on "
             f"{caption} and on the synthetic copy of each generator using different "
             f"amounts of rules ({rule_legend()}), for metrics "
             f"{results_table.metric_list(METRICS)}. The higher $\\rho$ of "
@@ -479,12 +575,12 @@ def graph_agreement_latex(analysis: Path, family: str, caption: str) -> str:
 
 def rule_legend() -> str:
     """The caption text of the rule thresholds of MSE_THRESHOLDS, for the tables of
-    several thresholds: std1 is left out with --no-std1."""
+    several thresholds: pca1 is left out with --no-pca1."""
     shares = (
         "r25 to r100: 25 to 100\\% of the mined rules, those of highest PCA confidence"
     )
-    if "std1" in MSE_THRESHOLDS:
-        return f"std1: the rules with std confidence 1; {shares}"
+    if "pca1" in MSE_THRESHOLDS:
+        return f"pca1: the rules with PCA confidence 1; {shares}"
     return shares
 
 
@@ -512,7 +608,7 @@ def summary_frames(
     family, threshold, copy and metric."""
     metrics = results_table.read_metrics(analysis / "metrics.csv")
     results_table.AGREEMENT_GRAPHS = (tuple(dict.fromkeys(f for f, _ in rows)),)
-    agreement = results_table.read_agreement(analysis)
+    agreement = read_agreement(analysis)
     rho, mse = [], []
     for family, t in rows:
         for key in MSE_GENERATORS:
@@ -533,7 +629,8 @@ def summary_frames(
                         "models": int(found["models"]) if found else 0,
                     }
                 )
-                value = results_table.metric_mse(metrics, family, variant, metric)
+                with kept_models():
+                    value = results_table.metric_mse(metrics, family, variant, metric)
                 mse.append(
                     {
                         **base,
@@ -545,15 +642,21 @@ def summary_frames(
     return {"agreement": pd.DataFrame(rho), "mse": pd.DataFrame(mse)}
 
 
-def summary_markdown(frame: pd.DataFrame, value: str, title: str) -> str:
-    """A summary frame as a wide Markdown table, one row per graph and threshold,
-    the closer copy of each metric in bold: the higher rho or the smaller MSE."""
+def summary_markdown(
+    frame: pd.DataFrame,
+    value: str,
+    title: str,
+    keys: tuple[str, ...] = ("graph", "threshold"),
+) -> str:
+    """A summary frame as a wide Markdown table, one row per value of `keys`
+    (graph and threshold), the closer copy of each metric in bold: the higher rho
+    or the smaller MSE."""
     decimals = DECIMALS if value == "spearman_rho" else results_table.MSE_DECIMALS
     better = max if value == "spearman_rho" else min
     copies = [LABELS[k] for k in MSE_GENERATORS]
     table = []
-    for (graph, t), group in frame.groupby(["graph", "threshold"], sort=False):
-        row = {"graph": graph, "threshold": t}
+    for values, group in frame.groupby(list(keys), sort=False):
+        row = dict(zip(keys, values, strict=True))
         for name, _ in METRICS:
             cells = group[group["metric"] == name].set_index("copy")
             shown = {
@@ -601,44 +704,151 @@ def summary_latex(
     stem = name.replace("_", "-")
     names = results_table.metric_list(METRICS)
     agreement, _, _ = results_table.build_agreement_table(
-        results_table.read_agreement(analysis),
+        read_agreement(analysis),
         table_rows,
         header="Graph and level",
         caption=(
-            "Spearman's $\\rho$ between the ranking of the models on each original "
-            "graph and on KBgen's and NAME's copy at each rule level "
+            f"Spearman's $\\rho$ between the ranking of the {rho_models()} on each "
+            "original graph and on KBgen's and NAME's copy at each rule level "
             f"({threshold_legend()}), for metrics {names}. The higher $\\rho$ of each "
             f"row and metric is in bold, and $^*$ means a p-value of less than "
             f"{SIGNIFICANCE}."
         ),
         label=f"tab:{stem}-summary-agreement",
     )
-    mse, _, _ = results_table.build_mse_table(
-        metrics,
-        table_rows,
-        header="Graph and level",
-        caption=(
-            f"Mean squared error of {names} between each original graph and KBgen's "
-            f"and NAME's copy at each rule level ({threshold_legend()}), computed "
-            f"metric by metric over the models trained on both (all {len(MODELS)} "
-            "unless marked $^\\dagger$). The smaller error of each row and metric "
-            "is in bold."
-        ),
-        label=f"tab:{stem}-summary-mse",
-    )
+    with kept_models():
+        mse, _, _ = results_table.build_mse_table(
+            metrics,
+            table_rows,
+            header="Graph and level",
+            caption=(
+                f"Mean squared error of {names} between each original graph and KBgen's "
+                f"and NAME's copy at each rule level ({threshold_legend()}), computed "
+                f"metric by metric over the models trained on both {mse_models()}. "
+                "The smaller error of each row and metric "
+                "is in bold."
+            ),
+            label=f"tab:{stem}-summary-mse",
+        )
     header = (
         f"% Generated by scripts/compare_results.py --summary {name} from {analysis}"
     )
-    # Twelve columns of numbers need the width of the page.
     return {
-        table_name: header
-        + "\n"
-        + table.split("\n", 1)[1]
-        .replace("\\begin{table}[t]", "\\begin{table*}[t]")
-        .replace("\\end{table}", "\\end{table*}")
-        .replace("\\resizebox{\\columnwidth}", "\\resizebox{\\textwidth}")
+        table_name: header + "\n" + full_width(table.split("\n", 1)[1])
         for table_name, table in (("agreement", agreement), ("mse", mse))
     }
+
+
+def full_width(table: str) -> str:
+    """A LaTeX table of results_table across the width of the page: twelve
+    columns of numbers don't fit in one column."""
+    return (
+        table.replace("\\begin{table}[t]", "\\begin{table*}[t]")
+        .replace("\\end{table}", "\\end{table*}")
+        .replace("\\resizebox{\\columnwidth}", "\\resizebox{\\textwidth}")
+    )
+
+
+def write_level_tables(
+    analysis: Path,
+    output: Path,
+    scores: pd.DataFrame,
+    families: list[str],
+    latex: bool,
+) -> tuple[list[Path], list[str]]:
+    """Writes two tables of KBgen's and NAME's copy at ALL_LEVEL against the
+    original, one row per dataset of `families` where both copies have runs, in
+    DATASET_ORDER, each as `.tex`, `.md` and `.csv` directly in `output`:
+    `spearman_r100` (Spearman's rho of the model rankings of each metric, the
+    higher in bold) and `mse_r100` (the mean squared error of each metric over the
+    models trained on both, the smaller in bold). Returns the files written and
+    the tables to print."""
+    groups = [
+        kept
+        for graphs in DATASET_ORDER
+        if (
+            kept := tuple(
+                g
+                for g in graphs
+                if g in families and (g, ALL_LEVEL) in summary_rows(scores, [g])
+            )
+        )
+    ]
+    graphs = [g for group in groups for g in group]
+    if not graphs:
+        return [], []
+    results_table.GENERATORS = (
+        ("Original", REFERENCE),
+        *((n, key) for n, key in GENERATORS if key in MSE_GENERATORS),
+    )
+    results_table.AGREEMENT_METRICS = METRICS
+    results_table.AGREEMENT_GRAPHS = tuple(groups)
+    keys = [key for _, key in results_table.GENERATORS if key != REFERENCE]
+    rows = [
+        [
+            (results_table.latex_name(g), g, [mse_variant(k, ALL_LEVEL) for k in keys])
+            for g in group
+        ]
+        for group in groups
+    ]
+    copies = (
+        "KBgen's and NAME's copy made from every mined rule "
+        f"({ALL_LEVEL}; both generators were given the same rules)"
+    )
+    names = results_table.metric_list(METRICS)
+    agreement, _, _ = results_table.build_agreement_table(
+        read_agreement(analysis),
+        rows,
+        caption=(
+            f"Spearman's $\\rho$ between the ranking of the {rho_models()} on each "
+            f"original graph and on {copies}, for metrics {names}. The higher "
+            "$\\rho$ of each graph and metric is in bold, and $^*$ means a p-value "
+            f"of less than {SIGNIFICANCE}."
+        ),
+        label=f"tab:spearman-{ALL_LEVEL}",
+    )
+    with kept_models():
+        mse, _, _ = results_table.build_mse_table(
+            results_table.read_metrics(analysis / "metrics.csv"),
+            rows,
+            caption=(
+                f"Mean squared error of {names} between each original graph and "
+                f"{copies}, computed metric by metric over the models trained on both "
+                f"{mse_models()}. The smaller error of each graph and metric is in bold."
+            ),
+            label=f"tab:mse-{ALL_LEVEL}",
+        )
+    header = f"% Generated by scripts/compare_results.py from {analysis}"
+    frames = summary_frames(analysis, [(g, ALL_LEVEL) for g in graphs])
+    tables = {
+        "spearman": (
+            agreement,
+            frames["agreement"],
+            "spearman_rho",
+            f"Spearman's rho of KBgen's and our {ALL_LEVEL} copies with the "
+            f"original, by dataset{skip_note()}",
+        ),
+        "mse": (
+            mse,
+            frames["mse"],
+            "mse",
+            f"Mean squared error of KBgen's and our {ALL_LEVEL} copies with the "
+            f"original, by dataset{skip_note()}",
+        ),
+    }
+    output.mkdir(parents=True, exist_ok=True)
+    written, printed = [], []
+    for name, (table, frame, value, title) in tables.items():
+        tex = header + "\n" + full_width(table.split("\n", 1)[1])
+        frame = frame.drop(columns="threshold")
+        text = summary_markdown(frame, value, title, keys=("graph",))
+        stem = output / f"{name}_{ALL_LEVEL}"
+        frame.to_csv(stem.with_suffix(".csv"), index=False)
+        stem.with_suffix(".md").write_text(text, encoding="utf-8")
+        stem.with_suffix(".tex").write_text(tex, encoding="utf-8")
+        written += [stem.with_suffix(f".{ext}") for ext in ("csv", "md", "tex")]
+        printed.append(tex if latex else text)
+    return written, printed
 
 
 def write_summary(
@@ -661,9 +871,9 @@ def write_summary(
     values = {"agreement": "spearman_rho", "mse": "mse"}
     titles = {
         "agreement": f"{name}: Spearman's rho of KBgen's and our copies with the "
-        "original, by graph and rule level",
+        f"original, by graph and rule level{skip_note()}",
         "mse": f"{name}: mean squared error of KBgen's and our copies with the "
-        "original, by graph and rule level",
+        f"original, by graph and rule level{skip_note()}",
     }
     written, printed = [], []
     for table, frame in frames.items():
@@ -792,10 +1002,10 @@ def main() -> int:
         help="print the LaTeX tables instead of the Markdown ones",
     )
     parser.add_argument(
-        "--no-std1",
+        "--no-pca1",
         action="store_true",
-        help="leave out the copies made from the rules with std confidence 1: no "
-        "<family>_std1 version and no std1 row in the mse, agreement and summary "
+        help="leave out the copies made from the rules with PCA confidence 1: no "
+        "<family>_pca1 version and no pca1 row in the mse, agreement and summary "
         "tables",
     )
     parser.add_argument(
@@ -804,10 +1014,22 @@ def main() -> int:
         help="leave out PyGraft's copies: no PyGraft column in the tables of each "
         "graph version (the other tables have none)",
     )
+    parser.add_argument(
+        "--skip-models",
+        nargs="+",
+        default=[],
+        choices=MODELS,
+        metavar="MODEL",
+        help="leave these models out of Spearman's rho and the MSE (e.g. TuckER): "
+        "the agreement tables rank only the other models, computed again from "
+        "metrics.csv, and the MSE tables average over them; the metrics and "
+        "ranking tables keep every model",
+    )
     args = parser.parse_args()
-    global MSE_THRESHOLDS
-    if args.no_std1:
-        MSE_THRESHOLDS = tuple(t for t in MSE_THRESHOLDS if t != "std1")
+    global MSE_THRESHOLDS, SKIPPED
+    SKIPPED = tuple(m for m in MODELS if m in args.skip_models)
+    if args.no_pca1:
+        MSE_THRESHOLDS = tuple(t for t in MSE_THRESHOLDS if t != "pca1")
 
     summary = args.analysis / "metrics.csv"
     if not summary.is_file():
@@ -824,14 +1046,7 @@ def main() -> int:
 
     for family in families:
         runs = scores[scores["family"] == family]
-        path = args.analysis / family / "ranking_agreement.csv"
-        agreement = (
-            pd.read_csv(path)
-            if path.is_file()
-            else pd.DataFrame(
-                columns=["compared", "metric", "spearman_rho", "spearman_p", "models"]
-            )
-        )
+        agreement = agreement_rows(args.analysis, family)
         groups: dict[str, list[str]] = {}
         for variant in sorted(runs["variant"].unique(), key=lambda v: generator(v)[0]):
             if variant != REFERENCE:
@@ -840,8 +1055,8 @@ def main() -> int:
         rule_free = groups.pop(FULL, [])
         if args.no_pygraft:
             rule_free = []
-        if args.no_std1:
-            groups.pop("std1", None)
+        if args.no_pca1:
+            groups.pop("pca1", None)
         for t, copies in groups.items():
             groups[t] = sorted(copies + rule_free, key=lambda v: generator(v)[0])
         thresholds = [t for t in (args.thresholds or groups) if t in groups]
@@ -858,7 +1073,8 @@ def main() -> int:
             }
             titles = {
                 "metrics": f"{family}, {threshold}: Hits@k and MRR (copies {made})",
-                "agreement": f"{family}, {threshold}: Spearman's rho with the original",
+                "agreement": f"{family}, {threshold}: Spearman's rho with the "
+                f"original{skip_note()}",
             }
             latex = latex_tables(args.analysis, family, threshold, copies, caption)
             # The ranking table leaves out PyGraft, made without rules.
@@ -923,7 +1139,10 @@ def main() -> int:
             )
             wide.columns = [f"{c} {m}" for c, m in wide.columns]
             wide = wide.reindex(list(MSE_THRESHOLDS))
-            title = f"{family}: mean squared error with the original, by threshold"
+            title = (
+                f"{family}: mean squared error with the original, by threshold"
+                f"{skip_note()}"
+            )
             text = markdown(
                 wide, title, index=True, decimals=results_table.MSE_DECIMALS
             )
@@ -938,13 +1157,21 @@ def main() -> int:
                 "agreement"
             ]
             rho.drop(columns="graph").to_csv(folder / "agreement.csv", index=False)
-            title = f"{family}: Spearman's rho with the original, by threshold"
+            title = (
+                f"{family}: Spearman's rho with the original, by threshold{skip_note()}"
+            )
             text = summary_markdown(rho, "spearman_rho", title)
             (folder / "agreement.md").write_text(text, encoding="utf-8")
             tex = graph_agreement_latex(args.analysis, family, caption)
             (folder / "agreement.tex").write_text(tex, encoding="utf-8")
             written += [folder / f"agreement.{ext}" for ext in ("csv", "md", "tex")]
             printed.append(tex if args.latex else text)
+
+    files, tables = write_level_tables(
+        args.analysis, output, scores, families, args.latex
+    )
+    written += files
+    printed += tables
 
     if args.summary:
         files, tables = write_summary(

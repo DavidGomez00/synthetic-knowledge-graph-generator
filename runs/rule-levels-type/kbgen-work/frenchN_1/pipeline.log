@@ -1,0 +1,33 @@
+### 2026-11-19 11:59:14 tsv_to_nt: start
+### 2026-11-19 11:59:14 tsv->nt: 7393 triples, 0 duplicates, 0 invalid lines
+### 2026-11-19 11:59:14 tsv_to_nt: done in 0.2 s
+### 2026-11-19 11:59:14 load_tensor: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/GitHub/synthetic-knowledge-graph-generator/runs/rule-levels/kbgen/load_tensor.py frenchN_1.nt
+Namespace(input='frenchN_1.nt', typedict=None)
+loading data
+loading types
+2 types loaded
+loading subjects dict
+loading object properties
+8 object properties loaded
+allocating adjacency matrices
+populating adjacency matrices
+populating type matrix with type assertions
+2222 type assertions loaded
+load types hierarchy: total=2 matched=0
+load relations hierarchy: total=2 matched=0
+load relation domains: total=0
+load relation ranges: total=0
+### 2026-11-19 11:59:15 load_tensor: done in 0.8 s
+### 2026-11-19 11:59:15 learn_M1: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/GitHub/synthetic-knowledge-graph-generator/runs/rule-levels/kbgen/learn_model.py frenchN_1.npz -m M1
+Namespace(input='frenchN_1.npz', model='M1', source_kb_models=['M1', 'M2', 'M3'], rules_path=None)
+learning M1 model
+saving model to frenchN_1-M1.pkl
+### 2026-11-19 11:59:17 learn_M1: done in 1.5 s
+### 2026-11-19 11:59:17 learn_M2: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/GitHub/synthetic-knowledge-graph-generator/runs/rule-levels/kbgen/learn_model.py frenchN_1.npz -m M2
+Namespace(input='frenchN_1.npz', model='M2', source_kb_models=['M1', 'M2', 'M3'], rules_path=None)
+learning M2 model
+saving model to frenchN_1-M2.pkl
+### 2026-11-19 11:59:18 learn_M2: done in 1.3 s

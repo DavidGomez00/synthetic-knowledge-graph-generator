@@ -2,7 +2,7 @@
 
 For every folder directly under the root that has `<folder>.unified.tsv` and
 `<folder>.csv`, creates a temporary GraphDB repository, uploads the graph, runs the
-pipeline of `cli/main.py` on it at the default rule filter (std confidence 1, without
+pipeline of `cli/main.py` on it at the default rule filter (PCA confidence 1, without
 the fill step), and saves the synthetic graph to
 `<root>/<folder>_ours/<folder>_ours.tsv`. The repository is deleted afterwards, and
 the output of the three steps goes to `<log dir>/<folder>.log`, at INFO level
@@ -24,30 +24,26 @@ With `--levels`, the copies are made at rule levels of `<root>/rule_levels.tsv`
 (`--rule-levels`, written by `cli/rule_levels.py`) instead: for each dataset and
 level L, `cli/main.py` keeps the rules with PCA confidence >= the row's
 `pca_threshold` (`--pca-conf`; none at all for r0, through a rules file with no
-rule; for std1, which has no PCA threshold, the rules with std confidence 1, as
-without `--levels`), and the copy goes to
+rule), and the copy goes to
 `<root>/<folder>_ours_L/<folder>_ours_L.tsv`, with the rules the run used next to it
 as `<folder>_ours_L_used.csv`. A row with
 `ours_same_as` is skipped. Each level has its own repository
 (`skgg_ours_<folder>_L`) and its own copy of the rules file, so several invocations
 can make levels of the same dataset at once. See docs/rule-levels.md.
 
-    python -m skgg.cli.generate_datasets --levels r0 std1 r25 r50 r75 r100 \
+    python -m skgg.cli.generate_datasets --levels pca1 r25 r50 r75 r100 \
         --datasets french french1_1 french1_N frenchN_1 frenchN_M
 
-`--completeness pca` makes the copies with the PCA setting of `cli/main.py`, where
-the rules with PCA confidence 1 are complete instead of those with std confidence 1
-(without `--levels`, the rules with PCA confidence 1 are the ones kept). Its copies go
-under `--output-root`, default `exp_datasets_pca`, as
-`<output root>/<folder>_ours[_L]/<folder>_ours[_L].tsv`, so the std copies next to
-the datasets are left alone. With `--levels` it reads `<output root>/rule_levels.tsv`,
-written by `cli/rule_levels.py --completeness pca`, whose first level is `pca1`
-instead of `std1`, and refuses a levels file of the other setting. Its repositories
-end in `_pca` and its logs go to `logs/ours_pca`, so both settings can run at once.
+`--output-root` puts the copies in another folder than `--root`, as
+`<output root>/<folder>_ours[_L]/<folder>_ours[_L].tsv`, and with `--levels` the
+levels are then read from `<output root>/rule_levels.tsv`. A levels file written for
+the std setting, which the generator had until 2026-11-19 (level `std1`, no
+`completeness` column of `pca`), is refused: write it again with
+`cli/rule_levels.py`.
 
-    python -m skgg.cli.rule_levels --completeness pca
-    python -m skgg.cli.generate_datasets --completeness pca \
-        --levels pca1 r25 r50 r75 r100 --datasets french
+`--copy-relations` passes the same option to `cli/main.py`: the relations it names
+(e.g. `type`, for the datasets of `exp_datasets_type/`) are not generated, and every
+triple of theirs is copied from the source into the copy.
 """
 
 import argparse
@@ -66,7 +62,7 @@ from pathlib import Path
 import requests
 
 from skgg.core.config import GraphConfig
-from skgg.core.rules import COMPLETENESS, Completeness, rule_filter_label
+from skgg.core.rules import rule_filter_label
 from skgg.core.utils import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -76,8 +72,6 @@ OUTPUT_SUFFIX = "_ours"
 # D_pygraft and the rule-level copies such as D_ours_r25.
 COPY_NAME = re.compile(r"_(ours|kbgen|pygraft)(_r\d+|_std1|_pca1)?$")
 REPOSITORY_PREFIX = "skgg_ours_"
-# Default folder of the PCA-setting copies (`--completeness pca`).
-PCA_ROOT = Path("exp_datasets_pca")
 CHUNK_SIZE = 5000
 
 # No inference: the pipeline reads explicit triples only.
@@ -153,8 +147,8 @@ def rules_file(folder: Path) -> Path:
 @dataclass(frozen=True)
 class RuleLevel:
     """A rule level of `rule_levels.tsv` for one dataset: its name (e.g. `r25`),
-    the PCA threshold its rules need (None for no PCA threshold: the default std
-    confidence 1 filter for std1, or no rule at all if `no_rules`), and the level
+    the PCA threshold its rules need (None for no rule at all, `no_rules`), and
+    the level
     whose copy stands in for it (`ours_same_as`), if any."""
 
     name: str
@@ -163,24 +157,20 @@ class RuleLevel:
     no_rules: bool = False
 
 
-def read_levels(
-    path: Path, completeness: Completeness = "std"
-) -> dict[str, dict[str, RuleLevel]]:
+def read_levels(path: Path) -> dict[str, dict[str, RuleLevel]]:
     """Reads `rule_levels.tsv` into {dataset: {level: RuleLevel}}.
 
     Raises:
-        ValueError: If the file was written for another setting than
-            `completeness` (its `completeness` column, empty or missing for std).
+        ValueError: If the file was written for the std setting the generator had
+            until 2026-11-19: its `completeness` column is missing or not `pca`.
     """
     levels: dict[str, dict[str, RuleLevel]] = {}
     with path.open(encoding="utf-8", newline="") as f:
         for row in csv.DictReader(f, delimiter="\t"):
-            setting = row.get("completeness") or "std"
-            if setting != completeness:
+            if row.get("completeness") != "pca":
                 raise ValueError(
-                    f"{path} has the levels of the {setting} setting, not "
-                    f"{completeness}: write it with cli/rule_levels.py "
-                    f"--completeness {completeness}."
+                    f"{path} has the levels of the std setting, which the generator "
+                    "no longer has: write it again with cli/rule_levels.py."
                 )
             no_rules = row["rules_kept"] == "0"
             threshold = None if no_rules else row["pca_threshold"] or None
@@ -274,15 +264,17 @@ def generate_dataset(
     log_level: str,
     skip_reflexivity: bool = False,
     level: RuleLevel | None = None,
-    completeness: Completeness = "std",
     output_root: Path | None = None,
+    copy_relations: list[str] | None = None,
 ) -> None:
     """Runs upload, pipeline and download for one dataset, each as its own process,
     so a dataset's memory is freed and its failure stays its own.
 
+    `copy_relations` is passed to `cli/main.py --copy-relations`: those relations
+    are copied from the source instead of generated.
+
     With a `level`, the pipeline keeps the rules of that level (see the module
-    docstring), and the rules it used are saved next to the copy. `completeness`
-    is the pipeline's setting (`cli/main.py --completeness`), and the copy goes
+    docstring), and the rules it used are saved next to the copy. The copy goes
     under `output_root` (`output_file`).
 
     The .tsv file only appears in its final place once every step has succeeded.
@@ -298,17 +290,12 @@ def generate_dataset(
     )
     threshold = None if level is None else level.threshold
     synthetic_uri = graph.synthetic_uri(
-        rule_filter_label(
-            None if threshold is None else float(threshold), completeness
-        )
+        rule_filter_label(None if threshold is None else float(threshold))
     )
-    # Each level and setting has its own repository, so the levels of a dataset can
-    # run at once.
+    # Each level has its own repository, so the levels of a dataset can run at once.
     repository = f"{REPOSITORY_PREFIX}{folder.name}"
     if level is not None:
         repository += f"_{level.name}"
-    if completeness != "std":
-        repository += f"_{completeness}"
 
     store.create_repository(repository)
     try:
@@ -344,8 +331,8 @@ def generate_dataset(
                     *(["--skip-reflexivity"] if skip_reflexivity else []),
                     *(["--pca-conf", threshold] if threshold is not None else []),
                     *(
-                        ["--completeness", completeness]
-                        if completeness != "std"
+                        ["--copy-relations", *copy_relations]
+                        if copy_relations
                         else []
                     ),
                 ],
@@ -388,14 +375,13 @@ def generate_all(
     levels: list[str] | None = None,
     levels_file: Path | None = None,
     times_file: Path | None = None,
-    completeness: Completeness = "std",
     output_root: Path | None = None,
+    copy_relations: list[str] | None = None,
 ) -> list[str]:
     """Generates the datasets under `root`, or with `levels`, their copies at those
     rule levels of `levels_file` (default `<output_root>/rule_levels.tsv`). With
     `times_file`, appends a row per copy made (see `TIMES_COLUMNS`). The copies go
-    under `output_root`, by default `root` in the std setting and `PCA_ROOT` in
-    the PCA setting (`completeness`).
+    under `output_root`, by default `root`.
 
     Returns:
         The names of the datasets (or `<dataset> <level>`) that failed.
@@ -404,12 +390,12 @@ def generate_all(
         ValueError: If a dataset has no row in `levels_file` for a level.
     """
     if output_root is None:
-        output_root = PCA_ROOT if completeness == "pca" else root
+        output_root = root
     datasets = find_datasets(root, names)
     jobs: list[tuple[Path, RuleLevel | None]] = [(folder, None) for folder in datasets]
     if levels is not None:
         table = read_levels(
-            levels_file or output_root / "rule_levels.tsv", completeness
+            levels_file or output_root / "rule_levels.tsv"
         )
         jobs = []
         for folder in datasets:
@@ -455,8 +441,8 @@ def generate_all(
                 log_level,
                 skip_reflexivity,
                 level,
-                completeness,
                 output_root,
+                copy_relations,
             )
         except (subprocess.CalledProcessError, requests.RequestException) as error:
             logger.error(
@@ -487,7 +473,7 @@ def generate_all(
                 {
                     "dataset": folder.name,
                     "level": "" if level is None else level.name,
-                    "completeness": completeness,
+                    "completeness": "pca",
                     "rules_used": _count_lines(used) - 1 if used.is_file() else 0,
                     "source_triples": _count_lines(triple_file(folder)),
                     "triples": _count_lines(output),
@@ -584,8 +570,7 @@ def _parse_args() -> argparse.Namespace:
         "--log-dir",
         type=Path,
         default=None,
-        help="Folder for each dataset's log (default: logs/ours, or logs/ours_pca "
-        "with --completeness pca).",
+        help="Folder for each dataset's log (default: logs/ours).",
     )
     parser.add_argument(
         "--log-level",
@@ -628,18 +613,10 @@ def _parse_args() -> argparse.Namespace:
         "<output root>/rule_levels.tsv).",
     )
     parser.add_argument(
-        "--completeness",
-        choices=COMPLETENESS,
-        default="std",
-        help="Setting of cli/main.py: std (complete rules have std confidence 1) or "
-        "pca (PCA confidence 1) (default: %(default)s).",
-    )
-    parser.add_argument(
         "--output-root",
         type=Path,
         default=None,
-        help="Folder of the copies (default: --root, or "
-        f"{PCA_ROOT} with --completeness pca).",
+        help="Folder of the copies (default: --root).",
     )
     parser.add_argument(
         "--times",
@@ -647,6 +624,14 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Tab-separated file to append a row to per copy made: dataset, level, "
         "rules used, triples, seconds, start and end, commit and log.",
+    )
+    parser.add_argument(
+        "--copy-relations",
+        nargs="+",
+        default=None,
+        metavar="RELATION",
+        help="Pass --copy-relations to cli/main.py: these relations (e.g. type) are "
+        "copied unchanged from the source instead of generated.",
     )
     return parser.parse_args()
 
@@ -658,15 +643,14 @@ if __name__ == "__main__":
         args.root,
         args.datasets,
         args.force,
-        args.log_dir
-        or Path("logs/ours_pca" if args.completeness == "pca" else "logs/ours"),
+        args.log_dir or Path("logs/ours"),
         GraphDBStore(args.database_url, args.user, args.password),
         args.log_level,
         args.skip_reflexivity,
         args.levels,
         args.rule_levels,
         args.times,
-        args.completeness,
         args.output_root,
+        args.copy_relations,
     )
     sys.exit(1 if failures else 0)

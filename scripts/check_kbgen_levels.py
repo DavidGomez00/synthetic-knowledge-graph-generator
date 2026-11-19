@@ -11,7 +11,9 @@ named with --levels or else of every level, this checks:
   `<dataset>-<level>`;
 - kbgen was given `rules_kept` rules and parsed `rules_kbgen` of them;
 - the copy has as many facts as kbgen kept from the source, give or take 0.1%
-  (the all-rules copies have exactly that many or one more), and loses no relation;
+  (the all-rules copies have exactly that many or one more), and loses no relation.
+  Facts are the copy's lines whose relation is not `type`: kbgen's entity types and
+  schema, which its driver keeps since 2026-11-19, are not facts of the tensor;
 - with --splits, the copy has its `train`, `valid` and `test` files.
 
 With --rules-from-ours, the copies were made by `synthesize_exp_datasets.py
@@ -64,21 +66,27 @@ def check(
             f"parsed {stats['parsed_rules']} rules, rule_levels.tsv expects "
             f"{row['rules_kbgen']}"
         )
-    ratio = float(stats["synthetic_vs_kept"])
+    facts = None
+    if copy.is_file():
+        lines = facts = 0
+        with copy.open(encoding="utf-8") as f:
+            for line in f:
+                lines += 1
+                parts = line.rstrip("\n").split("\t")
+                facts += len(parts) != 3 or parts[1] != "type"
+        if lines != int(stats["synthetic_triples"]):
+            problems.append(
+                f"copy has {lines} lines, the summary {stats['synthetic_triples']}"
+            )
+    kept = int(stats["kept_triples"])
+    if facts is None:
+        facts = int(stats["synthetic_triples"])
+    ratio = facts / kept if kept else float("inf")
     if abs(ratio - 1) > TOLERANCE:
-        problems.append(
-            f"{stats['synthetic_triples']} facts for {stats['kept_triples']} kept "
-            f"({ratio:.4f})"
-        )
+        problems.append(f"{facts} facts for {kept} kept ({ratio:.4f})")
     if stats["relations_lost_in_synthesis"]:
         lost = stats["relations_lost_in_synthesis"]
         problems.append(f"relations lost in synthesis: {lost}")
-    if copy.is_file():
-        with copy.open(encoding="utf-8") as f:
-            lines = sum(1 for _ in f)
-        facts = int(stats["synthetic_triples"])
-        if lines != facts:
-            problems.append(f"copy has {lines} lines, the summary {facts} facts")
     if splits:
         missing = [s for s in SPLITS if not (copy.parent / s).is_file()]
         if missing:
@@ -148,7 +156,9 @@ def main() -> int:
         if row["dataset"] not in datasets:
             continue
         if args.rules_from_ours:
-            if row["ours_same_as"]:
+            # A level where the generator uses no rule gets no copy, even when no
+            # other level names it in ours_same_as (r0 itself).
+            if row["ours_same_as"] or row["rules_ours"] == "0":
                 continue
         elif row["level"] == "r100" or row["kbgen_same_as"]:
             continue

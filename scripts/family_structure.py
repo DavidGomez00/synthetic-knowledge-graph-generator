@@ -13,15 +13,15 @@ For each `.tsv` file given, this script prints:
   as in the source, where every such fact points to a parent.
 
 With `--chain RULES`, it also forward-chains the complete rules of the rules CSV
-`RULES` (std confidence 1, or PCA confidence 1 with `--completeness pca`) over
-each file until nothing is added, and prints the relations that grow. Run on the
-source, it shows what the rules derive where the family structure is intact. See
-`docs/family-growth.md`. Only the Python standard library is used.
+`RULES` (PCA confidence 1, as in the generator) over each file until nothing is
+added, and prints the relations that grow. Run on the source, it shows what the
+rules derive where the family structure is intact. See `docs/family-growth.md`.
+Only the Python standard library is used.
 
     python scripts/family_structure.py exp_datasets/family/family.unified.tsv \\
-        exp_datasets/family_ours_std1/family_ours_std1.tsv
-    python scripts/family_structure.py --completeness pca \\
-        --chain exp_datasets_pca/family_ours_pca1/family_ours_pca1_used.csv \\
+        exp_datasets/family_ours_r25/family_ours_r25.tsv
+    python scripts/family_structure.py \\
+        --chain exp_datasets/family_ours_pca1/family_ours_pca1_used.csv \\
         exp_datasets/family/family.unified.tsv
 """
 
@@ -73,10 +73,9 @@ def structure(index: Index) -> list[str]:
     return lines
 
 
-def complete_rules(rules_file: Path, completeness: str) -> list[tuple[list, tuple]]:
-    """The body and head of each rule of `rules_file` that is complete in the
-    setting: confidence 1 on `std_confidence` or `pca_confidence`."""
-    column = f"{completeness}_confidence"
+def complete_rules(rules_file: Path) -> list[tuple[list, tuple]]:
+    """The body and head of each complete rule of `rules_file`: PCA confidence 1."""
+    column = "pca_confidence"
     with rules_file.open(encoding="utf-8", newline="") as handle:
         return [
             (parse_atoms(row["body"]), parse_atoms(row["head"])[0])
@@ -106,15 +105,9 @@ def main() -> int:
         type=Path,
         help="rules CSV whose complete rules are forward-chained over each graph",
     )
-    parser.add_argument(
-        "--completeness",
-        choices=("std", "pca"),
-        default="std",
-        help="confidence that makes a rule of --chain complete (default: %(default)s)",
-    )
     args = parser.parse_args()
 
-    rules = complete_rules(args.chain, args.completeness) if args.chain else []
+    rules = complete_rules(args.chain) if args.chain else []
     for path in args.files:
         index = read_index(path)
         total = sum(len(pairs) for pairs in index.values())
@@ -127,7 +120,7 @@ def main() -> int:
             grown = [r for r in sorted(after) if after[r] != before.get(r, 0)]
             print(
                 f"  forward-chaining the {len(rules)} complete rules "
-                f"({args.completeness} setting) of {args.chain}: {total:,} -> "
+                f"(PCA confidence 1) of {args.chain}: {total:,} -> "
                 f"{sum(after.values()):,} triples"
                 + (": " if grown else "")
                 + ", ".join(f"{r} {before.get(r, 0):,} -> {after[r]:,}" for r in grown)

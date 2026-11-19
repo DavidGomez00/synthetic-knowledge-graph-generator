@@ -88,11 +88,11 @@ The scripts that tell copies from datasets by their folder name put a level copy
 This generator: `cli/generate_datasets.py --levels` passes each dataset's `pca_threshold` from `rule_levels.tsv` to `cli/main.py --pca-conf` (0 for `r100`), runs `cli/main.py` without `--pca-conf` for `std1`, and for `r0` gives the pipeline a rules file with no rule. It writes each copy to `exp_datasets/<dataset>_ours_<level>/`, copies the rules the run used next to it as `<dataset>_ours_<level>_used.csv`, which git tracks, and skips a row with `ours_same_as`. The rules a level keeps are used as section 3.2.4 of `algorithm.md` describes: the rules with std confidence 1 are complete and forward-chained, after cycle removal; every other kept rule is partial, grounded round(PCA confidence × support) times after the complete rules and never forward-chained. The french dataset, as made on 16 November 2026:
 
 ```bash
-python -m skgg.cli.generate_datasets --levels r0 std1 r25 r50 r75 r100 --force --log-dir logs/ours-levels --datasets french
+python -m skgg.cli.generate_datasets --levels std1 r25 r50 r75 r100 --force --log-dir logs/ours-levels --datasets french
 python scripts/check_outputs.py --suffix _ours_r25 --datasets french
 ```
 
-french's copies were made again on 16 November 2026 on Hefesto, at all six levels, each with the rules it used (`runs/rule-levels/` has the commands, logs and times). The copies of french1_1, french1_N, frenchN_1 and frenchN_M were made earlier that day on the development laptop, at the five levels other than `std1` and without their used rules, in 1 to 22 s each (logs in `logs/ours-levels/`, ignored by git), and split with `split_copies.py --suffix _ours_<level>`. `check_outputs.py` finds them well formed, with the source's entities, relations and self-loops. Every relation keeps its source frequency and degrees except `parent`, which the complete rules derive in completion. french's copies of Hefesto match the source exactly at `r0`; `parent` ends 47 triples short at `std1`, as in `french_ours`, 1 short at `r25` and `r75`, 3 short at `r100`, and has the right count but other degrees at `r50`. On the laptop's copies, frenchN_1 ends one `predecessor` triple short at r25.
+french's copies were made again on 16 November 2026 on Hefesto, at all six levels, each with the rules it used (`runs/rule-levels/` has the commands, logs and times). The copies of french1_1, french1_N, frenchN_1 and frenchN_M were made earlier that day on the development laptop, at the five levels other than `std1` and without their used rules, in 1 to 22 s each (logs in `logs/ours-levels/`, ignored by git), and split with `split_copies.py --suffix _ours_<level>`. `check_outputs.py` finds them well formed, with the source's entities, relations and self-loops. Every relation keeps its source frequency and degrees except `parent`, which the complete rules derive in completion. french's copies of Hefesto match the source exactly at `r0`; `parent` ends 47 triples short at `std1`, as in `french_ours`, 1 short at `r25` and `r75`, 3 short at `r100`, and has the right count but other degrees at `r50`. On the laptop's copies, frenchN_1 ends one `predecessor` triple short at r25. The `r0` copies, their training results in `exp_results/`, their rows in `exp_analysis/*/training_losses.csv` and `runs/rule-levels/ours/times.tsv`, and their generation logs were removed on 19 November 2026.
 
 How far each copy moves the confidence of its rules, for all three generators, is in [`rule-confidence.md`](rule-confidence.md).
 
@@ -100,23 +100,38 @@ kbgen: the driver in `~/GitHub/kbgen` (local branch `exp-datasets`) takes `--lev
 
 ```bash
 cd ~/GitHub/kbgen
-python synthesize_exp_datasets.py --levels r0 r25 r50 r75 --jobs 4 --datasets family Family1_1 Family1_N FamilyM_N FamilyN_1 french french1_1 french1_N frenchN_1 frenchN_M SGKG1 SGKG2 SGKG3 SGKG4 WN18RR WN18RR1_1 WN18RR1_N WN18RRN_1 WN18RRN_M
+python synthesize_exp_datasets.py --levels r25 r50 r75 --jobs 4 --datasets family Family1_1 Family1_N FamilyM_N FamilyN_1 french french1_1 french1_N frenchN_1 frenchN_M SGKG1 SGKG2 SGKG3 SGKG4 WN18RR WN18RR1_1 WN18RR1_N WN18RRN_1 WN18RRN_M
 ```
 
 kbgen's time grows with the rules per relation (see "Times" in [`benchmark-copies.md`](benchmark-copies.md)), so each level should take less than the 10 h 58 min the all-rules copies of these 19 datasets took, summed over datasets.
 
 ## PCA setting
 
-In the PCA setting of this generator (`cli/main.py --completeness pca`), the rules with PCA confidence 1 are complete instead of those with std confidence 1 (see "Complete and partial rules" in [`concepts.md`](concepts.md)). Its levels are written by `cli/rule_levels.py --completeness pca` to `exp_datasets_pca/rule_levels.tsv`. The level `pca1`, the rules with PCA confidence 1 (`pca_threshold` 1), takes the place of `std1`, and `r0` and `r25` to `r100` keep the thresholds of `exp_datasets/rule_levels.tsv`. `rules_ours` and `ours_same_as` count the rules the PCA setting uses. The file has two more columns: `completeness` (`pca`; empty in the std file) and `complete_changed`, the rules kept at that level whose completeness differs from the std setting. A row with 0 gives the generator the same input as the std setting, so its copy would match the std copy of `exp_datasets/` up to chance.
+Since 19 November 2026 the PCA setting is the generator's only setting: a rule is complete when its PCA confidence is 1 (see "Complete and partial rules" in [`concepts.md`](concepts.md)). The std setting, where std confidence 1 made a rule complete and the first level was `std1`, was removed; commit `2c7dfd5d` has it. `cli/rule_levels.py` writes the levels `r0`, `pca1` (the rules with PCA confidence 1, `pca_threshold` 1), `r25`, `r50`, `r75` and `r100`, with a column `completeness` that is always `pca`, and `cli/generate_datasets.py` refuses a levels file without it.
 
-On 17 November 2026, `complete_changed` is above 0 only for family (11 rules at every level), french1_1 (5), french (4) and YAGO3-10_N_1 (1). In french1_1 and YAGO3-10_N_1, cycle removal leaves no rule at `pca1`, which stands in as `r0`. `rules_ours` goes from 18 at `std1` to 26 at `pca1` in family, and drops by 1 to 5 rules at `r25` to `r100` in the four datasets, since the rules that become complete go through cycle removal.
+The two settings gave this generator different rules at 17 levels: family at every level (18 complete rules at `std1`, 26 at `pca1`), and french (4 rules), french1_1 (5) and YAGO3-10_N_1 (1) at `r25` to `r100`, where the rules that become complete close a cycle and cycle removal drops them. These copies were made in the PCA setting on 17 November 2026 into `exp_datasets_pca/` (`runs/rule-levels-pca/`) and moved into `exp_datasets/` on 19 November 2026, replacing the std copies, whose splits, runs and ranked predictions were removed (commit `2c7dfd5d` has them). Every other copy in `exp_datasets/` already had the same rules in both settings.
 
-`cli/generate_datasets.py --completeness pca --levels ...` makes the copies with `cli/main.py --completeness pca`, from `exp_datasets_pca/rule_levels.tsv`, and writes them to `exp_datasets_pca/<dataset>_ours_<level>/` (`--output-root` picks another folder), so the std copies in `exp_datasets/` are left alone. It refuses a levels file written for the other setting, names its GraphDB repositories `skgg_ours_<dataset>_<level>_pca` and logs to `logs/ours_pca` by default, so it can run next to a std batch.
+| Dataset | Rules in the PCA copy, against the std copy | Effect |
+|---|---|---|
+| family | 26 complete rules, against 18; `pca1` is a new level | copies 4.3 to 4.9 times the source's size, against 3.2 to 3.6 (see [`family-growth.md`](family-growth.md)); mean absolute PCA confidence error 0.53 at r25 and 0.45 at r100, against 0.63 and 0.47; 106 to 182 self-loops derived by completion, against 74 to 84 |
+| french | 4 fewer (19, 181, 184, 201) | same size; mean absolute PCA confidence error within 0.015 |
+| french1_1 | 5 fewer (7, 145, 149, 161, 162) | same size; error 0.01 to 0.03 higher |
+| YAGO3-10_N_1 | 1 fewer (43) | same size and error |
 
-```bash
-python -m skgg.cli.rule_levels --completeness pca                    # -> exp_datasets_pca/rule_levels.tsv
-python -m skgg.cli.generate_datasets --completeness pca --levels pca1 r25 r50 r75 r100 --datasets family french french1_1 YAGO3-10_N_1
-```
+kbgen's copies at these levels were given the std copies' rules (`--rules-from-ours`), which are the PCA copies' rules plus the ones listed above. kbgen parsed all of them except those on `gender`, a relation its tensor drops (french 181, french1_1 145), so at french, french1_1 and YAGO3-10_N_1 r25 to r100 kbgen's copy has 1 to 4 rules more than ours: french 19, 184, 201; french1_1 7, 149, 161, 162; YAGO3-10_N_1 43. These copies are kept as they are. family's kbgen copies, where the extra rules (43, 45, 50) have support 612 to 1,346, are to be remade from the PCA copies' rules, and `family_kbgen_pca1` made; `runs/rule-levels-pca/README.md` gives the steps.
+
+### std1 copies renamed pca1
+
+On 18 November 2026 the std1 copies of french, WN18RR and WN18RRN_M (`<dataset>_ours_std1`, `<dataset>_kbgen_std1` in `exp_datasets/`, `exp_results/` and `exp_analysis/`) were renamed `pca1`, with the dataset and variant names in their `status/*.json`, `metrics.csv` and the other CSVs of `exp_analysis/`. This generator used the same rules at both levels in these three datasets (french 2, 3, 4; WN18RR and WN18RRN_M 1, 2), so the copies are the ones the pca1 level would give. The level std1 will be removed later, and the analysis scripts (`compare_results.py`, `results_table.py`, `rule_confidence.py`, `characterize_datasets.py`) already use pca1 and ignore std1. `exp_datasets/rule_levels.tsv`, `runs/rule-levels/` (`status.tsv`, `ours/times.tsv` levels, kbgen's `summary.csv` and `kbgen-work/rule-levels/<dataset>-std1/`, `REPORT.md`) and the text of the logs keep `std1`, the level these copies were made at. `exp_datasets_kbgen_entities/french_kbgen_std1` was deleted, since the folder already has a `french_kbgen_pca1`; the whole folder was deleted on 19 November 2026 (commit `2c7dfd5d` keeps it).
+
+Where pca1 and std1 differ, to handle when std1 is removed (every other dataset keeps and uses the same rules at both):
+
+| Dataset | Rules kept std1 / pca1 | Rules used std1 / pca1 | Consequence |
+|---|---|---|---|
+| family | 37 / 48 | 18 / 26 | a different copy: `family_ours_std1` and `family_kbgen_std1`, with their results and analysis rows, were removed on 19 November 2026 (commit `2c7dfd5d` has them), so family has no copy at this level until it is made and trained at pca1 (`exp_datasets_pca/family_ours_pca1/` exists, untrained) |
+| french | 12 / 16 | 3 / 3 | same copy, the 4 rules that become complete are dropped by cycle removal; renamed |
+| french1_1 | 6 / 11 | 0 / 0 | no copy at either level |
+| YAGO3-10_N_1 | 0 / 1 | 0 / 0 | no copy at either level |
 
 kbgen's copies, the splits, training and the analysis scripts don't read `exp_datasets_pca/` yet.
 

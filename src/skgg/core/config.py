@@ -68,8 +68,8 @@ class GraphConfig:
     Graph URIs are not set in the config. They are derived from `root_uri`, the
     namespace without its trailing `/` or `#` (e.g. `http://FrenchRoyalty.org`),
     and for a pipeline run from the label of its rule filter
-    (`core.rules.rule_filter_label`, e.g. `pca=0.9` or `std=1`, and in the PCA
-    setting of `RulesConfig.completeness` `pca/pca=0.9` or `pca/pca=1`):
+    (`core.rules.rule_filter_label`, e.g. `pca=0.9`, or `pca=1` without a
+    threshold):
 
         <root>/base                  the uploaded source graph (`base_uri`)
         <root>/skgg/<filter>/edb     the generated EDB (`edb_uri`)
@@ -142,33 +142,19 @@ class RulesConfig:
         rules_file: Filename (relative to `data.input_dir`) of the rules CSV,
             parsed by `core.rules.parse_rule_set`.
         pca_threshold: Minimum PCA confidence a rule must have to be kept, or
-            None (the default) to keep the rules with std confidence >=
-            `core.rules.DEFAULT_STD_THRESHOLD` (1) instead.
+            None (the default) to keep the complete rules, PCA confidence >=
+            `core.rules.COMPLETE_CONFIDENCE` (1), instead.
             `core.rules.parse_rule_set` drops every rule below the threshold
             or missing the confidence it filters on, so only the remaining
             rules flow into EDB generation and completion. A kept rule with
-            std confidence below 1 is partial (`HornRule.is_complete`): the EDB
+            PCA confidence below 1 is partial (`HornRule.is_complete`): the EDB
             builds round(PCA confidence x support) of its groundings with their
             head, after the complete rules, and completion doesn't apply it.
             Overridable per run with `--pca-conf` on the CLI.
-        completeness: The confidence that makes a rule complete
-            (`HornRule.is_complete`): "std" (the default) for std confidence 1,
-            as described above, or "pca" for PCA confidence 1. In the PCA setting,
-            the rules kept without `pca_threshold` are those with PCA confidence
-            1, a kept rule is partial only if its PCA confidence is below 1, and
-            the run's graph labels start with `pca/`. Overridable per run with
-            `--completeness` on the CLI.
     """
 
     rules_file: str
     pca_threshold: float | None = None
-    completeness: Literal["std", "pca"] = "std"
-
-    def __post_init__(self) -> None:
-        if self.completeness not in ("std", "pca"):
-            raise ValueError(
-                f"rules.completeness must be 'std' or 'pca', not {self.completeness!r}."
-            )
 
 
 @dataclass(frozen=True)

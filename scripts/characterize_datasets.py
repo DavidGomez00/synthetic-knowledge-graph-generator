@@ -53,8 +53,9 @@ Writes to `--output-dir` (default `exp_analysis`):
   triples, one row per rule level of the ours and kbgen copies (and `All`, over
   every level), one column per generator. A level's error is averaged over the
   source datasets with an ours or kbgen copy at that level, PyGraft's included.
-  `--skip-levels std1 pca1` leaves those copies out of this table only, written
-  as `size_mse_without_std1.*` and so on.
+  `--skip-levels pca1` leaves those copies out of this table only, written as
+  `size_mse_without_pca1.*`. Std1 copies, if any, are left out of the
+  tables of the rule levels (none is left since 19 November 2026).
 - `structural_tables/size_error_<level>.csv`, `.md` and `.tex`, for each level
   of `--size-levels` (e.g. `--size-levels r100`): one row per source dataset,
   and for each generator the difference copy - original and the squared
@@ -62,7 +63,7 @@ Writes to `--output-dir` (default `exp_analysis`):
 
 `--set` picks the datasets: `base` (default), the `_ours`, `_kbgen` or
 `_pygraft` copies (read from `<folder>/<folder>.tsv`), including their
-rule-level copies (`<source>_<set>_r50`, `<source>_<set>_std1`, ...), or `all`.
+rule-level copies (`<source>_<set>_r50`, `<source>_<set>_pca1`, ...), or `all`.
 Only the Python standard library is used, and one dataset is read at a time.
 
 The two CSV files are also a cache: each graph's row keeps the SHA-256 of its
@@ -571,7 +572,9 @@ METHOD_COLUMNS = (
     ("NAME", "ours"),
 )
 # The rule levels of the structural tables (docs/rule-levels.md).
-LEVELS = ("std1", "r25", "r50", "r75", "r100")
+LEVELS = ("pca1", "r25", "r50", "r75", "r100")
+# The level being replaced by pca1, left out of every table of the rule levels.
+IGNORED_LEVEL = "std1"
 METRIC_TITLES = {
     "triples": "Number of triples |E|",
     "entities": "Number of entities |V|",
@@ -624,7 +627,7 @@ relations and E the set of distinct triples (h, r, t), with h, t in V and r in R
 Repeated triples are counted once. A source dataset is read from
 `<dataset>.unified.tsv` and a copy from `<dataset>.tsv`. A copy is labelled with
 its generator (ours, kbgen, pygraft) and, for a rule-level copy, its level
-(std1, or r25 to r100, listed in `exp_datasets/rule_levels.tsv`). The table
+(pca1, std1, or r25 to r100, listed in `exp_datasets/rule_levels.tsv`). The table
 shows the main descriptors, and `dataset_characteristics.csv` has every one of
 them under the column name given in parentheses.
 
@@ -971,7 +974,7 @@ def write_level_tables(out: Path, rows: list[dict[str, object]], level: str) -> 
 # The size descriptors of the size MSE table: header and key.
 SIZE_COLUMNS = (("|V|", "entities"), ("|E|", "triples"))
 # The levels that `--skip-levels` can leave out of the size MSE table.
-SKIPPABLE_LEVELS = ("std1", "pca1")
+SKIPPABLE_LEVELS = ("pca1",)
 
 
 def size_mse(rows: list[dict[str, object]], skip: set[str]) -> list[dict[str, object]]:
@@ -987,7 +990,10 @@ def size_mse(rows: list[dict[str, object]], skip: set[str]) -> list[dict[str, ob
         {
             str(r["level"])
             for r in rows
-            if r["set"] in ("ours", "kbgen") and r["level"] and r["level"] not in skip
+            if r["set"] in ("ours", "kbgen")
+            and r["level"]
+            and r["level"] not in skip
+            and r["level"] != IGNORED_LEVEL
         },
         key=level_key,
     )

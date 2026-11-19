@@ -138,7 +138,7 @@ def main() -> int:
         help="Folders under the root (default every one with a .unified.tsv).",
     )
     parser.add_argument(
-        "--suffix", default="_ours_std1", help="Suffix of the copy (default _ours_std1)"
+        "--suffix", default="_ours_r25", help="Suffix of the copy (default _ours_r25)"
     )
     parser.add_argument(
         "--totals-only", action="store_true", help="Print only one line per dataset."

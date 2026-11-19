@@ -6,7 +6,7 @@ In short: the generator keeps each relation's frequency and degrees and each rul
 
 ## The size of the copies
 
-`family` has 28,358 triples. The copies of each rule level ([`rule-levels.md`](rule-levels.md)), in the std setting (`exp_datasets/`), in the PCA setting (`exp_datasets_pca/`, see "Complete and partial rules" in [`concepts.md`](concepts.md)) and by kbgen given the same rules (`exp_datasets/family_kbgen_<level>/`):
+`family` has 28,358 triples. The copies of each rule level ([`rule-levels.md`](rule-levels.md)), in the std setting (`exp_datasets/` until 19 November 2026, commit `2c7dfd5d`), in the PCA setting (`exp_datasets_pca/` then, `exp_datasets/` since, see "Complete and partial rules" in [`concepts.md`](concepts.md)) and by kbgen given the same rules (`exp_datasets/family_kbgen_<level>/`):
 
 | Level | This generator, std setting | × source | This generator, PCA setting | × source | kbgen |
 |---|---|---|---|---|---|
@@ -98,7 +98,7 @@ The heads of some complete rules are in the bodies of others, so the inflation c
 
 Forward-chaining the same rules over the source itself, where the structure is intact, adds little (`python scripts/family_structure.py --chain <used rules> exp_datasets/family/family.unified.tsv`):
 
-- the 18 complete rules of the std setting (`family_ours_std1_used.csv`) add nothing: the source is closed under them;
+- the 18 complete rules of the std setting (`family_ours_std1_used.csv`, removed with that copy on 19 November 2026; commit `2c7dfd5d` has it) add nothing: the source is closed under them;
 - the 26 complete rules of the PCA setting (`family_ours_pca1_used.csv`) add 1,831 triples (28,358 → 30,189): `husband` and `wife` 1,138 → 2,044 each, `nephew` +16, `niece` +3.
 
 The copies add 58,085 (std `std1`) to 109,231 (PCA `r100`) triples, so nearly all of the growth comes from the lost structure, not from the rules.
@@ -151,7 +151,7 @@ kbgen ([`runs/rule-levels/kbgen/kb_models/model_m3.py`](../runs/rule-levels/kbge
 
 ## Consequences
 
-- The copies of `family` made by this generator, `family_ours_std1` to `family_ours_r100` in `exp_datasets/` and `family_ours_pca1` to `family_ours_r100` in `exp_datasets_pca/`, don't preserve the source's relation frequencies or the support of its rules (rule 33: 1,772 → 30,413, at std confidence 1), and are not plausible family graphs. KGE results on them compare models on a graph 3 to 4.9 times larger with a different structure, and should be read with that in mind.
+- The copies of `family` made by this generator, `family_ours_r25` to `family_ours_r100` in `exp_datasets/` (and `family_ours_std1`, removed on 19 November 2026) and its PCA-setting copies `family_ours_pca1` to `family_ours_r100`, which replaced them in `exp_datasets/` on 19 November 2026, don't preserve the source's relation frequencies or the support of its rules (rule 33: 1,772 → 30,413, at std confidence 1), and are not plausible family graphs. KGE results on them compare models on a graph 3 to 4.9 times larger with a different structure, and should be read with that in mind.
 - The method preserves relation frequencies only while no complete rule with several groundings per pair survives cycle removal. On the current benchmark that holds for every dataset but `family`, for the reasons above, not by design.
 
 ## Possible fixes
@@ -170,9 +170,9 @@ None of these is applied. From the least to the most work:
 ```bash
 python scripts/rule_witnesses.py --suffix _ours_r100 --totals-only                       # groundings per pair of the complete rules of every r100 copy
 python scripts/rule_witnesses.py --suffix _ours_r100 --datasets family                   # per rule
-python scripts/family_structure.py exp_datasets/family/family.unified.tsv exp_datasets/family_ours_std1/family_ours_std1.tsv exp_datasets_pca/family_ours_pca1/family_ours_pca1.tsv exp_datasets/family_kbgen_r100/family_kbgen_r100.tsv
-python scripts/family_structure.py --completeness pca --chain exp_datasets_pca/family_ours_pca1/family_ours_pca1_used.csv exp_datasets/family/family.unified.tsv
-python scripts/check_outputs.py --suffix _ours_std1 --datasets family                    # frequencies and self-loops per relation
+python scripts/family_structure.py exp_datasets/family/family.unified.tsv exp_datasets/family_ours_r25/family_ours_r25.tsv exp_datasets/family_ours_pca1/family_ours_pca1.tsv exp_datasets/family_kbgen_r100/family_kbgen_r100.tsv
+python scripts/family_structure.py --chain exp_datasets/family_ours_pca1/family_ours_pca1_used.csv exp_datasets/family/family.unified.tsv
+python scripts/check_outputs.py --suffix _ours_r25 --datasets family                     # frequencies and self-loops per relation
 ```
 
-`rule_witnesses.py` reads copies under one root, so for the PCA copies, link `exp_datasets/family` and `exp_datasets_pca/family_ours_<level>` into one folder and pass it as `--root`. The per-relation counts of the tables above are the second column of each `.tsv` file counted with `cut -f2 | sort | uniq -c`.
+The PCA copies are in `exp_datasets/` since 19 November 2026, so `rule_witnesses.py` reads them with the default `--root`; the std copies are in commit `2c7dfd5d`. The per-relation counts of the tables above are the second column of each `.tsv` file counted with `cut -f2 | sort | uniq -c`.
