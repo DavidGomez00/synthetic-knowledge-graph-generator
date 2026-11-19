@@ -1,4 +1,4 @@
-"""Generates synthetic Knowledge Graphs using extensional data and Horn rules.
+"""Generates synthetic Knowledge Graphs using non-deducible data and Horn rules.
 
 This module provides the core pipeline for triple generation, applying a set of graph
 metrics and logical rules to produce a complete, synthetic N-Triples dataset.
@@ -22,7 +22,7 @@ from skgg.core.queries import (
     insert_triples_sparql,
 )
 from skgg.core.rules import Atom, HornRule
-from skgg.core.utils import format_triple
+from skgg.core.utils import format_term, format_triple
 from skgg.engine.metrics import PredicateProfile
 
 logger = logging.getLogger(__name__)
@@ -316,7 +316,7 @@ def sample_grounding_groups(
 
     Args:
         client: An instantiated and configured SPARQLWrapper client.
-        edb_uri: URI of the EDB, used to skip triples that already exist.
+        initial_facts_uri: URI of F0, used to skip triples that already exist.
         atoms: Body atoms to ground; their predicates must be keys of `profiles`.
         head_vars: Head variables of the rule (those absent from `atoms` are ignored).
         profiles: Remaining budget per predicate; mutated for accepted groundings.
@@ -523,6 +523,46 @@ def triples_from_bindings(
         for atom in atoms
         for binding_row in bindings
     )
+
+
+def novel_head_pairs(
+    client: SPARQLWrapper,
+    graph_uri: str,
+    rule: HornRule,
+    term_mapping: dict[str, str],
+    chunk_size: int,
+) -> set[tuple[str, str]]:
+    """Returns the (subject, object) pairs, as bracketed terms, of the head triples
+    that the rule derives in 'graph_uri' and that the graph doesn't hold yet.
+
+    The capped completion (`completion.complete_graph` with `caps`) chooses among
+    these before inserting any, where `apply_rule` inserts them all.
+    """
+    query = build_rule_query(rule=rule.signature, graph_uri=graph_uri)
+    if not (raw_bindings := execute_select_query(client, query)):
+        return set()
+
+    pairs = {
+        (
+            format_term(from_binding_row(rule.head.subject, row)[0], term_mapping),
+            format_term(from_binding_row(rule.head.obj, row)[0], term_mapping),
+        )
+        for row in raw_bindings
+    }
+    existing = get_existing_triples(
+        client=client,
+        graph_uri=graph_uri,
+        candidate_triples=(
+            format_triple(s, rule.head.predicate, o, term_mapping) for s, o in pairs
+        ),
+        term_mapping=term_mapping,
+        chunk_size=chunk_size,
+    )
+    return {
+        (s, o)
+        for s, o in pairs
+        if format_triple(s, rule.head.predicate, o, term_mapping) not in existing
+    }
 
 
 def apply_rule(

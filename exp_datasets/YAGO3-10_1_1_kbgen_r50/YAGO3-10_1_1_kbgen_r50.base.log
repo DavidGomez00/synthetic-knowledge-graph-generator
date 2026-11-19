@@ -1,0 +1,41 @@
+### 2026-11-16 13:30:05 tsv_to_nt: start
+### 2026-11-16 13:30:08 tsv->nt: 340991 triples, 0 duplicates, 0 invalid lines
+### 2026-11-16 13:30:08 tsv_to_nt: done in 2.9 s
+### 2026-11-16 13:30:08 load_tensor: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/kbgen/load_tensor.py YAGO3-10_1_1.nt
+Namespace(input='YAGO3-10_1_1.nt', typedict=None)
+loading data
+loading types
+0 types loaded
+loading subjects dict
+loading object properties
+30 object properties loaded
+allocating adjacency matrices
+populating adjacency matrices
+populating type matrix with type assertions
+0 type assertions loaded
+load types hierarchy: total=0 matched=0
+load relations hierarchy: total=0 matched=0
+load relation domains: total=0
+load relation ranges: total=0
+### 2026-11-16 13:30:26 load_tensor: done in 17.8 s
+### 2026-11-16 13:30:26 learn_M1: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/kbgen/learn_model.py YAGO3-10_1_1.npz -m M1
+Namespace(input='YAGO3-10_1_1.npz', model='M1', source_kb_models=['M1', 'M2', 'M3'], rules_path=None)
+learning M1 model
+saving model to YAGO3-10_1_1-M1.pkl
+### 2026-11-16 13:31:05 learn_M1: done in 39.5 s
+### 2026-11-16 13:31:05 learn_M2: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/kbgen/learn_model.py YAGO3-10_1_1.npz -m M2
+Namespace(input='YAGO3-10_1_1.npz', model='M2', source_kb_models=['M1', 'M2', 'M3'], rules_path=None)
+learning M2 model
+saving model to YAGO3-10_1_1-M2.pkl
+### 2026-11-16 13:31:07 learn_M2: done in 1.7 s
+### 2026-11-17 00:14:18 tsv_to_nt: skipped, output exists
+### 2026-11-17 00:14:18 load_tensor: skipped, output exists
+### 2026-11-17 00:14:18 learn_M1: skipped, output exists
+### 2026-11-17 00:14:18 learn_M2: skipped, output exists
+### 2026-11-17 01:35:01 tsv_to_nt: skipped, output exists
+### 2026-11-17 01:35:01 load_tensor: skipped, output exists
+### 2026-11-17 01:35:01 learn_M1: skipped, output exists
+### 2026-11-17 01:35:01 learn_M2: skipped, output exists

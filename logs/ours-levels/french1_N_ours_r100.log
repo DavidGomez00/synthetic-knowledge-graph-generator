@@ -1,0 +1,67 @@
+17:06:11 | __main__ | INFO   | Inserted /home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets/french1_N/french1_N.unified.tsv into <http://skgg.org/french1_N/base> with 1696 triples.
+17:06:12 | __main__ | INFO   | Confifuration correctly initialized.
+17:06:12 | __main__ | INFO   | [1/5] Extracting metrics and rules
+17:06:12 | __main__ | INFO   | Rule filter pca=0: EDB at <http://skgg.org/french1_N/skgg/pca=0/edb>, synthetic graph at <http://skgg.org/french1_N/skgg/pca=0>.
+17:06:12 | skgg.core.rules | INFO   | Kept 15/15 rules with PCA confidence >= 0.000 (classification == POSITIVE); dropped 0 (NEGATIVE or UNKNOWN).
+17:06:12 | __main__ | INFO   | 15 rules: 0 complete (std confidence 1, forward-chained), 15 partial (grounded round(PCA confidence x support) times in the EDB, after the complete rules).
+17:06:12 | skgg.core.visualization | INFO   | Saved relation graph visualization (0 predicates, 0 in a cycle) to <logs/relation_graph_french1_N.png>
+17:06:12 | __main__ | INFO   | Extensional relations (6, target frequency): child 731, name 5, parent 642, predecessor 89, spouse 154, successor 75
+17:06:12 | __main__ | INFO   | Intensional relations (0, target frequency): none
+17:06:12 | __main__ | INFO   | [2/5] Generating EDB
+17:06:12 | skgg.core.rules | INFO   | Saved 15 used rules to `/home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets/french1_N/french1_N_used.csv`.
+17:06:12 | skgg.engine.edb | INFO   | [Self-loops] Placed 1 self-loops (placed/target): name 1/1
+17:06:12 | skgg.engine.edb | INFO   | Start warm-up.
+17:06:12 | skgg.engine.edb | INFO   | [Warm-up] No direct matches.
+17:06:12 | skgg.engine.edb | INFO   | Creating EDB
+17:06:12 | skgg.engine.edb | INFO   | Extensional relations to generate (6/6, current/target): child 0/731 (open), name 1/5 (open), parent 0/642 (open), predecessor 0/89 (open), spouse 0/154 (open), successor 0/75 (open)
+17:06:12 | skgg.engine.edb | INFO   | Closed predicates [0/6].
+17:06:13 | skgg.engine.generator | WARNING | No candidate values left for ['?a', '?b'] in ['?b <http://skgg.org/french1_N/spouse> ?a', '?a <http://skgg.org/french1_N/spouse> ?b']; skipping the rule.
+17:06:13 | skgg.engine.generator | WARNING | Built 13 of 18 needed groundings for ['?b <http://skgg.org/french1_N/spouse> ?a', '?a <http://skgg.org/french1_N/spouse> ?b'].
+17:06:13 | skgg.engine.edb | INFO   | [Step 33] Closed predicates [1/6].
+17:06:13 | skgg.engine.edb | INFO   | [Step 239] Closed predicates [2/6].
+17:06:13 | skgg.engine.edb | INFO   | [Step 318] Closed predicates [3/6].
+17:06:13 | skgg.engine.edb | INFO   | [Step 403] Closed predicates [4/6].
+17:06:13 | skgg.engine.edb | INFO   | [Step 794] Closed predicates [5/6].
+17:06:13 | skgg.engine.edb | INFO   | [Step 986] Closed predicates [6/6].
+17:06:14 | __main__ | INFO   | EDB generated in 1.3s at <http://skgg.org/french1_N/skgg/pca=0/edb> with 1696 triples.
+17:06:14 | __main__ | INFO   | [3/5] Completing graph
+17:06:14 | __main__ | INFO   | [EDB] Closed predicates: 6/6, closed rules: 15/15.
+17:06:14 | __main__ | INFO   | [EDB] Newly closed predicates: child, name, parent, predecessor, spouse, successor
+17:06:14 | __main__ | INFO   | [EDB] Newly closed rules: 1, 10, 11, 12, 13, 14, 15, 2, 3, 4, 5, 6, 7, 8, 9
+17:06:14 | __main__ | INFO   | Applying the 0 complete rules (0 open): none
+17:06:14 | skgg.engine.completion | INFO   | [initial] Pass 1: no triples added.
+17:06:14 | skgg.engine.completion | INFO   | [initial] +0 triples in 1 passes (stale state).
+17:06:14 | __main__ | INFO   | [initial] Closed predicates: 6/6, closed rules: 15/15.
+17:06:14 | __main__ | INFO   | [4/5] Filling open relations
+17:06:14 | __main__ | INFO   | Skipping the fill step (pass --fill to run it); synthetic graph at <http://skgg.org/french1_N/skgg/pca=0>.
+17:06:14 | __main__ | INFO   | [5/5] Summary
+17:06:14 | __main__ | INFO   | Experiment summary, <http://skgg.org/french1_N/base> -> <http://skgg.org/french1_N/skgg/pca=0>:
+Triples: 1696 -> 1696 (+0, +0.0%)
+
+Predicates (6):
+  child        731 -> 731  (+0)  [CLOSED]  [EXTENSIONAL]
+  name           5 -> 5    (+0)  [CLOSED]  [EXTENSIONAL]
+  parent       642 -> 642  (+0)  [CLOSED]  [EXTENSIONAL]
+  predecessor   89 -> 89   (+0)  [CLOSED]  [EXTENSIONAL]
+  spouse       154 -> 154  (+0)  [CLOSED]  [EXTENSIONAL]
+  successor     75 -> 75   (+0)  [CLOSED]  [EXTENSIONAL]
+
+Rules (15), support, std and PCA confidence, original -> synthetic:
+  1   ?a spouse ?f & ?b parent ?f => ?a child ?b            24 -> 11  (-13)  std 0.300 -> 0.138 (-0.162)  pca 0.471 -> 0.262 (-0.209)  [CLOSED]  [PARTIAL 11]
+  2   ?a parent ?f & ?b spouse ?f => ?a parent ?b           23 -> 7   (-16)  std 0.287 -> 0.087 (-0.200)  pca 0.287 -> 0.087 (-0.200)  [CLOSED]  [PARTIAL 7]
+  3   ?a predecessor ?b => ?a parent ?b                     21 -> 6   (-15)  std 0.236 -> 0.067 (-0.169)  pca 0.276 -> 0.079 (-0.197)  [CLOSED]  [PARTIAL 6]
+  4   ?b parent ?a => ?a child ?b                          148 -> 92  (-56)  std 0.231 -> 0.143 (-0.087)  pca 0.574 -> 0.357 (-0.217)  [CLOSED]  [PARTIAL 85]
+  5   ?b child ?a => ?a parent ?b                          148 -> 92  (-56)  std 0.202 -> 0.126 (-0.077)  pca 0.622 -> 0.387 (-0.235)  [CLOSED]  [PARTIAL 92]
+  6   ?b successor ?a => ?a parent ?b                       15 -> 4   (-11)  std 0.200 -> 0.053 (-0.147)  pca 0.288 -> 0.077 (-0.212)  [CLOSED]  [PARTIAL 4]
+  7   ?a predecessor ?f & ?b successor ?f => ?a parent ?b    7 -> 2   ( -5)  std 0.200 -> 0.054 (-0.146)  pca 0.269 -> 0.057 (-0.212)  [CLOSED]  [PARTIAL 2]
+  8   ?b spouse ?a => ?a spouse ?b                          30 -> 26  ( -4)  std 0.195 -> 0.169 (-0.026)  pca 0.600 -> 0.520 (-0.080)  [CLOSED]  [PARTIAL 18]
+  9   ?a parent ?e & ?e spouse ?b => ?a parent ?b           23 -> 7   (-16)  std 0.187 -> 0.057 (-0.130)  pca 0.187 -> 0.057 (-0.130)  [CLOSED]  [PARTIAL 4]
+  10  ?b spouse ?f & ?f child ?a => ?a parent ?b            19 -> 9   (-10)  std 0.165 -> 0.078 (-0.087)  pca 0.452 -> 0.184 (-0.269)  [CLOSED]  [PARTIAL 9]
+  11  ?b parent ?e & ?e spouse ?a => ?a child ?b            19 -> 9   (-10)  std 0.154 -> 0.073 (-0.081)  pca 0.279 -> 0.158 (-0.122)  [CLOSED]  [PARTIAL 5]
+  12  ?a successor ?b => ?a child ?b                        11 -> 4   ( -7)  std 0.147 -> 0.053 (-0.093)  pca 0.256 -> 0.093 (-0.163)  [CLOSED]  [PARTIAL 3]
+  13  ?b predecessor ?a => ?a child ?b                      13 -> 4   ( -9)  std 0.146 -> 0.045 (-0.101)  pca 0.271 -> 0.083 (-0.188)  [CLOSED]  [PARTIAL 4]
+  14  ?a spouse ?f & ?f child ?b => ?a child ?b             16 -> 2   (-14)  std 0.139 -> 0.017 (-0.122)  pca 0.139 -> 0.017 (-0.122)  [CLOSED]  [PARTIAL 2]
+  15  ?e child ?a & ?e spouse ?b => ?a parent ?b            24 -> 11  (-13)  std 0.126 -> 0.058 (-0.068)  pca 0.338 -> 0.147 (-0.191)  [CLOSED]  [PARTIAL 8]
+17:06:14 | __main__ | INFO   | Execution finished after 2.2s.
+17:06:15 | skgg.core.triples | INFO   | Wrote 1696 triples to /tmp/tmpb23881lz/graph.tsv, skipping 0 duplicate triples and 0 invalid lines.
+17:06:15 | __main__ | INFO   | Downloaded <http://skgg.org/french1_N/skgg/pca=0>: 1696 triples to /tmp/tmpb23881lz/graph.nt and /tmp/tmpb23881lz/graph.tsv.

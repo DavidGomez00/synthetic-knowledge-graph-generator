@@ -68,18 +68,19 @@ class GraphConfig:
     Graph URIs are not set in the config. They are derived from `root_uri`, the
     namespace without its trailing `/` or `#` (e.g. `http://FrenchRoyalty.org`),
     and for a pipeline run from the label of its rule filter
-    (`core.rules.rule_filter_label`, e.g. `pca=0.9` or `std=1`):
+    (`core.rules.rule_filter_label`, e.g. `pca=0.9`, or `pca=1` without a
+    threshold):
 
         <root>/base                  the uploaded source graph (`base_uri`)
-        <root>/skgg/<filter>/edb     the generated EDB (`edb_uri`)
-        <root>/skgg/<filter>         the EDB plus what completion derives from it
+        <root>/skgg/<filter>/edb     the generated initial facts (`initial_facts_uri`)
+        <root>/skgg/<filter>         F0 plus what completion derives from it
                                      (`synthetic_uri`)
         <root>/skgg/<filter>/filled  a copy of the synthetic graph plus the
                                      triples that the optional fill step adds
                                      (`--fill` in `cli/main.py`, `filled_uri`)
 
     Configs with the same namespace share these graphs. `--synthetic-uri` in
-    `cli/main.py` replaces `<root>/skgg/<filter>` for one run, and the EDB and
+    `cli/main.py` replaces `<root>/skgg/<filter>` for one run, and F0 and
     filled graphs move below it.
 
     Attributes:
@@ -116,13 +117,13 @@ class GraphConfig:
         return f"{self.root_uri}/skgg"
 
     def synthetic_uri(self, rule_filter: str) -> str:
-        """Named-graph URI of the synthetic graph (EDB + completion) of a run whose
+        """Named-graph URI of the synthetic graph (F0 + completion) of a run whose
         rule filter is labeled `rule_filter`."""
         return f"{self.skgg_uri}/{rule_filter}"
 
     @staticmethod
-    def edb_uri(synthetic_uri: str) -> str:
-        """Named-graph URI of the EDB of a run whose synthetic graph is
+    def initial_facts_uri(synthetic_uri: str) -> str:
+        """Named-graph URI of F0 of a run whose synthetic graph is
         `synthetic_uri`."""
         return f"{synthetic_uri}/edb"
 
@@ -141,14 +142,14 @@ class RulesConfig:
         rules_file: Filename (relative to `data.input_dir`) of the rules CSV,
             parsed by `core.rules.parse_rule_set`.
         pca_threshold: Minimum PCA confidence a rule must have to be kept, or
-            None (the default) to keep the rules with std confidence >=
-            `core.rules.DEFAULT_STD_THRESHOLD` (1) instead.
+            None (the default) to keep the complete rules, PCA confidence >=
+            `core.rules.COMPLETE_CONFIDENCE` (1), instead.
             `core.rules.parse_rule_set` drops every rule below the threshold
             or missing the confidence it filters on, so only the remaining
-            rules flow into EDB generation and completion. A kept rule with
-            std confidence below 1 is partial (`HornRule.is_complete`): the EDB
-            builds round(PCA confidence x support) of its groundings with their
-            head, after the complete rules, and completion doesn't apply it.
+            rules flow into initial-fact generation and completion. A kept rule with
+            PCA confidence below 1 is partial (`HornRule.is_complete`): initial-fact
+            generation builds round(PCA confidence x support) of its groundings with
+            their head, after the complete rules, and completion doesn't apply it.
             Overridable per run with `--pca-conf` on the CLI.
     """
 

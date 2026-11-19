@@ -125,7 +125,7 @@ DEFAULT_THREADS = 4
 # sets `kbgen` and `ours`, which since the full copies were dropped hold only them,
 # and `kbgen-levels` and `ours-levels` select the same folders.
 LEVEL_SETS = ("ours-levels", "kbgen-levels")
-LEVEL_COPY = re.compile(r"_(ours|kbgen|pygraft)_(r\d+|std1)$")
+LEVEL_COPY = re.compile(r"_(ours|kbgen|pygraft)_(r\d+|std1|pca1)$")
 # The YAGO3-10 datasets (base datasets whose name starts with this prefix, and their
 # copies) train every model but CompGCN at YAGO_BATCH_SIZE instead of
 # Settings.batch_size: at batch size 32 a run took 14 to 31 hours on a MIG 1g.24gb
@@ -361,7 +361,7 @@ class AtomicCheckpointLoop(SLCWATrainingLoop):
 
 
 # A copy's folder: `<base>_<set>`, or `<base>_<set>_<tag>` for a variant of the copy,
-# such as french_ours_std1 (made from the std confidence 1 rules).
+# such as french_ours_pca1 (made from the PCA confidence 1 rules).
 COPY_NAME = re.compile(rf"(?P<base>.+)_(?P<set>{'|'.join(COPY_SETS)})(?:_[^_]+)?")
 
 

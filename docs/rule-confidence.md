@@ -62,7 +62,7 @@ Per dataset, this generator has a smaller median difference than kbgen in 59 of 
 
 ![PCA confidence of every mined rule of french on each copy at level r50, original against copy](../exp_analysis/rule_confidence/plots/french_r50.png)
 
-Of the 111 rules given, this generator keeps 39 within 0.05 of their original PCA confidence, kbgen 20 (17 more have an empty PCA body) and PyGraft none. On this generator's copy, 20 of the 111 rules fall below 0.06. They are partial rules with `spouse`, `parent`, `father`, `mother` or `child` at the head, such as `?e father ?b  ?e mother ?a => ?a spouse ?b` (rule 31). Their support drops from 34 to 1,007 on the original to 0 to 40, while their bodies keep 59 to 1,277 groundings. The run log (`runs/rule-levels/ours/french_ours_r50.log`) warns that the EDB found no candidate values for many partial-rule groundings and skipped them.
+Of the 111 rules given, this generator keeps 39 within 0.05 of their original PCA confidence, kbgen 20 (17 more have an empty PCA body) and PyGraft none. On this generator's copy, 20 of the 111 rules fall below 0.06. They are partial rules with `spouse`, `parent`, `father`, `mother` or `child` at the head, such as `?e father ?b  ?e mother ?a => ?a spouse ?b` (rule 31). Their support drops from 34 to 1,007 on the original to 0 to 40, while their bodies keep 59 to 1,277 groundings. The run log (`runs/rule-levels/ours/french_ours_r50.log`) warns that initial-fact generation found no candidate values for many partial-rule groundings and skipped them.
 
 ## French datasets
 

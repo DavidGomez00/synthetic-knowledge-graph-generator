@@ -2,8 +2,8 @@
 
 A rule's support counts distinct head pairs, but a head pair can be reached
 through several body groundings (witnesses), e.g. `?a brother ?f & ?b mother ?f
-=> ?a son ?b` is reached once per sibling `?f` of `?a`. The EDB grounds a rule
-`support` times with one witness each, and the random facts add joins that reach
+=> ?a son ?b` is reached once per sibling `?f` of `?a`. Initial-fact generation grounds
+a rule `support` times with one witness each, and the random facts add joins that reach
 new head pairs, so a copy of a graph with many witnesses per pair derives more
 head facts than its source (`family`, section 8 of `docs/algorithm.md`).
 
@@ -138,7 +138,7 @@ def main() -> int:
         help="Folders under the root (default every one with a .unified.tsv).",
     )
     parser.add_argument(
-        "--suffix", default="_ours_std1", help="Suffix of the copy (default _ours_std1)"
+        "--suffix", default="_ours_r25", help="Suffix of the copy (default _ours_r25)"
     )
     parser.add_argument(
         "--totals-only", action="store_true", help="Print only one line per dataset."

@@ -1,0 +1,37 @@
+### 2026-11-16 13:20:42 tsv_to_nt: start
+### 2026-11-16 13:20:43 tsv->nt: 93003 triples, 0 duplicates, 0 invalid lines
+### 2026-11-16 13:20:43 tsv_to_nt: done in 0.7 s
+### 2026-11-16 13:20:43 load_tensor: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/kbgen/load_tensor.py WN18RRN_M.nt
+Namespace(input='WN18RRN_M.nt', typedict=None)
+loading data
+loading types
+0 types loaded
+loading subjects dict
+loading object properties
+11 object properties loaded
+allocating adjacency matrices
+populating adjacency matrices
+populating type matrix with type assertions
+0 type assertions loaded
+load types hierarchy: total=0 matched=0
+load relations hierarchy: total=0 matched=0
+load relation domains: total=0
+load relation ranges: total=0
+### 2026-11-16 13:20:48 load_tensor: done in 4.9 s
+### 2026-11-16 13:20:48 learn_M1: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/kbgen/learn_model.py WN18RRN_M.npz -m M1
+Namespace(input='WN18RRN_M.npz', model='M1', source_kb_models=['M1', 'M2', 'M3'], rules_path=None)
+learning M1 model
+saving model to WN18RRN_M-M1.pkl
+### 2026-11-16 13:20:58 learn_M1: done in 10.8 s
+### 2026-11-16 13:20:58 learn_M2: start
+$ /home/david/.pyenv/versions/KG/bin/python /home/david/kbgen/learn_model.py WN18RRN_M.npz -m M2
+Namespace(input='WN18RRN_M.npz', model='M2', source_kb_models=['M1', 'M2', 'M3'], rules_path=None)
+learning M2 model
+saving model to WN18RRN_M-M2.pkl
+### 2026-11-16 13:21:00 learn_M2: done in 1.3 s
+### 2026-11-16 23:00:07 tsv_to_nt: skipped, output exists
+### 2026-11-16 23:00:07 load_tensor: skipped, output exists
+### 2026-11-16 23:00:07 learn_M1: skipped, output exists
+### 2026-11-16 23:00:07 learn_M2: skipped, output exists

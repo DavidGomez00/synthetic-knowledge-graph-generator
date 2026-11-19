@@ -1,0 +1,226 @@
+06:52:27 | __main__ | INFO   | Inserted /home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets/YAGO3-10/YAGO3-10.unified.tsv into <http://skgg.org/YAGO3-10/base> with 1089040 triples.
+06:52:29 | __main__ | INFO   | Confifuration correctly initialized.
+06:52:29 | __main__ | INFO   | [1/5] Extracting metrics and rules
+06:52:29 | __main__ | INFO   | Rule filter pca=0.3102: EDB at <http://skgg.org/YAGO3-10/skgg/pca=0.3102/edb>, synthetic graph at <http://skgg.org/YAGO3-10/skgg/pca=0.3102>.
+06:53:20 | skgg.core.rules | INFO   | Kept 75/149 rules with PCA confidence >= 0.310 (classification == POSITIVE); dropped 74 (NEGATIVE or UNKNOWN).
+06:53:20 | __main__ | INFO   | 75 rules: 3 complete (std confidence 1, forward-chained), 72 partial (grounded round(PCA confidence x support) times in the EDB, after the complete rules).
+06:53:20 | skgg.core.visualization | INFO   | Saved relation graph visualization (4 predicates, 2 in a cycle) to <logs/relation_graph_YAGO3-10.png>
+06:53:20 | skgg.core.cycles | INFO   | Cycle of hasNeighbor: keeping 0 of 1 cyclic rules with the order hasNeighbor.
+06:53:20 | skgg.core.cycles | INFO   | Removed rule 1: recursive.
+06:53:20 | skgg.core.cycles | INFO   | Cycle of isMarriedTo: keeping 0 of 2 cyclic rules with the order isMarriedTo.
+06:53:20 | skgg.core.cycles | INFO   | Removed rule 2: recursive.
+06:53:20 | skgg.core.cycles | INFO   | Removed rule 3: recursive.
+06:53:20 | skgg.core.cycles | INFO   | Predicates made extensional by cyclic rule removal: hasNeighbor, isMarriedTo
+06:53:20 | skgg.core.cycles | INFO   | Removed 3 cyclic rules; 0 rules left.
+06:53:20 | __main__ | INFO   | Extensional relations (37, target frequency): actedIn 32479, created 7006, dealsWith 1320, diedIn 9340, directed 5530, edited 3114, exports 381, graduatedFrom 7432, happenedIn 5099, hasAcademicAdvisor 921, hasCapital 2589, hasChild 5111, hasCurrency 110, hasGender 66771, hasMusicalRole 7827, hasNeighbor 558, hasOfficialLanguage 300, hasWebsite 69, hasWonPrize 24279, imports 394, influences 10801, isAffiliatedTo 377144, isCitizenOf 3482, isConnectedTo 32338, isInterestedIn 243, isKnownFor 19, isLeaderOf 966, isLocatedIn 89521, isMarriedTo 3795, isPoliticianOf 2186, livesIn 3011, owns 733, participatedIn 5190, playsFor 324049, wasBornIn 45411, worksAt 3419, wroteMusicFor 6102
+06:53:20 | __main__ | INFO   | Intensional relations (0, target frequency): none
+06:53:20 | __main__ | INFO   | [2/5] Generating EDB
+06:53:20 | skgg.core.rules | INFO   | Saved 72 used rules to `/tmp/tmpq_fymh7g/YAGO3-10_used.csv`.
+06:53:20 | skgg.engine.edb | INFO   | Start warm-up.
+06:53:20 | skgg.engine.edb | INFO   | [Warm-up] No direct matches.
+06:53:20 | skgg.engine.edb | INFO   | Creating EDB
+06:53:20 | skgg.engine.edb | INFO   | Extensional relations to generate (37/37, current/target): actedIn 0/32479 (open), created 0/7006 (open), dealsWith 0/1320 (open), diedIn 0/9340 (open), directed 0/5530 (open), edited 0/3114 (open), exports 0/381 (open), graduatedFrom 0/7432 (open), happenedIn 0/5099 (open), hasAcademicAdvisor 0/921 (open), hasCapital 0/2589 (open), hasChild 0/5111 (open), hasCurrency 0/110 (open), hasGender 0/66771 (open), hasMusicalRole 0/7827 (open), hasNeighbor 0/558 (open), hasOfficialLanguage 0/300 (open), hasWebsite 0/69 (open), hasWonPrize 0/24279 (open), imports 0/394 (open), influences 0/10801 (open), isAffiliatedTo 0/377144 (open), isCitizenOf 0/3482 (open), isConnectedTo 0/32338 (open), isInterestedIn 0/243 (open), isKnownFor 0/19 (open), isLeaderOf 0/966 (open), isLocatedIn 0/89521 (open), isMarriedTo 0/3795 (open), isPoliticianOf 0/2186 (open), livesIn 0/3011 (open), owns 0/733 (open), participatedIn 0/5190 (open), playsFor 0/324049 (open), wasBornIn 0/45411 (open), worksAt 0/3419 (open), wroteMusicFor 0/6102 (open)
+06:53:20 | skgg.engine.edb | INFO   | Closed predicates [0/37].
+08:07:02 | skgg.engine.generator | WARNING | No candidate values left for ['?a', '?b'] in ['?b <http://skgg.org/YAGO3-10/isConnectedTo> ?a', '?a <http://skgg.org/YAGO3-10/isConnectedTo> ?b']; skipping the rule.
+08:07:02 | skgg.engine.generator | WARNING | Built 12610 of 14640 needed groundings for ['?b <http://skgg.org/YAGO3-10/isConnectedTo> ?a', '?a <http://skgg.org/YAGO3-10/isConnectedTo> ?b'].
+08:07:43 | skgg.engine.generator | WARNING | No candidate values left for ['?a', '?f'] in ['?f <http://skgg.org/YAGO3-10/hasOfficialLanguage> ?b', '?a <http://skgg.org/YAGO3-10/hasNeighbor> ?f', '?a <http://skgg.org/YAGO3-10/hasOfficialLanguage> ?b']; skipping the rule.
+08:07:43 | skgg.engine.generator | WARNING | Built 33 of 35 needed groundings for ['?f <http://skgg.org/YAGO3-10/hasOfficialLanguage> ?b', '?a <http://skgg.org/YAGO3-10/hasNeighbor> ?f', '?a <http://skgg.org/YAGO3-10/hasOfficialLanguage> ?b'].
+08:07:43 | skgg.engine.generator | WARNING | No candidate values left for ['?a', '?e'] in ['?e <http://skgg.org/YAGO3-10/hasNeighbor> ?a', '?e <http://skgg.org/YAGO3-10/hasOfficialLanguage> ?b', '?a <http://skgg.org/YAGO3-10/hasOfficialLanguage> ?b']; skipping the rule.
+08:07:43 | skgg.engine.generator | WARNING | Built 0 of 1 needed groundings for ['?e <http://skgg.org/YAGO3-10/hasNeighbor> ?a', '?e <http://skgg.org/YAGO3-10/hasOfficialLanguage> ?b', '?a <http://skgg.org/YAGO3-10/hasOfficialLanguage> ?b'].
+08:08:06 | skgg.engine.generator | WARNING | No candidate values left for ['?a', '?b'] in ['?b <http://skgg.org/YAGO3-10/hasNeighbor> ?a', '?a <http://skgg.org/YAGO3-10/hasNeighbor> ?b']; skipping the rule.
+08:08:06 | skgg.engine.generator | WARNING | Built 81 of 551 needed groundings for ['?b <http://skgg.org/YAGO3-10/hasNeighbor> ?a', '?a <http://skgg.org/YAGO3-10/hasNeighbor> ?b'].
+08:08:11 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?a <http://skgg.org/YAGO3-10/hasChild> ?f', '?f <http://skgg.org/YAGO3-10/isCitizenOf> ?b', '?a <http://skgg.org/YAGO3-10/isPoliticianOf> ?b']; skipping the rule.
+08:08:11 | skgg.engine.generator | WARNING | Built 59 of 103 needed groundings for ['?a <http://skgg.org/YAGO3-10/hasChild> ?f', '?f <http://skgg.org/YAGO3-10/isCitizenOf> ?b', '?a <http://skgg.org/YAGO3-10/isPoliticianOf> ?b'].
+08:08:11 | skgg.engine.generator | WARNING | No candidate values left for ['?e'] in ['?e <http://skgg.org/YAGO3-10/hasChild> ?a', '?e <http://skgg.org/YAGO3-10/isCitizenOf> ?b', '?a <http://skgg.org/YAGO3-10/isPoliticianOf> ?b']; skipping the rule.
+08:08:11 | skgg.engine.generator | WARNING | Built 51 of 110 needed groundings for ['?e <http://skgg.org/YAGO3-10/hasChild> ?a', '?e <http://skgg.org/YAGO3-10/isCitizenOf> ?b', '?a <http://skgg.org/YAGO3-10/isPoliticianOf> ?b'].
+08:08:15 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?f <http://skgg.org/YAGO3-10/hasGender> ?b', '?a <http://skgg.org/YAGO3-10/hasAcademicAdvisor> ?f', '?a <http://skgg.org/YAGO3-10/hasGender> ?b']; skipping the rule.
+08:08:15 | skgg.engine.generator | WARNING | Built 386 of 738 needed groundings for ['?f <http://skgg.org/YAGO3-10/hasGender> ?b', '?a <http://skgg.org/YAGO3-10/hasAcademicAdvisor> ?f', '?a <http://skgg.org/YAGO3-10/hasGender> ?b'].
+08:08:18 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?a <http://skgg.org/YAGO3-10/hasChild> ?f', '?f <http://skgg.org/YAGO3-10/isPoliticianOf> ?b', '?a <http://skgg.org/YAGO3-10/isPoliticianOf> ?b']; skipping the rule.
+08:08:18 | skgg.engine.generator | WARNING | Built 494 of 818 needed groundings for ['?a <http://skgg.org/YAGO3-10/hasChild> ?f', '?f <http://skgg.org/YAGO3-10/isPoliticianOf> ?b', '?a <http://skgg.org/YAGO3-10/isPoliticianOf> ?b'].
+08:08:19 | skgg.engine.generator | WARNING | No candidate values left for ['?e'] in ['?e <http://skgg.org/YAGO3-10/hasChild> ?a', '?e <http://skgg.org/YAGO3-10/isPoliticianOf> ?b', '?a <http://skgg.org/YAGO3-10/isPoliticianOf> ?b']; skipping the rule.
+08:08:19 | skgg.engine.generator | WARNING | Built 0 of 387 needed groundings for ['?e <http://skgg.org/YAGO3-10/hasChild> ?a', '?e <http://skgg.org/YAGO3-10/isPoliticianOf> ?b', '?a <http://skgg.org/YAGO3-10/isPoliticianOf> ?b'].
+08:08:22 | skgg.engine.generator | WARNING | No candidate values left for ['?e'] in ['?e <http://skgg.org/YAGO3-10/isMarriedTo> ?a', '?e <http://skgg.org/YAGO3-10/hasChild> ?b', '?a <http://skgg.org/YAGO3-10/hasChild> ?b']; skipping the rule.
+08:08:22 | skgg.engine.generator | WARNING | Built 806 of 927 needed groundings for ['?e <http://skgg.org/YAGO3-10/isMarriedTo> ?a', '?e <http://skgg.org/YAGO3-10/hasChild> ?b', '?a <http://skgg.org/YAGO3-10/hasChild> ?b'].
+08:08:22 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?a <http://skgg.org/YAGO3-10/isMarriedTo> ?e', '?e <http://skgg.org/YAGO3-10/hasChild> ?b', '?a <http://skgg.org/YAGO3-10/hasChild> ?b']; skipping the rule.
+08:08:22 | skgg.engine.generator | WARNING | Built 0 of 129 needed groundings for ['?a <http://skgg.org/YAGO3-10/isMarriedTo> ?e', '?e <http://skgg.org/YAGO3-10/hasChild> ?b', '?a <http://skgg.org/YAGO3-10/hasChild> ?b'].
+08:08:26 | skgg.engine.generator | WARNING | No candidate values left for ['?a', '?b'] in ['?b <http://skgg.org/YAGO3-10/isMarriedTo> ?a', '?a <http://skgg.org/YAGO3-10/isMarriedTo> ?b']; skipping the rule.
+08:08:26 | skgg.engine.generator | WARNING | Built 1088 of 3677 needed groundings for ['?b <http://skgg.org/YAGO3-10/isMarriedTo> ?a', '?a <http://skgg.org/YAGO3-10/isMarriedTo> ?b'].
+08:08:39 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?a <http://skgg.org/YAGO3-10/hasChild> ?f', '?f <http://skgg.org/YAGO3-10/hasGender> ?b', '?a <http://skgg.org/YAGO3-10/hasGender> ?b']; skipping the rule.
+08:08:39 | skgg.engine.generator | WARNING | Built 1360 of 1562 needed groundings for ['?a <http://skgg.org/YAGO3-10/hasChild> ?f', '?f <http://skgg.org/YAGO3-10/hasGender> ?b', '?a <http://skgg.org/YAGO3-10/hasGender> ?b'].
+08:08:40 | skgg.engine.generator | WARNING | No candidate values left for ['?e'] in ['?e <http://skgg.org/YAGO3-10/hasChild> ?a', '?e <http://skgg.org/YAGO3-10/hasGender> ?b', '?a <http://skgg.org/YAGO3-10/hasGender> ?b']; skipping the rule.
+08:08:40 | skgg.engine.generator | WARNING | Built 0 of 89 needed groundings for ['?e <http://skgg.org/YAGO3-10/hasChild> ?a', '?e <http://skgg.org/YAGO3-10/hasGender> ?b', '?a <http://skgg.org/YAGO3-10/hasGender> ?b'].
+08:08:53 | skgg.engine.generator | WARNING | No candidate values left for ['?e'] in ['?e <http://skgg.org/YAGO3-10/hasGender> ?b', '?e <http://skgg.org/YAGO3-10/influences> ?a', '?a <http://skgg.org/YAGO3-10/hasGender> ?b']; skipping the rule.
+08:08:53 | skgg.engine.generator | WARNING | Built 270 of 695 needed groundings for ['?e <http://skgg.org/YAGO3-10/hasGender> ?b', '?e <http://skgg.org/YAGO3-10/influences> ?a', '?a <http://skgg.org/YAGO3-10/hasGender> ?b'].
+08:08:58 | skgg.engine.edb | INFO   | [Step 507] Closed predicates [1/37].
+08:09:10 | skgg.engine.edb | INFO   | [Step 1766] Closed predicates [2/37].
+08:09:15 | skgg.engine.edb | INFO   | [Step 2236] Closed predicates [3/37].
+08:09:21 | skgg.engine.edb | INFO   | [Step 3178] Closed predicates [4/37].
+08:09:25 | skgg.engine.edb | INFO   | [Step 3738] Closed predicates [5/37].
+08:09:30 | skgg.engine.edb | INFO   | [Step 4328] Closed predicates [6/37].
+08:09:31 | skgg.engine.edb | INFO   | [Step 4508] Closed predicates [7/37].
+08:09:39 | skgg.engine.edb | INFO   | [Step 5349] Closed predicates [8/37].
+08:09:41 | skgg.engine.edb | INFO   | [Step 5613] Closed predicates [9/37].
+08:09:45 | skgg.engine.edb | INFO   | [Step 6050] Closed predicates [10/37].
+08:10:34 | skgg.engine.edb | INFO   | [Step 11245] Closed predicates [11/37].
+08:10:34 | skgg.engine.edb | INFO   | [Step 11261] Closed predicates [12/37].
+08:10:45 | skgg.engine.edb | INFO   | [Step 12349] Closed predicates [13/37].
+08:10:48 | skgg.engine.edb | INFO   | [Step 12823] Closed predicates [14/37].
+08:10:56 | skgg.engine.edb | INFO   | [Step 13665] Closed predicates [15/37].
+08:11:39 | skgg.engine.edb | INFO   | [Step 17895] Closed predicates [16/37].
+08:11:43 | skgg.engine.edb | INFO   | [Step 18175] Closed predicates [17/37].
+08:12:04 | skgg.engine.edb | INFO   | [Step 19843] Closed predicates [18/37].
+08:12:20 | skgg.engine.edb | INFO   | [Step 21332] Closed predicates [19/37].
+08:12:50 | skgg.engine.edb | INFO   | [Step 24521] Closed predicates [20/37].
+08:13:09 | skgg.engine.edb | INFO   | [Step 25868] Closed predicates [21/37].
+08:14:14 | skgg.engine.edb | INFO   | [Step 30651] Closed predicates [22/37].
+08:14:17 | skgg.engine.edb | INFO   | [Step 30910] Closed predicates [23/37].
+08:14:31 | skgg.engine.edb | INFO   | [Step 32073] Closed predicates [24/37].
+08:14:40 | skgg.engine.edb | INFO   | [Step 32822] Closed predicates [25/37].
+08:16:25 | skgg.engine.edb | INFO   | [Step 40149] Closed predicates [26/37].
+08:17:13 | skgg.engine.edb | INFO   | [Step 43594] Closed predicates [27/37].
+08:17:56 | skgg.engine.edb | INFO   | [Step 46180] Closed predicates [28/37].
+08:22:47 | skgg.engine.edb | INFO   | [Step 62885] Closed predicates [29/37].
+08:25:00 | skgg.engine.edb | INFO   | [Step 69968] Closed predicates [30/37].
+08:31:43 | skgg.engine.edb | INFO   | [Step 93293] Closed predicates [31/37].
+08:32:05 | skgg.engine.edb | INFO   | [Step 94427] Closed predicates [32/37].
+08:48:24 | skgg.engine.edb | INFO   | [Step 147933] Closed predicates [33/37].
+08:59:09 | skgg.engine.edb | INFO   | [Step 203337] Closed predicates [34/37].
+09:01:06 | skgg.engine.edb | INFO   | [Step 219801] Closed predicates [35/37].
+09:02:21 | skgg.engine.edb | INFO   | [Step 233018] Closed predicates [36/37].
+09:03:07 | skgg.engine.edb | INFO   | [Step 248255] Closed predicates [37/37].
+09:03:08 | skgg.engine.edb | INFO   | [Partial] Head triples placed by the groundings of partial rules: 294502.
+09:03:09 | __main__ | INFO   | EDB generated in 7787.6s at <http://skgg.org/YAGO3-10/skgg/pca=0.3102/edb> with 1088651 triples.
+09:03:12 | __main__ | INFO   | [3/5] Completing graph
+09:03:12 | __main__ | INFO   | [EDB] Closed predicates: 37/37, closed rules: 64/72.
+09:03:12 | __main__ | INFO   | [EDB] Newly closed predicates: actedIn, created, dealsWith, diedIn, directed, edited, exports, graduatedFrom, happenedIn, hasAcademicAdvisor, hasCapital, hasChild, hasCurrency, hasGender, hasMusicalRole, hasNeighbor, hasOfficialLanguage, hasWebsite, hasWonPrize, imports, influences, isAffiliatedTo, isCitizenOf, isConnectedTo, isInterestedIn, isKnownFor, isLeaderOf, isLocatedIn, isMarriedTo, isPoliticianOf, livesIn, owns, participatedIn, playsFor, wasBornIn, worksAt, wroteMusicFor
+09:03:12 | __main__ | INFO   | [EDB] Newly closed rules: 10, 102, 103, 104, 105, 11, 110, 121, 126, 127, 13, 132, 133, 136, 137, 147, 15, 16, 17, 18, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 53, 55, 56, 59, 6, 60, 61, 62, 63, 64, 65, 69, 7, 8, 81, 84, 86, 9, 90, 91, 96
+09:03:12 | __main__ | INFO   | Applying the 0 complete rules (0 open): none
+09:03:27 | skgg.engine.completion | INFO   | [initial] Pass 1: no triples added.
+09:03:27 | skgg.engine.completion | INFO   | [initial] +0 triples in 1 passes (stale state).
+09:03:37 | __main__ | INFO   | [initial] Closed predicates: 37/37, closed rules: 64/72.
+09:03:37 | __main__ | INFO   | [4/5] Filling open relations
+09:03:37 | __main__ | INFO   | Skipping the fill step (pass --fill to run it); synthetic graph at <http://skgg.org/YAGO3-10/skgg/pca=0.3102>.
+09:03:37 | __main__ | INFO   | [5/5] Summary
+09:04:15 | __main__ | INFO   | Experiment summary, <http://skgg.org/YAGO3-10/base> -> <http://skgg.org/YAGO3-10/skgg/pca=0.3102>:
+Triples: 1089040 -> 1088651 (-389, -0.0%)
+
+Predicates (37):
+  actedIn               32479 -> 32479   (  +0)  [CLOSED]  [EXTENSIONAL]
+  created                7006 -> 7006    (  +0)  [CLOSED]  [EXTENSIONAL]
+  dealsWith              1320 -> 1269    ( -51)  [CLOSED]  [EXTENSIONAL]
+  diedIn                 9340 -> 9340    (  +0)  [CLOSED]  [EXTENSIONAL]
+  directed               5530 -> 5529    (  -1)  [CLOSED]  [EXTENSIONAL]
+  edited                 3114 -> 3114    (  +0)  [CLOSED]  [EXTENSIONAL]
+  exports                 381 -> 381     (  +0)  [CLOSED]  [EXTENSIONAL]
+  graduatedFrom          7432 -> 7429    (  -3)  [CLOSED]  [EXTENSIONAL]
+  happenedIn             5099 -> 5084    ( -15)  [CLOSED]  [EXTENSIONAL]
+  hasAcademicAdvisor      921 -> 921     (  +0)  [CLOSED]  [EXTENSIONAL]
+  hasCapital             2589 -> 2589    (  +0)  [CLOSED]  [EXTENSIONAL]
+  hasChild               5111 -> 5110    (  -1)  [CLOSED]  [EXTENSIONAL]
+  hasCurrency             110 -> 110     (  +0)  [CLOSED]  [EXTENSIONAL]
+  hasGender             66771 -> 66771   (  +0)  [CLOSED]  [EXTENSIONAL]
+  hasMusicalRole         7827 -> 7827    (  +0)  [CLOSED]  [EXTENSIONAL]
+  hasNeighbor             558 -> 558     (  +0)  [CLOSED]  [EXTENSIONAL]
+  hasOfficialLanguage     300 -> 300     (  +0)  [CLOSED]  [EXTENSIONAL]
+  hasWebsite               69 -> 69      (  +0)  [CLOSED]  [EXTENSIONAL]
+  hasWonPrize           24279 -> 24276   (  -3)  [CLOSED]  [EXTENSIONAL]
+  imports                 394 -> 394     (  +0)  [CLOSED]  [EXTENSIONAL]
+  influences            10801 -> 10799   (  -2)  [CLOSED]  [EXTENSIONAL]
+  isAffiliatedTo       377144 -> 377042  (-102)  [CLOSED]  [EXTENSIONAL]
+  isCitizenOf            3482 -> 3463    ( -19)  [CLOSED]  [EXTENSIONAL]
+  isConnectedTo         32338 -> 32279   ( -59)  [CLOSED]  [EXTENSIONAL]
+  isInterestedIn          243 -> 240     (  -3)  [CLOSED]  [EXTENSIONAL]
+  isKnownFor               19 -> 19      (  +0)  [CLOSED]  [EXTENSIONAL]
+  isLeaderOf              966 -> 966     (  +0)  [CLOSED]  [EXTENSIONAL]
+  isLocatedIn           89521 -> 89477   ( -44)  [CLOSED]  [EXTENSIONAL]
+  isMarriedTo            3795 -> 3795    (  +0)  [CLOSED]  [EXTENSIONAL]
+  isPoliticianOf         2186 -> 2181    (  -5)  [CLOSED]  [EXTENSIONAL]
+  livesIn                3011 -> 3003    (  -8)  [CLOSED]  [EXTENSIONAL]
+  owns                    733 -> 733     (  +0)  [CLOSED]  [EXTENSIONAL]
+  participatedIn         5190 -> 5176    ( -14)  [CLOSED]  [EXTENSIONAL]
+  playsFor             324049 -> 323991  ( -58)  [CLOSED]  [EXTENSIONAL]
+  wasBornIn             45411 -> 45411   (  +0)  [CLOSED]  [EXTENSIONAL]
+  worksAt                3419 -> 3418    (  -1)  [CLOSED]  [EXTENSIONAL]
+  wroteMusicFor          6102 -> 6102    (  +0)  [CLOSED]  [EXTENSIONAL]
+
+Rules (72), support, std and PCA confidence, original -> synthetic:
+  4    ?b hasNeighbor ?a => ?a hasNeighbor ?b                                         556 -> 170     (  -386)  std 0.996 -> 0.305 (-0.692)  pca 0.998 -> 0.305 (-0.693)  [OPEN]    [PARTIAL 555]
+  5    ?b isMarriedTo ?a => ?a isMarriedTo ?b                                        3750 -> 2176    ( -1574)  std 0.988 -> 0.573 (-0.415)  pca 0.993 -> 0.576 (-0.417)  [OPEN]    [PARTIAL 3677]
+  6    ?a hasAcademicAdvisor ?f & ?f hasGender ?b => ?a hasGender ?b                  774 -> 744     (   -30)  std 0.958 -> 0.906 (-0.052)  pca 0.961 -> 0.910 (-0.052)  [CLOSED]  [PARTIAL 738]
+  7    ?b hasCapital ?a & ?b isLocatedIn ?a => ?a isLocatedIn ?b                      920 -> 839     (   -81)  std 0.911 -> 1.000 (+0.089)  pca 0.912 -> 1.000 (+0.088)  [CLOSED]  [PARTIAL 839]
+  8    ?a playsFor ?b => ?a isAffiliatedTo ?b                                      284018 -> 271150  (-12868)  std 0.876 -> 0.837 (-0.040)  pca 0.955 -> 0.912 (-0.043)  [CLOSED]  [PARTIAL 271142]
+  9    ?e hasGender ?b & ?e influences ?a => ?a hasGender ?b                         2484 -> 2556    (   +72)  std 0.851 -> 0.799 (-0.051)  pca 0.852 -> 0.801 (-0.052)  [CLOSED]  [PARTIAL 2110]
+  10   ?a influences ?f & ?f hasGender ?b => ?a hasGender ?b                         2066 -> 2151    (   +85)  std 0.806 -> 0.821 (+0.015)  pca 0.806 -> 0.821 (+0.015)  [CLOSED]  [PARTIAL 1661]
+  11   ?a isInterestedIn ?f & ?f isInterestedIn ?b => ?a isInterestedIn ?b              4 -> 4       (    +0)  std 0.800 -> 0.571 (-0.229)  pca 0.800 -> 0.571 (-0.229)  [CLOSED]  [PARTIAL 3]
+  12   ?e hasChild ?a & ?e isPoliticianOf ?b => ?a isPoliticianOf ?b                  991 -> 501     (  -490)  std 0.760 -> 0.277 (-0.483)  pca 0.894 -> 0.503 (-0.391)  [OPEN]    [PARTIAL 881]
+  13   ?a isAffiliatedTo ?b => ?a playsFor ?b                                      284018 -> 271150  (-12868)  std 0.753 -> 0.719 (-0.034)  pca 0.833 -> 0.796 (-0.038)  [CLOSED]  [PARTIAL 236618]
+  14   ?a hasChild ?f & ?f isPoliticianOf ?b => ?a isPoliticianOf ?b                  937 -> 508     (  -429)  std 0.724 -> 0.268 (-0.456)  pca 0.875 -> 0.489 (-0.385)  [OPEN]    [PARTIAL 819]
+  15   ?b hasCapital ?a => ?a isLocatedIn ?b                                         1766 -> 1207    (  -559)  std 0.682 -> 0.466 (-0.216)  pca 0.684 -> 0.468 (-0.217)  [CLOSED]  [PARTIAL 1207]
+  16   ?a hasChild ?f & ?f hasGender ?b => ?a hasGender ?b                           2253 -> 2559    (  +306)  std 0.673 -> 0.856 (+0.183)  pca 0.699 -> 0.886 (+0.187)  [CLOSED]  [PARTIAL 1562]
+  17   ?b isConnectedTo ?a => ?a isConnectedTo ?b                                   21606 -> 25220   ( +3614)  std 0.668 -> 0.781 (+0.113)  pca 0.678 -> 0.792 (+0.115)  [CLOSED]  [PARTIAL 14640]
+  18   ?e hasChild ?a & ?e hasGender ?b => ?a hasGender ?b                           2461 -> 2660    (  +199)  std 0.659 -> 0.863 (+0.205)  pca 0.679 -> 0.891 (+0.212)  [CLOSED]  [PARTIAL 1656]
+  19   ?a isMarriedTo ?e & ?e hasChild ?b => ?a hasChild ?b                          1613 -> 806     (  -807)  std 0.585 -> 0.284 (-0.301)  pca 0.585 -> 0.284 (-0.301)  [OPEN]    [PARTIAL 935]
+  20   ?e hasChild ?b & ?e isMarriedTo ?a => ?a hasChild ?b                          1613 -> 806     (  -807)  std 0.583 -> 0.283 (-0.300)  pca 0.583 -> 0.283 (-0.300)  [OPEN]    [PARTIAL 927]
+  21   ?e hasChild ?a & ?e isCitizenOf ?b => ?a isPoliticianOf ?b                     143 -> 59      (   -84)  std 0.563 -> 0.215 (-0.348)  pca 0.786 -> 0.333 (-0.452)  [OPEN]    [PARTIAL 112]
+  22   ?a hasChild ?f & ?f isCitizenOf ?b => ?a isPoliticianOf ?b                     124 -> 64      (   -60)  std 0.534 -> 0.253 (-0.282)  pca 0.832 -> 0.370 (-0.462)  [OPEN]    [PARTIAL 103]
+  23   ?a hasCapital ?b & ?b isLocatedIn ?a => ?a isLocatedIn ?b                      920 -> 839     (   -81)  std 0.521 -> 0.695 (+0.174)  pca 0.540 -> 0.738 (+0.198)  [CLOSED]  [PARTIAL 497]
+  24   ?a actedIn ?b & ?a created ?b => ?a directed ?b                                217 -> 125     (   -92)  std 0.453 -> 1.000 (+0.547)  pca 0.544 -> 1.000 (+0.456)  [CLOSED]  [PARTIAL 118]
+  25   ?e hasCapital ?a & ?e isLocatedIn ?b => ?a isLocatedIn ?b                     2045 -> 999     ( -1046)  std 0.451 -> 0.204 (-0.247)  pca 0.452 -> 0.205 (-0.247)  [CLOSED]  [PARTIAL 925]
+  26   ?a hasCapital ?b => ?a isLocatedIn ?b                                         1010 -> 839     (  -171)  std 0.390 -> 0.324 (-0.066)  pca 0.420 -> 0.349 (-0.071)  [CLOSED]  [PARTIAL 424]
+  27   ?a actedIn ?b & ?a directed ?b => ?a created ?b                                217 -> 125     (   -92)  std 0.385 -> 0.977 (+0.592)  pca 0.571 -> 0.984 (+0.413)  [CLOSED]  [PARTIAL 124]
+  28   ?e isMarriedTo ?a & ?e isPoliticianOf ?b => ?a isPoliticianOf ?b                66 -> 57      (    -9)  std 0.388 -> 0.326 (-0.063)  pca 0.880 -> 0.803 (-0.077)  [CLOSED]  [PARTIAL 57]
+  29   ?a isMarriedTo ?f & ?f isPoliticianOf ?b => ?a isPoliticianOf ?b                66 -> 57      (    -9)  std 0.384 -> 0.322 (-0.062)  pca 0.880 -> 0.792 (-0.088)  [CLOSED]  [PARTIAL 57]
+  30   ?a hasAcademicAdvisor ?f & ?f isCitizenOf ?b => ?a isCitizenOf ?b              272 -> 216     (   -56)  std 0.365 -> 0.290 (-0.075)  pca 0.538 -> 0.405 (-0.132)  [CLOSED]  [PARTIAL 144]
+  31   ?a hasChild ?f & ?f owns ?b => ?a owns ?b                                       18 -> 6       (   -12)  std 0.360 -> 0.100 (-0.260)  pca 0.360 -> 0.100 (-0.260)  [CLOSED]  [PARTIAL 6]
+  32   ?a hasChild ?f & ?f isCitizenOf ?b => ?a isCitizenOf ?b                         83 -> 78      (    -5)  std 0.358 -> 0.308 (-0.049)  pca 0.922 -> 0.839 (-0.084)  [CLOSED]  [PARTIAL 77]
+  33   ?a dealsWith ?b & ?b dealsWith ?a => ?a hasNeighbor ?b                          56 -> 26      (   -30)  std 0.346 -> 0.310 (-0.036)  pca 0.467 -> 0.342 (-0.125)  [CLOSED]  [PARTIAL 26]
+  34   ?b dealsWith ?a & ?b hasNeighbor ?a => ?a dealsWith ?b                          56 -> 26      (   -30)  std 0.333 -> 0.388 (+0.055)  pca 0.357 -> 0.419 (+0.063)  [CLOSED]  [PARTIAL 20]
+  35   ?e hasNeighbor ?a & ?e hasOfficialLanguage ?b => ?a hasOfficialLanguage ?b      76 -> 49      (   -27)  std 0.332 -> 0.150 (-0.182)  pca 0.494 -> 0.243 (-0.251)  [CLOSED]  [PARTIAL 38]
+  36   ?a hasNeighbor ?b & ?b dealsWith ?a => ?a dealsWith ?b                          56 -> 26      (   -30)  std 0.331 -> 0.377 (+0.045)  pca 0.354 -> 0.413 (+0.058)  [CLOSED]  [PARTIAL 20]
+  37   ?e hasChild ?a & ?e isCitizenOf ?b => ?a isCitizenOf ?b                         84 -> 79      (    -5)  std 0.331 -> 0.287 (-0.043)  pca 0.913 -> 0.760 (-0.153)  [CLOSED]  [PARTIAL 77]
+  38   ?a hasNeighbor ?f & ?f hasOfficialLanguage ?b => ?a hasOfficialLanguage ?b      76 -> 53      (   -23)  std 0.330 -> 0.165 (-0.166)  pca 0.494 -> 0.275 (-0.219)  [CLOSED]  [PARTIAL 38]
+  39   ?e hasAcademicAdvisor ?a & ?e isCitizenOf ?b => ?a isCitizenOf ?b              204 -> 188     (   -16)  std 0.334 -> 0.276 (-0.058)  pca 0.489 -> 0.398 (-0.091)  [CLOSED]  [PARTIAL 98]
+  40   ?b hasNeighbor ?a => ?a dealsWith ?b                                           169 -> 69      (  -100)  std 0.303 -> 0.124 (-0.179)  pca 0.347 -> 0.142 (-0.205)  [CLOSED]  [PARTIAL 59]
+  41   ?a hasNeighbor ?b => ?a dealsWith ?b                                           168 -> 67      (  -101)  std 0.301 -> 0.120 (-0.181)  pca 0.344 -> 0.137 (-0.207)  [CLOSED]  [PARTIAL 58]
+  42   ?a hasNeighbor ?f & ?f dealsWith ?b => ?a dealsWith ?b                         655 -> 469     (  -186)  std 0.298 -> 0.176 (-0.122)  pca 0.336 -> 0.196 (-0.139)  [CLOSED]  [PARTIAL 220]
+  43   ?e dealsWith ?b & ?e hasNeighbor ?a => ?a dealsWith ?b                         655 -> 466     (  -189)  std 0.296 -> 0.174 (-0.122)  pca 0.334 -> 0.195 (-0.139)  [CLOSED]  [PARTIAL 219]
+  44   ?a hasCapital ?f & ?f isLocatedIn ?b => ?a isLocatedIn ?b                     2194 -> 1013    ( -1181)  std 0.295 -> 0.129 (-0.166)  pca 0.317 -> 0.138 (-0.179)  [CLOSED]  [PARTIAL 696]
+  46   ?b participatedIn ?a => ?a happenedIn ?b                                      1496 -> 611     (  -885)  std 0.288 -> 0.118 (-0.170)  pca 0.367 -> 0.150 (-0.216)  [CLOSED]  [PARTIAL 549]
+  53   ?a hasAcademicAdvisor ?f & ?f livesIn ?b => ?a isCitizenOf ?b                  102 -> 52      (   -50)  std 0.252 -> 0.127 (-0.125)  pca 0.385 -> 0.184 (-0.201)  [CLOSED]  [PARTIAL 39]
+  55   ?e graduatedFrom ?b & ?e hasAcademicAdvisor ?a => ?a worksAt ?b                280 -> 119     (  -161)  std 0.248 -> 0.086 (-0.162)  pca 0.371 -> 0.134 (-0.237)  [CLOSED]  [PARTIAL 104]
+  56   ?e hasAcademicAdvisor ?a & ?e livesIn ?b => ?a isCitizenOf ?b                   87 -> 61      (   -26)  std 0.249 -> 0.159 (-0.089)  pca 0.364 -> 0.223 (-0.141)  [CLOSED]  [PARTIAL 31]
+  59   ?a isMarriedTo ?f & ?f diedIn ?b => ?a diedIn ?b                               358 -> 122     (  -236)  std 0.228 -> 0.076 (-0.152)  pca 0.326 -> 0.165 (-0.161)  [CLOSED]  [PARTIAL 117]
+  60   ?e diedIn ?b & ?e isMarriedTo ?a => ?a diedIn ?b                               358 -> 122     (  -236)  std 0.228 -> 0.076 (-0.152)  pca 0.326 -> 0.165 (-0.160)  [CLOSED]  [PARTIAL 117]
+  61   ?e dealsWith ?a & ?e hasOfficialLanguage ?b => ?a hasOfficialLanguage ?b        74 -> 46      (   -28)  std 0.227 -> 0.106 (-0.121)  pca 0.347 -> 0.178 (-0.169)  [CLOSED]  [PARTIAL 26]
+  62   ?a directed ?b => ?a created ?b                                               1224 -> 404     (  -820)  std 0.221 -> 0.073 (-0.148)  pca 0.328 -> 0.108 (-0.220)  [CLOSED]  [PARTIAL 402]
+  63   ?e hasCurrency ?b & ?e hasNeighbor ?a => ?a hasCurrency ?b                      18 -> 14      (    -4)  std 0.212 -> 0.123 (-0.089)  pca 0.667 -> 0.467 (-0.200)  [CLOSED]  [PARTIAL 12]
+  64   ?a hasNeighbor ?f & ?f hasCurrency ?b => ?a hasCurrency ?b                      18 -> 17      (    -1)  std 0.212 -> 0.143 (-0.069)  pca 0.667 -> 0.531 (-0.135)  [CLOSED]  [PARTIAL 12]
+  65   ?a hasChild ?f & ?f isLeaderOf ?b => ?a isPoliticianOf ?b                      107 -> 42      (   -65)  std 0.211 -> 0.081 (-0.130)  pca 0.392 -> 0.130 (-0.262)  [CLOSED]  [PARTIAL 42]
+  69   ?e hasChild ?a & ?e hasWonPrize ?b => ?a hasWonPrize ?b                        813 -> 272     (  -541)  std 0.201 -> 0.062 (-0.140)  pca 0.311 -> 0.150 (-0.161)  [CLOSED]  [PARTIAL 252]
+  81   ?a hasAcademicAdvisor ?f & ?f livesIn ?b => ?a livesIn ?b                       70 -> 34      (   -36)  std 0.173 -> 0.083 (-0.090)  pca 0.440 -> 0.243 (-0.197)  [CLOSED]  [PARTIAL 30]
+  84   ?a isMarriedTo ?f & ?f hasWonPrize ?b => ?a hasWonPrize ?b                     512 -> 174     (  -338)  std 0.167 -> 0.056 (-0.111)  pca 0.309 -> 0.134 (-0.175)  [CLOSED]  [PARTIAL 159]
+  86   ?e hasAcademicAdvisor ?a & ?e livesIn ?b => ?a livesIn ?b                       59 -> 34      (   -25)  std 0.169 -> 0.089 (-0.080)  pca 0.399 -> 0.258 (-0.141)  [CLOSED]  [PARTIAL 23]
+  90   ?a isMarriedTo ?f & ?f livesIn ?b => ?a livesIn ?b                              58 -> 30      (   -28)  std 0.161 -> 0.083 (-0.078)  pca 0.464 -> 0.500 (+0.036)  [CLOSED]  [PARTIAL 27]
+  91   ?e isMarriedTo ?a & ?e livesIn ?b => ?a livesIn ?b                              58 -> 30      (   -28)  std 0.161 -> 0.083 (-0.078)  pca 0.464 -> 0.423 (-0.041)  [CLOSED]  [PARTIAL 27]
+  96   ?a isLocatedIn ?b & ?b isLocatedIn ?a => ?a hasCapital ?b                      920 -> 839     (   -81)  std 0.157 -> 0.499 (+0.342)  pca 0.790 -> 0.995 (+0.205)  [CLOSED]  [PARTIAL 727]
+  102  ?a isLeaderOf ?b => ?a isPoliticianOf ?b                                       140 -> 65      (   -75)  std 0.145 -> 0.067 (-0.078)  pca 0.455 -> 0.211 (-0.244)  [CLOSED]  [PARTIAL 64]
+  103  ?a livesIn ?b => ?a isCitizenOf ?b                                             419 -> 235     (  -184)  std 0.139 -> 0.078 (-0.061)  pca 0.356 -> 0.201 (-0.156)  [CLOSED]  [PARTIAL 149]
+  104  ?a hasAcademicAdvisor ?f & ?f isCitizenOf ?b => ?a livesIn ?b                  103 -> 60      (   -43)  std 0.138 -> 0.081 (-0.058)  pca 0.438 -> 0.250 (-0.188)  [CLOSED]  [PARTIAL 45]
+  105  ?e dealsWith ?a & ?e hasCurrency ?b => ?a hasCurrency ?b                        17 -> 13      (    -4)  std 0.137 -> 0.081 (-0.056)  pca 0.395 -> 0.186 (-0.210)  [CLOSED]  [PARTIAL 7]
+  110  ?e influences ?a & ?e isCitizenOf ?b => ?a isCitizenOf ?b                      273 -> 181     (   -92)  std 0.133 -> 0.085 (-0.048)  pca 0.363 -> 0.323 (-0.039)  [CLOSED]  [PARTIAL 99]
+  121  ?e hasChild ?a & ?e livesIn ?b => ?a livesIn ?b                                 42 -> 17      (   -25)  std 0.128 -> 0.051 (-0.077)  pca 0.328 -> 0.515 (+0.187)  [CLOSED]  [PARTIAL 14]
+  126  ?e hasAcademicAdvisor ?a & ?e isCitizenOf ?b => ?a livesIn ?b                   75 -> 44      (   -31)  std 0.123 -> 0.065 (-0.058)  pca 0.383 -> 0.191 (-0.191)  [CLOSED]  [PARTIAL 28]
+  127  ?a isCitizenOf ?b => ?a livesIn ?b                                             419 -> 235     (  -184)  std 0.120 -> 0.068 (-0.052)  pca 0.471 -> 0.267 (-0.204)  [CLOSED]  [PARTIAL 197]
+  132  ?a influences ?f & ?f isCitizenOf ?b => ?a isCitizenOf ?b                      224 -> 160     (   -64)  std 0.115 -> 0.071 (-0.044)  pca 0.395 -> 0.331 (-0.064)  [CLOSED]  [PARTIAL 89]
+  133  ?e hasOfficialLanguage ?b & ?e isLocatedIn ?a => ?a hasOfficialLanguage ?b      23 -> 27      (    +4)  std 0.114 -> 0.060 (-0.054)  pca 0.793 -> 0.351 (-0.442)  [CLOSED]  [PARTIAL 18]
+  136  ?e influences ?a & ?e isInterestedIn ?b => ?a isInterestedIn ?b                129 -> 68      (   -61)  std 0.112 -> 0.047 (-0.065)  pca 0.370 -> 0.285 (-0.085)  [CLOSED]  [PARTIAL 48]
+  137  ?a hasChild ?f & ?f livesIn ?b => ?a livesIn ?b                                 43 -> 17      (   -26)  std 0.110 -> 0.043 (-0.067)  pca 0.316 -> 0.425 (+0.109)  [CLOSED]  [PARTIAL 14]
+  147  ?a livesIn ?b & ?a wasBornIn ?b => ?a isLeaderOf ?b                             14 -> 4       (   -10)  std 0.102 -> 0.444 (+0.342)  pca 0.311 -> 0.500 (+0.189)  [CLOSED]  [PARTIAL 4]
+
+Removed cyclic rules (3):
+  1    ?b dealsWith ?a & ?b hasNeighbor ?a => ?a hasNeighbor ?b                       168 -> 7       (  -161)  std 1.000 -> 0.104 (-0.896)  pca 1.000 -> 0.104 (-0.896)
+  2    ?b hasChild ?a & ?b isMarriedTo ?a => ?a isMarriedTo ?b                         62 -> 0       (   -62)  std 1.000 ->   n/a (   n/a)  pca 1.000 ->   n/a (   n/a)
+  3    ?a hasChild ?b & ?b isMarriedTo ?a => ?a isMarriedTo ?b                         62 -> 0       (   -62)  std 1.000 ->   n/a (   n/a)  pca 1.000 ->   n/a (   n/a)
+09:04:15 | __main__ | INFO   | Execution finished after 7906.7s.
+09:04:40 | skgg.core.triples | INFO   | Wrote 1088651 triples to /tmp/tmpq_fymh7g/graph.tsv, skipping 0 duplicate triples and 0 invalid lines.
+09:04:40 | __main__ | INFO   | Downloaded <http://skgg.org/YAGO3-10/skgg/pca=0.3102>: 1088651 triples to /tmp/tmpq_fymh7g/graph.nt and /tmp/tmpq_fymh7g/graph.tsv.

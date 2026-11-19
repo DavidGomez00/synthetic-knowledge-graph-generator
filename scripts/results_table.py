@@ -94,7 +94,7 @@ GENERATORS = (
 )
 # The rule levels the tables are written for, with the caption text of each.
 LEVELS = {
-    "std1": "made from the rules with std confidence 1",
+    "pca1": "made from the rules with PCA confidence 1",
     **{
         f"r{share}": f"made from about {share}\\% of the mined rules, those of highest "
         "PCA confidence"
@@ -548,10 +548,10 @@ def main() -> None:
         help="folder of the LaTeX files, one per table",
     )
     parser.add_argument(
-        "--no-std1",
+        "--no-pca1",
         action="store_true",
-        help="leave out the level std1 (copies made from the rules with std "
-        "confidence 1): no *_std1.tex table",
+        help="leave out the level pca1 (copies made from the rules with PCA "
+        "confidence 1): no *_pca1.tex table",
     )
     parser.add_argument(
         "--no-pygraft",
@@ -568,7 +568,7 @@ def main() -> None:
     agreement = read_agreement(args.metrics.parent)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     for level, made in LEVELS.items():
-        if args.no_std1 and level == "std1":
+        if args.no_pca1 and level == "pca1":
             continue
         GENERATORS = level_generators(level)
         variants = [v for _, v in GENERATORS if v]

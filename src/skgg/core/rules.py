@@ -1,8 +1,8 @@
 """Defines data structures and logic for Horn Rule-based systems.
 
 Provides the HornRule dataclass, Pandas CSV parsing, and rule-set-level
-helpers (rule ID order, impacted rules, extensional dependencies) used to drive
-EDB/synthetic graph generation. Rule cycles are handled in `core.cycles`.
+helpers (rule ID order, impacted rules, non-deducible dependencies) used to drive
+F0/synthetic graph generation. Rule cycles are handled in `core.cycles`.
 """
 
 import csv
@@ -19,6 +19,12 @@ import pandas as pd
 from skgg.core.utils import format_term
 
 logger = logging.getLogger(__name__)
+
+# PCA confidence that makes a rule complete (`HornRule.is_complete`), and that a rule
+# needs to be kept when no PCA threshold is given (`rule_thresholds`). Until
+# 2026-11-19 the generator also had a std setting, where std confidence 1 made a
+# rule complete; commit 2c7dfd5d has it.
+COMPLETE_CONFIDENCE = 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -92,18 +98,18 @@ class RuleSignature:
         """Return the set of unique predicates in the body atoms."""
         return {atom.predicate for atom in self.body}
 
-    def get_extensional_body(self, intensional_preds: set[str]) -> frozenset[Atom]:
-        """Returns the rule's body excluding atoms with intensional predicates."""
+    def get_non_deducible_body(self, deducible_preds: set[str]) -> frozenset[Atom]:
+        """Returns the rule's body excluding atoms with deducible predicates."""
         return frozenset(
-            {atom for atom in self.body if atom.predicate not in intensional_preds}
+            {atom for atom in self.body if atom.predicate not in deducible_preds}
         )
 
-    def get_extensional_preds(self, intensional_preds: set[str]) -> set[str]:
-        """Returns body predicates excluding the ones in 'intensional_preds'."""
+    def get_non_deducible_preds(self, deducible_preds: set[str]) -> set[str]:
+        """Returns body predicates excluding the ones in 'deducible_preds'."""
         return {
             atom.predicate
             for atom in self.body
-            if atom.predicate not in intensional_preds
+            if atom.predicate not in deducible_preds
         }
 
     def is_symmetric(self) -> bool:
@@ -163,9 +169,9 @@ class HornRule:
         """Return the set of unique predicates in the body atoms."""
         return self.signature.get_body_predicates()
 
-    def get_extensional_body(self, intensional_preds: set[str]) -> frozenset[Atom]:
-        """Returns rule's body excluding atoms that contain intensional predicates."""
-        return self.signature.get_extensional_body(intensional_preds)
+    def get_non_deducible_body(self, deducible_preds: set[str]) -> frozenset[Atom]:
+        """Returns rule's body excluding atoms that contain deducible predicates."""
+        return self.signature.get_non_deducible_body(deducible_preds)
 
     def get_predicates(self) -> set[str]:
         """Returns a set containing all predicates present in the rule"""
@@ -179,9 +185,9 @@ class HornRule:
         """Returns a set with the variables present in the rule's head."""
         return self.signature.get_head_variables()
 
-    def get_extensional_preds(self, intensional_preds: set[str]) -> set[str]:
-        """Returns body predicates excluding the ones in 'intensional_preds'."""
-        return self.signature.get_extensional_preds(intensional_preds)
+    def get_non_deducible_preds(self, deducible_preds: set[str]) -> set[str]:
+        """Returns body predicates excluding the ones in 'deducible_preds'."""
+        return self.signature.get_non_deducible_preds(deducible_preds)
 
     def is_symmetric(self) -> bool:
         """Returns whether the rule has the shape `p(x,y) => p(y,x)`."""
@@ -189,11 +195,13 @@ class HornRule:
 
     @property
     def is_complete(self) -> bool:
-        """Whether the rule holds for every body grounding of the source: std
-        confidence >= `DEFAULT_STD_THRESHOLD` (1). Completion forward-chains the
-        complete rules only; the others are partial rules, whose groundings the EDB
-        builds together with their heads (see `grounding_target`)."""
-        return (self.std_confidence or 0.0) >= DEFAULT_STD_THRESHOLD
+        """Whether the rule is complete: its PCA confidence is >=
+        `COMPLETE_CONFIDENCE` (1), so it holds for every body grounding of the source
+        whose functional variable has a value for the head relation. Completion
+        forward-chains the complete rules only; the others are partial rules, whose
+        groundings initial-fact generation builds together with their heads (see
+        `grounding_target`)."""
+        return (self.pca_confidence or 0.0) >= COMPLETE_CONFIDENCE
 
     @property
     def grounding_target(self) -> int:
@@ -204,13 +212,12 @@ class HornRule:
             return int(self.support)
         return math.floor((self.pca_confidence or 0.0) * self.support + 0.5)
 
-
-    def get_edb_atoms(self, intensional_preds: set[str]) -> frozenset[Atom]:
-        """Returns the atoms the EDB grounds for the rule: the extensional body of a
-        complete rule, whose head completion derives later, or the whole body and the
-        head of a partial rule, which nothing derives later."""
+    def get_initial_fact_atoms(self, deducible_preds: set[str]) -> frozenset[Atom]:
+        """Returns the atoms initial-fact generation grounds for the rule: the
+        non-deducible body of a complete rule, whose head completion derives later, or
+        the whole body and the head of a partial rule, which nothing derives later."""
         if self.is_complete:
-            return self.get_extensional_body(intensional_preds)
+            return self.get_non_deducible_body(deducible_preds)
         return self.body | {self.head}
 
     def __len__(self) -> int:
@@ -222,7 +229,8 @@ class HornRule:
 # Rule parsing.
 # ---------------------------------------------------------------------------
 ATOM_PATTERN = re.compile(r"(\?\w+)\s+(\S+)\s+(\S+)")
-# Std confidence a rule needs to be kept when no PCA threshold is given.
+# Std confidence of the rules that hold on every body grounding of a graph, the rule
+# set `cli/complete.py` completes a real graph with.
 DEFAULT_STD_THRESHOLD = 1.0
 
 
@@ -415,19 +423,32 @@ def parse_rule_set(
     return rules
 
 
+def rule_thresholds(pca_threshold: float | None) -> dict[str, float]:
+    """The thresholds `parse_rule_set` keeps a run's rules with: the PCA threshold
+    if one is given, or else the complete rules, PCA confidence >=
+    `COMPLETE_CONFIDENCE` (1)."""
+    return {
+        "pca_threshold": COMPLETE_CONFIDENCE if pca_threshold is None else pca_threshold
+    }
+
+
 def rule_filter_label(pca_threshold: float | None) -> str:
     """Labels the confidence filter of a run for its graph URIs (see
-    `GraphConfig`): `pca=0.9` for a PCA threshold, or `std=1` for the
-    `DEFAULT_STD_THRESHOLD` kept when there is none. Thresholds are written
-    without trailing zeros, so 1 and 1.0 give the same label."""
-    if pca_threshold is not None:
-        return f"pca={pca_threshold:g}"
-    return f"std={DEFAULT_STD_THRESHOLD:g}"
+    `GraphConfig`): `pca=0.9` for a PCA threshold, or `pca=1` for the complete
+    rules kept when there is none. Thresholds are written without trailing zeros,
+    so 1 and 1.0 give the same label. Until 2026-11-19 the std setting labelled its
+    runs `std=1` and `pca=<t>`, and the PCA setting `pca/pca=<t>`; graphs of those
+    runs keep their URIs."""
+    threshold = COMPLETE_CONFIDENCE if pca_threshold is None else pca_threshold
+    return f"pca={threshold:g}"
 
 
-def write_used_rules(rules_file: Path, rule_ids: Iterable[str]) -> Path:
+def write_used_rules(
+    rules_file: Path, rule_ids: Iterable[str], output: Path | None = None
+) -> Path:
     """Copies the rows of `rules_file` whose rule_id is in `rule_ids` to
-    `<stem>_used<suffix>` next to it, e.g. `rules.csv` -> `rules_used.csv`.
+    `output`, by default `<stem>_used<suffix>` next to it, e.g. `rules.csv` ->
+    `rules_used.csv`.
 
     Rows keep the input's columns, order, values and line endings, so the
     output can be read back with `parse_rule_set`.
@@ -435,7 +456,8 @@ def write_used_rules(rules_file: Path, rule_ids: Iterable[str]) -> Path:
     Returns:
         The path written.
     """
-    output = rules_file.with_name(f"{rules_file.stem}_used{rules_file.suffix}")
+    if output is None:
+        output = rules_file.with_name(f"{rules_file.stem}_used{rules_file.suffix}")
     keep = set(rule_ids)
     with rules_file.open(newline="") as f:
         text = f.read()
@@ -470,12 +492,12 @@ def get_impacted_rules(
     return impacted
 
 
-def get_intensional_preds(rules: dict[str, HornRule]) -> set[str]:
-    """Returns the head predicates of the complete rules that are not symmetric,
-    the ones completion derives. A symmetric rule can't produce the first triple of
-    its relation, so a relation that only its symmetric rule derives is extensional,
-    and so is the head of a partial rule, whose heads the EDB places itself (see
-    `HornRule.is_complete`)."""
+def get_deducible_preds(rules: dict[str, HornRule]) -> set[str]:
+    """Returns the head predicates of the complete rules (`HornRule.is_complete`,
+    in the rules' setting) that are not symmetric, the ones completion derives. A
+    symmetric rule can't produce the first triple of its relation, so a relation
+    that only its symmetric rule derives is non-deducible, and so is the head of a
+    partial rule, whose heads initial-fact generation places itself."""
     return {
         rule.head.predicate
         for rule in rules.values()
@@ -495,37 +517,42 @@ def get_undirected_preds(rules: dict[str, HornRule]) -> set[str]:
     }
 
 
-def get_extensional_dependencies(
+def get_non_deducible_dependencies(
     rules: dict[str, HornRule],
 ) -> dict[str, set[str]]:
-    """Builds a dictionary that represents extensional predicate dependencies. A rule is
-    dependent of any other rule extensional-wise if they share a predicate of the
-    atoms the EDB grounds for them (`HornRule.get_edb_atoms`).
+    """Builds a dictionary that represents non-deducible predicate dependencies. A
+    rule depends on any other rule through a non-deducible predicate if they share a
+    predicate of the atoms initial-fact generation grounds for them
+    (`HornRule.get_initial_fact_atoms`).
 
     From all the rules that share such a predicate, the rules with more atoms to
     ground are more restrictive; ties go to the rule with the smaller grounding
     target.
     """
 
-    intensional_preds = get_intensional_preds(rules)
-    edb_atoms = {r_id: r.get_edb_atoms(intensional_preds) for r_id, r in rules.items()}
-    edb_preds = {r_id: {a.predicate for a in s} for r_id, s in edb_atoms.items()}
+    deducible_preds = get_deducible_preds(rules)
+    initial_fact_atoms = {
+        r_id: r.get_initial_fact_atoms(deducible_preds) for r_id, r in rules.items()
+    }
+    initial_fact_preds = {
+        r_id: {a.predicate for a in s} for r_id, s in initial_fact_atoms.items()
+    }
 
     rule_dependency: dict[str, set[str]] = {r_id: set() for r_id in rules}
 
     # Sort from fewest to most atoms to ground
-    sorted_ids = sorted(rules, key=lambda r_id: len(edb_atoms[r_id]))
+    sorted_ids = sorted(rules, key=lambda r_id: len(initial_fact_atoms[r_id]))
 
     for i, current_id in enumerate(sorted_ids):
-        current_preds = edb_preds[current_id]
+        current_preds = initial_fact_preds[current_id]
 
         if not current_preds:
             continue
 
         for next_id in sorted_ids[i + 1 :]:
-            if current_preds & edb_preds[next_id]:
-                c_length = len(edb_atoms[current_id])
-                n_length = len(edb_atoms[next_id])
+            if current_preds & initial_fact_preds[next_id]:
+                c_length = len(initial_fact_atoms[current_id])
+                n_length = len(initial_fact_atoms[next_id])
                 c_target = rules[current_id].grounding_target
                 n_target = rules[next_id].grounding_target
 

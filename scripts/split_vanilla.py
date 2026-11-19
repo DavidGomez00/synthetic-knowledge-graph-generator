@@ -18,7 +18,7 @@ and its splits go to `<root>/<dataset>/`, by default next to the file in
 
 Usage:
     python scripts/split_vanilla.py exp_datasets/french/french.unified.tsv \
-        exp_datasets/french_ours_std1/french_ours_std1.tsv
+        exp_datasets/french_ours_pca1/french_ours_pca1.tsv
 """
 
 import argparse

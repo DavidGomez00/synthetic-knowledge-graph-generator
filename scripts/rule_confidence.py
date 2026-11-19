@@ -6,7 +6,9 @@ source and on each copy that exists, the rule's support (`positive_examples`),
 body size and PCA body size, as AMIE and the summary of `cli/main.py` do, and
 from them its std and PCA confidence. The copies are this generator's and
 kbgen's rule-level copies (`<family>_ours_<level>`, `<family>_kbgen_<level>`,
-for the levels of `exp_datasets/rule_levels.tsv` that have a copy of their own)
+for the levels of `exp_datasets/rule_levels.tsv` that have a copy of their own,
+including pca1, the rules with PCA confidence 1; std1 copies, made by the std
+setting the generator had until 2026-11-19, are ignored)
 and PyGraft's copy (`<family>_pygraft`), made without rules, which is compared
 at every level. Everything is computed from the `.tsv` files, with no graph
 database.
@@ -14,16 +16,17 @@ database.
 Each rule gets a role at each level: `used` if it is in the rules this
 generator used there (`<family>_ours_<level>_used.csv`, the rules kbgen was
 given too), `removed` if the level keeps it (by the threshold in
-`rule_levels.tsv`) but cycle removal dropped it, and `not_given` otherwise. A
-used rule is `complete` (std confidence 1, forward-chained by this generator) or
-`partial`.
+`rule_levels.tsv`, or PCA confidence 1 for pca1) but cycle removal dropped it,
+and `not_given` otherwise. A used rule is `complete` (PCA confidence 1,
+forward-chained by this generator) or `partial`.
 
 Before using a source's counts, the script checks them against the rules CSV:
 on the graph as AMIE read it (`rule_set_table.as_amie_reads`), the support,
 body size and PCA body size must equal `positive_examples`, `body_size` and
 `pca_body_size`. The confidences compared are those on the graph as it is.
 `--check-logs` also compares this generator's copies with the summary of the
-run that made them (`runs/rule-levels/ours/<copy>.log`) to 3 decimals.
+run that made them, the log next to each copy (`<copy>/<copy>.log`, or
+`<folder>/<copy>.log` with `--check-logs FOLDER`), to 3 decimals.
 
 Writes to `--output-dir` (default `exp_analysis/rule_confidence`):
 
@@ -89,7 +92,10 @@ from plot_style import (  # noqa: E402
 
 log = logging.getLogger("rule_confidence")
 
-LEVELS = ("std1", "r25", "r50", "r75", "r100")
+LEVELS = ("pca1", "r25", "r50", "r75", "r100")
+# The level that keeps the rules with PCA confidence 1. A `rule_levels.tsv` of the
+# former std setting has no row for it, so its threshold is set here.
+PCA1 = "pca1"
 # Generator key, the name of its copies' folders and its column name, in table
 # order (the order of results_table.GENERATORS).
 GENERATORS = (("pygraft", "PyGraft"), ("kbgen", "KBgen"), ("ours", "NAME"))
@@ -289,9 +295,9 @@ def read_levels(root: Path, family: str, rules: list[Rule]) -> list[Level]:
     pygraft = root / f"{family}_pygraft" / f"{family}_pygraft.tsv"
     levels = []
     for name in LEVELS:
-        if name not in rows:
+        if name not in rows and name != PCA1:
             continue
-        row = rows[name]
+        level_row = rows.get(name)
         copies = {
             key: root / f"{family}_{key}_{name}" / f"{family}_{key}_{name}.tsv"
             for key in ("kbgen", "ours")
@@ -301,11 +307,13 @@ def read_levels(root: Path, family: str, rules: list[Rule]) -> list[Level]:
             continue
         if pygraft.is_file():
             copies["pygraft"] = pygraft
-        if row["std_threshold"]:
-            threshold = float(row["std_threshold"])
+        if level_row is None:
+            kept = {r.rule_id for r in rules if r.pca_confidence >= 1.0}
+        elif level_row.get("std_threshold"):
+            threshold = float(level_row["std_threshold"])
             kept = {r.rule_id for r in rules if r.std_confidence >= threshold}
         else:
-            threshold = float(row["pca_threshold"])
+            threshold = float(level_row["pca_threshold"])
             kept = {r.rule_id for r in rules if r.pca_confidence >= threshold}
         used_file = root / f"{family}_ours_{name}" / f"{family}_ours_{name}_used.csv"
         if used_file.is_file():
@@ -368,7 +376,7 @@ def rule_rows(
                     "rule_id": rid,
                     "rule": rule.text,
                     "role": role,
-                    "kind": "complete" if rule.std_confidence >= 1 else "partial",
+                    "kind": "complete" if rule.pca_confidence >= 1 else "partial",
                     "source_support": s_sup,
                     "source_body_size": s_body,
                     "source_pca_body_size": s_pca,
@@ -644,13 +652,14 @@ LOG_ROW = re.compile(
 )
 
 
-def check_logs(frame: pd.DataFrame, logs: Path) -> int:
-    """Compares this generator's rows with the summary of each copy's run log
-    and returns the number of mismatches."""
+def check_logs(frame: pd.DataFrame, root: Path, logs: Path | None) -> int:
+    """Compares this generator's rows with the summary of each copy's run log,
+    `<root>/<copy>/<copy>.log` or `<logs>/<copy>.log`, and returns the number of
+    mismatches."""
     mismatches = checked = 0
     ours = frame[frame["generator"] == "ours"]
     for copy, part in ours.groupby("copy"):
-        path = logs / f"{copy}.log"
+        path = (root / copy if logs is None else logs) / f"{copy}.log"
         if not path.is_file():
             log.warning("no run log %s", path)
             continue
@@ -694,9 +703,10 @@ def main() -> int:
     parser.add_argument(
         "--check-logs",
         nargs="?",
-        type=Path,
-        const=Path("runs/rule-levels/ours"),
-        help="compare our copies with their run logs (default folder %(const)s)",
+        const="",
+        metavar="FOLDER",
+        help="compare our copies with their run logs: the log next to each copy, "
+        "or <FOLDER>/<copy>.log",
     )
     parser.add_argument("--no-plots", action="store_true")
     parser.add_argument("--log-level", default="INFO")
@@ -759,7 +769,9 @@ def main() -> int:
     for path in written:
         print(f"Wrote {path}")
 
-    if args.check_logs is not None and check_logs(frame, args.check_logs):
+    if args.check_logs is not None and check_logs(
+        frame, args.root, Path(args.check_logs) if args.check_logs else None
+    ):
         return 1
     return 0
 

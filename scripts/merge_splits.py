@@ -8,8 +8,8 @@ skipped, a term wrapped as `<http:DATASET/name>` is written as `name`, and
 `http://YAGO3.org/name` is written as `name`. A `subject predicate object` row is a
 header left in the data, and is skipped on any line. If the folder has an
 `id_to_name.json` file, its integer IDs are replaced by names. The `type` triples of
-a folder whose name starts with `french` are left out. Files already in the folder
-are left alone.
+a folder whose name starts with `french` are left out, unless `--keep-types` is given.
+Files already in the folder are left alone.
 
 Also checks that train and test share no triple. A dataset that fails the check
 still gets its file, and the script exits with status 1 once every dataset is done.
@@ -101,15 +101,16 @@ def read_split(path: Path, id_names: IdNames | None = None) -> list[Triple]:
     return triples
 
 
-def merge_dataset(folder: Path) -> set[Triple]:
-    """Writes the unified .tsv file of a dataset folder.
+def merge_dataset(folder: Path, keep_types: bool = False) -> set[Triple]:
+    """Writes the unified .tsv file of a dataset folder, without the `type` triples
+    of a french folder unless `keep_types` is set.
 
     Returns:
         The triples that train and test share.
     """
     id_names = read_id_names(folder)
     splits = {name: read_split(folder / name, id_names) for name in SPLITS}
-    if folder.name.startswith(TYPED_DATASET_PREFIX):
+    if folder.name.startswith(TYPED_DATASET_PREFIX) and not keep_types:
         splits = {
             name: [triple for triple in triples if triple[1] != TYPE_RELATION]
             for name, triples in splits.items()
@@ -144,7 +145,7 @@ def merge_dataset(folder: Path) -> set[Triple]:
     return shared
 
 
-def merge_all(root: Path) -> list[str]:
+def merge_all(root: Path, keep_types: bool = False) -> list[str]:
     """Merges every dataset folder directly under `root`, skipping (with a
     warning) the folders without all three splits.
 
@@ -165,7 +166,7 @@ def merge_all(root: Path) -> list[str]:
     if not datasets:
         raise ValueError(f"No folder under {root} has {', '.join(SPLITS)} files.")
 
-    overlapping = [folder.name for folder in datasets if merge_dataset(folder)]
+    overlapping = [folder.name for folder in datasets if merge_dataset(folder, keep_types)]
     logger.info(
         "Merged %d datasets; train and test are disjoint in %d.",
         len(datasets),
@@ -193,9 +194,15 @@ def _parse_args() -> argparse.Namespace:
         default=Path("exp_datasets"),
         help="Folder holding one subfolder per dataset (default: %(default)s).",
     )
+    parser.add_argument(
+        "--keep-types",
+        action="store_true",
+        help="Keep the type triples of the french datasets.",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)-7s %(message)s")
-    sys.exit(1 if merge_all(_parse_args().root) else 0)
+    args = _parse_args()
+    sys.exit(1 if merge_all(args.root, args.keep_types) else 0)

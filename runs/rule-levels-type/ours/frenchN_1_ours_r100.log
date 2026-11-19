@@ -1,0 +1,306 @@
+11:56:24 | __main__ | INFO   | Inserted /home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets_type/frenchN_1/frenchN_1.unified.tsv into <http://skgg.org/frenchN_1/base> with 7393 triples.
+11:56:25 | __main__ | INFO   | Confifuration correctly initialized.
+11:56:25 | __main__ | INFO   | [1/5] Extracting metrics and rules
+11:56:25 | __main__ | INFO   | Rule filter pca/pca=0 (PCA setting): EDB at <http://skgg.org/frenchN_1/skgg/pca/pca=0/edb>, synthetic graph at <http://skgg.org/frenchN_1/skgg/pca/pca=0>.
+11:56:25 | skgg.core.rules | INFO   | Kept 132/132 rules with PCA confidence >= 0.000 (classification == POSITIVE); dropped 0 (NEGATIVE or UNKNOWN).
+11:56:25 | __main__ | INFO   | Relations copied from the base graph after completion, not generated: type
+11:56:25 | __main__ | INFO   | 132 rules: 2 complete (PCA confidence 1, forward-chained), 130 partial (grounded round(PCA confidence x support) times in the EDB, after the complete rules).
+11:56:26 | skgg.core.visualization | INFO   | Saved relation graph visualization (2 predicates, 1 in a cycle) to <logs/relation_graph_frenchN_1.png>
+11:56:26 | skgg.core.cycles | INFO   | Cycle of hasSpouse: keeping 0 of 2 cyclic rules with the order hasSpouse.
+11:56:26 | skgg.core.cycles | INFO   | Removed rule 1: recursive.
+11:56:26 | skgg.core.cycles | INFO   | Removed rule 2: recursive.
+11:56:26 | skgg.core.cycles | INFO   | Predicates made extensional by cyclic rule removal: hasSpouse
+11:56:26 | skgg.core.cycles | INFO   | Removed 2 cyclic rules; 0 rules left.
+11:56:26 | __main__ | INFO   | Extensional relations (10, target frequency): child 580, father 206, gender 1049, hasSpouse 2212, mother 175, name 116, parent 289, predecessor 108, spouse 284, successor 152
+11:56:26 | __main__ | INFO   | Intensional relations (0, target frequency): none
+11:56:26 | __main__ | INFO   | [2/5] Generating EDB
+11:56:26 | skgg.core.rules | INFO   | Saved 130 used rules to `/tmp/tmpzpd_qjlc/frenchN_1_used.csv`.
+11:56:26 | skgg.engine.edb | INFO   | Creating EDB
+11:56:26 | skgg.engine.edb | INFO   | Extensional relations to generate (10/10, current/target): child 0/580 (open), father 0/206 (open), gender 0/1049 (open), hasSpouse 0/2212 (open), mother 0/175 (open), name 0/116 (open), parent 0/289 (open), predecessor 0/108 (open), spouse 0/284 (open), successor 0/152 (open)
+11:56:26 | skgg.engine.edb | INFO   | Closed predicates [0/10].
+11:56:27 | skgg.engine.generator | WARNING | No candidate values left for ['?b'] in ['?a <http://skgg.org/frenchN_1/parent> ?f', '?f <http://skgg.org/frenchN_1/predecessor> ?b', '?a <http://skgg.org/frenchN_1/mother> ?b']; skipping the rule.
+11:56:27 | skgg.engine.generator | WARNING | Built 1 of 2 needed groundings for ['?a <http://skgg.org/frenchN_1/parent> ?f', '?f <http://skgg.org/frenchN_1/predecessor> ?b', '?a <http://skgg.org/frenchN_1/mother> ?b'].
+11:56:27 | skgg.engine.generator | WARNING | No candidate values left for ['?b'] in ['?e <http://skgg.org/frenchN_1/predecessor> ?b', '?a <http://skgg.org/frenchN_1/father> ?e', '?a <http://skgg.org/frenchN_1/mother> ?b']; skipping the rule.
+11:56:27 | skgg.engine.generator | WARNING | Built 0 of 3 needed groundings for ['?e <http://skgg.org/frenchN_1/predecessor> ?b', '?a <http://skgg.org/frenchN_1/father> ?e', '?a <http://skgg.org/frenchN_1/mother> ?b'].
+11:56:27 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?a <http://skgg.org/frenchN_1/father> ?b', '?b <http://skgg.org/frenchN_1/successor> ?a', '?a <http://skgg.org/frenchN_1/predecessor> ?b']; skipping the rule.
+11:56:27 | skgg.engine.generator | WARNING | Built 2 of 3 needed groundings for ['?a <http://skgg.org/frenchN_1/father> ?b', '?b <http://skgg.org/frenchN_1/successor> ?a', '?a <http://skgg.org/frenchN_1/predecessor> ?b'].
+11:56:28 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?b <http://skgg.org/frenchN_1/child> ?a', '?a <http://skgg.org/frenchN_1/predecessor> ?b', '?a <http://skgg.org/frenchN_1/father> ?b']; skipping the rule.
+11:56:28 | skgg.engine.generator | WARNING | Built 0 of 1 needed groundings for ['?b <http://skgg.org/frenchN_1/child> ?a', '?a <http://skgg.org/frenchN_1/predecessor> ?b', '?a <http://skgg.org/frenchN_1/father> ?b'].
+11:56:28 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?a <http://skgg.org/frenchN_1/mother> ?f', '?b <http://skgg.org/frenchN_1/predecessor> ?f', '?a <http://skgg.org/frenchN_1/parent> ?b']; skipping the rule.
+11:56:28 | skgg.engine.generator | WARNING | Built 0 of 4 needed groundings for ['?a <http://skgg.org/frenchN_1/mother> ?f', '?b <http://skgg.org/frenchN_1/predecessor> ?f', '?a <http://skgg.org/frenchN_1/parent> ?b'].
+11:56:28 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?a <http://skgg.org/frenchN_1/mother> ?f', '?b <http://skgg.org/frenchN_1/predecessor> ?f', '?a <http://skgg.org/frenchN_1/father> ?b']; skipping the rule.
+11:56:28 | skgg.engine.generator | WARNING | Built 0 of 6 needed groundings for ['?a <http://skgg.org/frenchN_1/mother> ?f', '?b <http://skgg.org/frenchN_1/predecessor> ?f', '?a <http://skgg.org/frenchN_1/father> ?b'].
+11:56:28 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?e <http://skgg.org/frenchN_1/mother> ?b', '?e <http://skgg.org/frenchN_1/father> ?a', '?a <http://skgg.org/frenchN_1/spouse> ?b']; skipping the rule.
+11:56:28 | skgg.engine.generator | WARNING | Built 4 of 7 needed groundings for ['?e <http://skgg.org/frenchN_1/mother> ?b', '?e <http://skgg.org/frenchN_1/father> ?a', '?a <http://skgg.org/frenchN_1/spouse> ?b'].
+11:56:28 | skgg.engine.generator | WARNING | No candidate values left for ['?b'] in ['?b <http://skgg.org/frenchN_1/spouse> ?f', '?a <http://skgg.org/frenchN_1/parent> ?f', '?a <http://skgg.org/frenchN_1/parent> ?b']; skipping the rule.
+11:56:28 | skgg.engine.generator | WARNING | Built 5 of 8 needed groundings for ['?b <http://skgg.org/frenchN_1/spouse> ?f', '?a <http://skgg.org/frenchN_1/parent> ?f', '?a <http://skgg.org/frenchN_1/parent> ?b'].
+11:56:28 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?a <http://skgg.org/frenchN_1/parent> ?b', '?b <http://skgg.org/frenchN_1/successor> ?a', '?a <http://skgg.org/frenchN_1/father> ?b']; skipping the rule.
+11:56:28 | skgg.engine.generator | WARNING | Built 0 of 8 needed groundings for ['?a <http://skgg.org/frenchN_1/parent> ?b', '?b <http://skgg.org/frenchN_1/successor> ?a', '?a <http://skgg.org/frenchN_1/father> ?b'].
+11:56:28 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?f <http://skgg.org/frenchN_1/spouse> ?a', '?b <http://skgg.org/frenchN_1/mother> ?f', '?a <http://skgg.org/frenchN_1/child> ?b']; skipping the rule.
+11:56:28 | skgg.engine.generator | WARNING | Built 0 of 4 needed groundings for ['?f <http://skgg.org/frenchN_1/spouse> ?a', '?b <http://skgg.org/frenchN_1/mother> ?f', '?a <http://skgg.org/frenchN_1/child> ?b'].
+11:56:29 | skgg.engine.generator | WARNING | No candidate values left for ['?b'] in ['?b <http://skgg.org/frenchN_1/spouse> ?f', '?a <http://skgg.org/frenchN_1/father> ?f', '?a <http://skgg.org/frenchN_1/parent> ?b']; skipping the rule.
+11:56:29 | skgg.engine.generator | WARNING | Built 0 of 8 needed groundings for ['?b <http://skgg.org/frenchN_1/spouse> ?f', '?a <http://skgg.org/frenchN_1/father> ?f', '?a <http://skgg.org/frenchN_1/parent> ?b'].
+11:56:29 | skgg.engine.generator | WARNING | No candidate values left for ['?b'] in ['?a <http://skgg.org/frenchN_1/mother> ?f', '?b <http://skgg.org/frenchN_1/spouse> ?f', '?a <http://skgg.org/frenchN_1/parent> ?b']; skipping the rule.
+11:56:29 | skgg.engine.generator | WARNING | Built 0 of 3 needed groundings for ['?a <http://skgg.org/frenchN_1/mother> ?f', '?b <http://skgg.org/frenchN_1/spouse> ?f', '?a <http://skgg.org/frenchN_1/parent> ?b'].
+11:56:29 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?a <http://skgg.org/frenchN_1/parent> ?b', '?a <http://skgg.org/frenchN_1/predecessor> ?b', '?a <http://skgg.org/frenchN_1/father> ?b']; skipping the rule.
+11:56:29 | skgg.engine.generator | WARNING | Built 4 of 9 needed groundings for ['?a <http://skgg.org/frenchN_1/parent> ?b', '?a <http://skgg.org/frenchN_1/predecessor> ?b', '?a <http://skgg.org/frenchN_1/father> ?b'].
+11:56:29 | skgg.engine.generator | WARNING | No candidate values left for ['?e'] in ['?e <http://skgg.org/frenchN_1/predecessor> ?a', '?e <http://skgg.org/frenchN_1/gender> ?b', '?a <http://skgg.org/frenchN_1/gender> ?b']; skipping the rule.
+11:56:29 | skgg.engine.generator | WARNING | Built 13 of 28 needed groundings for ['?e <http://skgg.org/frenchN_1/predecessor> ?a', '?e <http://skgg.org/frenchN_1/gender> ?b', '?a <http://skgg.org/frenchN_1/gender> ?b'].
+11:56:29 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?e <http://skgg.org/frenchN_1/parent> ?b', '?e <http://skgg.org/frenchN_1/mother> ?a', '?a <http://skgg.org/frenchN_1/spouse> ?b']; skipping the rule.
+11:56:29 | skgg.engine.generator | WARNING | Built 0 of 10 needed groundings for ['?e <http://skgg.org/frenchN_1/parent> ?b', '?e <http://skgg.org/frenchN_1/mother> ?a', '?a <http://skgg.org/frenchN_1/spouse> ?b'].
+11:56:29 | skgg.engine.generator | WARNING | No candidate values left for ['?b'] in ['?a <http://skgg.org/frenchN_1/mother> ?f', '?b <http://skgg.org/frenchN_1/spouse> ?f', '?a <http://skgg.org/frenchN_1/father> ?b']; skipping the rule.
+11:56:29 | skgg.engine.generator | WARNING | Built 0 of 6 needed groundings for ['?a <http://skgg.org/frenchN_1/mother> ?f', '?b <http://skgg.org/frenchN_1/spouse> ?f', '?a <http://skgg.org/frenchN_1/father> ?b'].
+11:56:29 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?a <http://skgg.org/frenchN_1/father> ?b', '?b <http://skgg.org/frenchN_1/successor> ?a', '?a <http://skgg.org/frenchN_1/parent> ?b']; skipping the rule.
+11:56:29 | skgg.engine.generator | WARNING | Built 0 of 10 needed groundings for ['?a <http://skgg.org/frenchN_1/father> ?b', '?b <http://skgg.org/frenchN_1/successor> ?a', '?a <http://skgg.org/frenchN_1/parent> ?b'].
+11:56:29 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?e <http://skgg.org/frenchN_1/parent> ?a', '?e <http://skgg.org/frenchN_1/father> ?b', '?a <http://skgg.org/frenchN_1/spouse> ?b']; skipping the rule.
+11:56:29 | skgg.engine.generator | WARNING | Built 0 of 11 needed groundings for ['?e <http://skgg.org/frenchN_1/parent> ?a', '?e <http://skgg.org/frenchN_1/father> ?b', '?a <http://skgg.org/frenchN_1/spouse> ?b'].
+11:56:29 | skgg.engine.generator | WARNING | No candidate values left for ['?b'] in ['?b <http://skgg.org/frenchN_1/spouse> ?f', '?a <http://skgg.org/frenchN_1/parent> ?f', '?a <http://skgg.org/frenchN_1/mother> ?b']; skipping the rule.
+11:56:29 | skgg.engine.generator | WARNING | Built 0 of 13 needed groundings for ['?b <http://skgg.org/frenchN_1/spouse> ?f', '?a <http://skgg.org/frenchN_1/parent> ?f', '?a <http://skgg.org/frenchN_1/mother> ?b'].
+11:56:29 | skgg.engine.generator | WARNING | No candidate values left for ['?e'] in ['?e <http://skgg.org/frenchN_1/spouse> ?b', '?a <http://skgg.org/frenchN_1/father> ?e', '?a <http://skgg.org/frenchN_1/mother> ?b']; skipping the rule.
+11:56:29 | skgg.engine.generator | WARNING | Built 0 of 9 needed groundings for ['?e <http://skgg.org/frenchN_1/spouse> ?b', '?a <http://skgg.org/frenchN_1/father> ?e', '?a <http://skgg.org/frenchN_1/mother> ?b'].
+11:56:29 | skgg.engine.generator | WARNING | No candidate values left for ['?e'] in ['?e <http://skgg.org/frenchN_1/spouse> ?b', '?a <http://skgg.org/frenchN_1/parent> ?e', '?a <http://skgg.org/frenchN_1/parent> ?b']; skipping the rule.
+11:56:29 | skgg.engine.generator | WARNING | Built 0 of 12 needed groundings for ['?e <http://skgg.org/frenchN_1/spouse> ?b', '?a <http://skgg.org/frenchN_1/parent> ?e', '?a <http://skgg.org/frenchN_1/parent> ?b'].
+11:56:29 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?a <http://skgg.org/frenchN_1/parent> ?f', '?f <http://skgg.org/frenchN_1/spouse> ?b', '?a <http://skgg.org/frenchN_1/father> ?b']; skipping the rule.
+11:56:29 | skgg.engine.generator | WARNING | Built 0 of 16 needed groundings for ['?a <http://skgg.org/frenchN_1/parent> ?f', '?f <http://skgg.org/frenchN_1/spouse> ?b', '?a <http://skgg.org/frenchN_1/father> ?b'].
+11:56:29 | skgg.engine.generator | WARNING | No candidate values left for ['?e'] in ['?e <http://skgg.org/frenchN_1/spouse> ?b', '?e <http://skgg.org/frenchN_1/child> ?a', '?a <http://skgg.org/frenchN_1/father> ?b']; skipping the rule.
+11:56:29 | skgg.engine.generator | WARNING | Built 0 of 7 needed groundings for ['?e <http://skgg.org/frenchN_1/spouse> ?b', '?e <http://skgg.org/frenchN_1/child> ?a', '?a <http://skgg.org/frenchN_1/father> ?b'].
+11:56:29 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?e <http://skgg.org/frenchN_1/mother> ?a', '?e <http://skgg.org/frenchN_1/father> ?b', '?a <http://skgg.org/frenchN_1/spouse> ?b']; skipping the rule.
+11:56:29 | skgg.engine.generator | WARNING | Built 0 of 20 needed groundings for ['?e <http://skgg.org/frenchN_1/mother> ?a', '?e <http://skgg.org/frenchN_1/father> ?b', '?a <http://skgg.org/frenchN_1/spouse> ?b'].
+11:56:29 | skgg.engine.generator | WARNING | No candidate values left for ['?b'] in ['?b <http://skgg.org/frenchN_1/spouse> ?f', '?a <http://skgg.org/frenchN_1/father> ?f', '?a <http://skgg.org/frenchN_1/mother> ?b']; skipping the rule.
+11:56:29 | skgg.engine.generator | WARNING | Built 0 of 25 needed groundings for ['?b <http://skgg.org/frenchN_1/spouse> ?f', '?a <http://skgg.org/frenchN_1/father> ?f', '?a <http://skgg.org/frenchN_1/mother> ?b'].
+11:56:29 | skgg.engine.generator | WARNING | No candidate values left for ['?e'] in ['?a <http://skgg.org/frenchN_1/mother> ?e', '?e <http://skgg.org/frenchN_1/spouse> ?b', '?a <http://skgg.org/frenchN_1/parent> ?b']; skipping the rule.
+11:56:29 | skgg.engine.generator | WARNING | Built 0 of 25 needed groundings for ['?a <http://skgg.org/frenchN_1/mother> ?e', '?e <http://skgg.org/frenchN_1/spouse> ?b', '?a <http://skgg.org/frenchN_1/parent> ?b'].
+11:56:29 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?b <http://skgg.org/frenchN_1/child> ?a', '?a <http://skgg.org/frenchN_1/father> ?b', '?a <http://skgg.org/frenchN_1/parent> ?b']; skipping the rule.
+11:56:29 | skgg.engine.generator | WARNING | Built 18 of 37 needed groundings for ['?b <http://skgg.org/frenchN_1/child> ?a', '?a <http://skgg.org/frenchN_1/father> ?b', '?a <http://skgg.org/frenchN_1/parent> ?b'].
+11:56:30 | skgg.engine.generator | WARNING | No candidate values left for ['?e'] in ['?a <http://skgg.org/frenchN_1/mother> ?e', '?e <http://skgg.org/frenchN_1/spouse> ?b', '?a <http://skgg.org/frenchN_1/father> ?b']; skipping the rule.
+11:56:30 | skgg.engine.generator | WARNING | Built 0 of 44 needed groundings for ['?a <http://skgg.org/frenchN_1/mother> ?e', '?e <http://skgg.org/frenchN_1/spouse> ?b', '?a <http://skgg.org/frenchN_1/father> ?b'].
+11:56:30 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?e <http://skgg.org/frenchN_1/gender> ?b', '?e <http://skgg.org/frenchN_1/successor> ?a', '?a <http://skgg.org/frenchN_1/gender> ?b']; skipping the rule.
+11:56:30 | skgg.engine.generator | WARNING | Built 24 of 37 needed groundings for ['?e <http://skgg.org/frenchN_1/gender> ?b', '?e <http://skgg.org/frenchN_1/successor> ?a', '?a <http://skgg.org/frenchN_1/gender> ?b'].
+11:56:30 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?f <http://skgg.org/frenchN_1/hasSpouse> ?b', '?a <http://skgg.org/frenchN_1/successor> ?f', '?a <http://skgg.org/frenchN_1/hasSpouse> ?b']; skipping the rule.
+11:56:30 | skgg.engine.generator | WARNING | Built 3 of 11 needed groundings for ['?f <http://skgg.org/frenchN_1/hasSpouse> ?b', '?a <http://skgg.org/frenchN_1/successor> ?f', '?a <http://skgg.org/frenchN_1/hasSpouse> ?b'].
+11:56:30 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?e <http://skgg.org/frenchN_1/mother> ?a', '?e <http://skgg.org/frenchN_1/hasSpouse> ?b', '?a <http://skgg.org/frenchN_1/hasSpouse> ?b']; skipping the rule.
+11:56:30 | skgg.engine.generator | WARNING | Built 48 of 65 needed groundings for ['?e <http://skgg.org/frenchN_1/mother> ?a', '?e <http://skgg.org/frenchN_1/hasSpouse> ?b', '?a <http://skgg.org/frenchN_1/hasSpouse> ?b'].
+11:56:30 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?f <http://skgg.org/frenchN_1/gender> ?b', '?a <http://skgg.org/frenchN_1/predecessor> ?f', '?a <http://skgg.org/frenchN_1/gender> ?b']; skipping the rule.
+11:56:30 | skgg.engine.generator | WARNING | Built 0 of 20 needed groundings for ['?f <http://skgg.org/frenchN_1/gender> ?b', '?a <http://skgg.org/frenchN_1/predecessor> ?f', '?a <http://skgg.org/frenchN_1/gender> ?b'].
+11:56:30 | skgg.engine.generator | WARNING | No candidate values left for ['?a', '?f'] in ['?a <http://skgg.org/frenchN_1/successor> ?f', '?f <http://skgg.org/frenchN_1/gender> ?b', '?a <http://skgg.org/frenchN_1/gender> ?b']; skipping the rule.
+11:56:30 | skgg.engine.generator | WARNING | Built 0 of 17 needed groundings for ['?a <http://skgg.org/frenchN_1/successor> ?f', '?f <http://skgg.org/frenchN_1/gender> ?b', '?a <http://skgg.org/frenchN_1/gender> ?b'].
+11:56:30 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?f <http://skgg.org/frenchN_1/gender> ?b', '?a <http://skgg.org/frenchN_1/parent> ?f', '?a <http://skgg.org/frenchN_1/gender> ?b']; skipping the rule.
+11:56:30 | skgg.engine.generator | WARNING | Built 6 of 13 needed groundings for ['?f <http://skgg.org/frenchN_1/gender> ?b', '?a <http://skgg.org/frenchN_1/parent> ?f', '?a <http://skgg.org/frenchN_1/gender> ?b'].
+11:56:30 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?e <http://skgg.org/frenchN_1/father> ?a', '?e <http://skgg.org/frenchN_1/hasSpouse> ?b', '?a <http://skgg.org/frenchN_1/hasSpouse> ?b']; skipping the rule.
+11:56:30 | skgg.engine.generator | WARNING | Built 39 of 60 needed groundings for ['?e <http://skgg.org/frenchN_1/father> ?a', '?e <http://skgg.org/frenchN_1/hasSpouse> ?b', '?a <http://skgg.org/frenchN_1/hasSpouse> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?e <http://skgg.org/frenchN_1/parent> ?a', '?e <http://skgg.org/frenchN_1/hasSpouse> ?b', '?a <http://skgg.org/frenchN_1/hasSpouse> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 10 of 89 needed groundings for ['?e <http://skgg.org/frenchN_1/parent> ?a', '?e <http://skgg.org/frenchN_1/hasSpouse> ?b', '?a <http://skgg.org/frenchN_1/hasSpouse> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?a <http://skgg.org/frenchN_1/mother> ?f', '?f <http://skgg.org/frenchN_1/hasSpouse> ?b', '?a <http://skgg.org/frenchN_1/hasSpouse> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 0 of 72 needed groundings for ['?a <http://skgg.org/frenchN_1/mother> ?f', '?f <http://skgg.org/frenchN_1/hasSpouse> ?b', '?a <http://skgg.org/frenchN_1/hasSpouse> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?f <http://skgg.org/frenchN_1/hasSpouse> ?b', '?a <http://skgg.org/frenchN_1/parent> ?f', '?a <http://skgg.org/frenchN_1/hasSpouse> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 0 of 102 needed groundings for ['?f <http://skgg.org/frenchN_1/hasSpouse> ?b', '?a <http://skgg.org/frenchN_1/parent> ?f', '?a <http://skgg.org/frenchN_1/hasSpouse> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?f <http://skgg.org/frenchN_1/hasSpouse> ?b', '?a <http://skgg.org/frenchN_1/father> ?f', '?a <http://skgg.org/frenchN_1/hasSpouse> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 0 of 93 needed groundings for ['?f <http://skgg.org/frenchN_1/hasSpouse> ?b', '?a <http://skgg.org/frenchN_1/father> ?f', '?a <http://skgg.org/frenchN_1/hasSpouse> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?a', '?b'] in ['?b <http://skgg.org/frenchN_1/spouse> ?a', '?a <http://skgg.org/frenchN_1/spouse> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 9 of 13 needed groundings for ['?b <http://skgg.org/frenchN_1/spouse> ?a', '?a <http://skgg.org/frenchN_1/spouse> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?b <http://skgg.org/frenchN_1/successor> ?a', '?a <http://skgg.org/frenchN_1/parent> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 0 of 1 needed groundings for ['?b <http://skgg.org/frenchN_1/successor> ?a', '?a <http://skgg.org/frenchN_1/parent> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?b <http://skgg.org/frenchN_1/child> ?a', '?a <http://skgg.org/frenchN_1/father> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 4 of 5 needed groundings for ['?b <http://skgg.org/frenchN_1/child> ?a', '?a <http://skgg.org/frenchN_1/father> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?b <http://skgg.org/frenchN_1/successor> ?a', '?a <http://skgg.org/frenchN_1/predecessor> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 0 of 10 needed groundings for ['?b <http://skgg.org/frenchN_1/successor> ?a', '?a <http://skgg.org/frenchN_1/predecessor> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?b <http://skgg.org/frenchN_1/child> ?a', '?a <http://skgg.org/frenchN_1/mother> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 0 of 4 needed groundings for ['?b <http://skgg.org/frenchN_1/child> ?a', '?a <http://skgg.org/frenchN_1/mother> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?b'] in ['?b <http://skgg.org/frenchN_1/father> ?a', '?a <http://skgg.org/frenchN_1/child> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 0 of 6 needed groundings for ['?b <http://skgg.org/frenchN_1/father> ?a', '?a <http://skgg.org/frenchN_1/child> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?b'] in ['?b <http://skgg.org/frenchN_1/predecessor> ?a', '?a <http://skgg.org/frenchN_1/successor> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 0 of 11 needed groundings for ['?b <http://skgg.org/frenchN_1/predecessor> ?a', '?a <http://skgg.org/frenchN_1/successor> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?b'] in ['?b <http://skgg.org/frenchN_1/mother> ?a', '?a <http://skgg.org/frenchN_1/child> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 0 of 9 needed groundings for ['?b <http://skgg.org/frenchN_1/mother> ?a', '?a <http://skgg.org/frenchN_1/child> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?b'] in ['?b <http://skgg.org/frenchN_1/parent> ?a', '?a <http://skgg.org/frenchN_1/child> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 3 of 8 needed groundings for ['?b <http://skgg.org/frenchN_1/parent> ?a', '?a <http://skgg.org/frenchN_1/child> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?b <http://skgg.org/frenchN_1/child> ?a', '?a <http://skgg.org/frenchN_1/parent> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 0 of 16 needed groundings for ['?b <http://skgg.org/frenchN_1/child> ?a', '?a <http://skgg.org/frenchN_1/parent> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?b'] in ['?a <http://skgg.org/frenchN_1/parent> ?b', '?a <http://skgg.org/frenchN_1/mother> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 11 of 34 needed groundings for ['?a <http://skgg.org/frenchN_1/parent> ?b', '?a <http://skgg.org/frenchN_1/mother> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?a <http://skgg.org/frenchN_1/parent> ?b', '?a <http://skgg.org/frenchN_1/father> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 26 of 61 needed groundings for ['?a <http://skgg.org/frenchN_1/parent> ?b', '?a <http://skgg.org/frenchN_1/father> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?b'] in ['?a <http://skgg.org/frenchN_1/mother> ?b', '?a <http://skgg.org/frenchN_1/parent> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 0 of 53 needed groundings for ['?a <http://skgg.org/frenchN_1/mother> ?b', '?a <http://skgg.org/frenchN_1/parent> ?b'].
+11:56:31 | skgg.engine.generator | WARNING | No candidate values left for ['?a'] in ['?a <http://skgg.org/frenchN_1/father> ?b', '?a <http://skgg.org/frenchN_1/parent> ?b']; skipping the rule.
+11:56:31 | skgg.engine.generator | WARNING | Built 0 of 70 needed groundings for ['?a <http://skgg.org/frenchN_1/father> ?b', '?a <http://skgg.org/frenchN_1/parent> ?b'].
+11:56:31 | skgg.engine.edb | INFO   | [Step 132] Closed predicates [1/10].
+11:56:31 | skgg.engine.edb | INFO   | [Step 257] Closed predicates [2/10].
+11:56:31 | skgg.engine.edb | INFO   | [Step 345] Closed predicates [3/10].
+11:56:31 | skgg.engine.edb | INFO   | [Step 385] Closed predicates [4/10].
+11:56:31 | skgg.engine.edb | INFO   | [Step 642] Closed predicates [5/10].
+11:56:31 | skgg.engine.edb | INFO   | [Step 846] Closed predicates [6/10].
+11:56:31 | skgg.engine.edb | INFO   | [Step 951] Closed predicates [7/10].
+11:56:31 | skgg.engine.edb | INFO   | [Step 1017] Closed predicates [8/10].
+11:56:32 | skgg.engine.edb | INFO   | [Step 2030] Closed predicates [9/10].
+11:56:32 | skgg.engine.edb | INFO   | [Step 3106] Closed predicates [10/10].
+11:56:32 | skgg.engine.edb | INFO   | [Partial] Head triples placed by the groundings of partial rules: 668.
+11:56:32 | __main__ | INFO   | EDB generated in 6.4s at <http://skgg.org/frenchN_1/skgg/pca/pca=0/edb> with 5171 triples.
+11:56:32 | __main__ | INFO   | [3/5] Completing graph
+11:56:32 | __main__ | INFO   | [EDB] Closed predicates: 10/10, closed rules: 85/130.
+11:56:32 | __main__ | INFO   | [EDB] Newly closed predicates: child, father, gender, hasSpouse, mother, name, parent, predecessor, spouse, successor
+11:56:32 | __main__ | INFO   | [EDB] Newly closed rules: 10, 100, 101, 103, 104, 106, 107, 108, 109, 110, 111, 113, 114, 115, 116, 117, 118, 119, 12, 120, 121, 122, 123, 124, 126, 127, 128, 130, 131, 132, 16, 18, 20, 22, 23, 24, 27, 29, 30, 31, 34, 35, 38, 39, 41, 44, 45, 50, 51, 57, 58, 59, 61, 62, 64, 65, 66, 67, 68, 69, 71, 73, 74, 76, 77, 78, 79, 8, 80, 82, 83, 84, 85, 86, 87, 88, 89, 91, 92, 93, 94, 95, 96, 98, 99
+11:56:32 | __main__ | INFO   | Applying the 0 complete rules (0 open): none
+11:56:32 | skgg.engine.completion | INFO   | [initial] Pass 1: no triples added.
+11:56:32 | skgg.engine.completion | INFO   | [initial] +0 triples in 1 passes (stale state).
+11:56:33 | __main__ | INFO   | [initial] Closed predicates: 10/10, closed rules: 85/130.
+11:56:33 | __main__ | INFO   | [Copied] type: 2222 triples from the base graph.
+11:56:33 | __main__ | INFO   | [4/5] Filling open relations
+11:56:33 | __main__ | INFO   | Skipping the fill step (pass --fill to run it); synthetic graph at <http://skgg.org/frenchN_1/skgg/pca/pca=0>.
+11:56:33 | __main__ | INFO   | [5/5] Summary
+11:56:35 | __main__ | INFO   | Experiment summary, <http://skgg.org/frenchN_1/base> -> <http://skgg.org/frenchN_1/skgg/pca/pca=0>:
+Triples: 7393 -> 7393 (+0, +0.0%)
+
+Predicates (10):
+  child         580 -> 580   (+0)  [CLOSED]  [EXTENSIONAL]
+  father        206 -> 206   (+0)  [CLOSED]  [EXTENSIONAL]
+  gender       1049 -> 1049  (+0)  [CLOSED]  [EXTENSIONAL]
+  hasSpouse    2212 -> 2212  (+0)  [CLOSED]  [EXTENSIONAL]
+  mother        175 -> 175   (+0)  [CLOSED]  [EXTENSIONAL]
+  name          116 -> 116   (+0)  [CLOSED]  [EXTENSIONAL]
+  parent        289 -> 289   (+0)  [CLOSED]  [EXTENSIONAL]
+  predecessor   108 -> 108   (+0)  [CLOSED]  [EXTENSIONAL]
+  spouse        284 -> 284   (+0)  [CLOSED]  [EXTENSIONAL]
+  successor     152 -> 152   (+0)  [CLOSED]  [EXTENSIONAL]
+
+Predicates copied from the original (1):
+  type  2222 -> 2222
+
+Rules (130), support, std and PCA confidence, original -> synthetic:
+  3    ?a mother ?f & ?f hasSpouse ?b => ?a hasSpouse ?b           162 -> 98   ( -64)  std 0.926 -> 0.560 (-0.366)  pca 0.926 -> 0.560 (-0.366)  [OPEN]    [PARTIAL 150]
+  4    ?a mother ?e & ?e spouse ?b => ?a father ?b                  48 -> 0    ( -48)  std 0.923 -> 0.000 (-0.923)  pca 0.923 -> 0.000 (-0.923)  [OPEN]    [PARTIAL 44]
+  5    ?a father ?b & ?b successor ?a => ?a parent ?b               11 -> 0    ( -11)  std 0.917 -> 0.000 (-0.917)  pca 0.917 -> 0.000 (-0.917)  [OPEN]    [PARTIAL 10]
+  6    ?a father ?f & ?f hasSpouse ?b => ?a hasSpouse ?b           184 -> 117  ( -67)  std 0.893 -> 0.568 (-0.325)  pca 0.893 -> 0.568 (-0.325)  [OPEN]    [PARTIAL 164]
+  7    ?a parent ?f & ?f hasSpouse ?b => ?a hasSpouse ?b           184 -> 126  ( -58)  std 0.889 -> 0.516 (-0.372)  pca 0.889 -> 0.516 (-0.372)  [OPEN]    [PARTIAL 164]
+  8    ?e hasSpouse ?b & ?e mother ?a => ?a hasSpouse ?b            75 -> 66   (  -9)  std 0.872 -> 0.532 (-0.340)  pca 0.872 -> 0.532 (-0.340)  [CLOSED]  [PARTIAL 65]
+  9    ?e hasSpouse ?b & ?e parent ?a => ?a hasSpouse ?b           159 -> 123  ( -36)  std 0.864 -> 0.547 (-0.317)  pca 0.864 -> 0.547 (-0.317)  [OPEN]    [PARTIAL 137]
+  10   ?e father ?a & ?e hasSpouse ?b => ?a hasSpouse ?b            86 -> 76   ( -10)  std 0.843 -> 0.547 (-0.296)  pca 0.843 -> 0.547 (-0.296)  [CLOSED]  [PARTIAL 73]
+  11   ?a parent ?b & ?a predecessor ?b => ?a father ?b             10 -> 4    (  -6)  std 0.833 -> 0.667 (-0.167)  pca 0.909 -> 0.667 (-0.242)  [OPEN]    [PARTIAL 9]
+  12   ?a mother ?b & ?b successor ?a => ?a parent ?b                4 -> 3    (  -1)  std 0.800 -> 1.000 (+0.200)  pca 0.800 -> 1.000 (+0.200)  [CLOSED]  [PARTIAL 3]
+  13   ?a father ?b & ?b child ?a => ?a parent ?b                   46 -> 18   ( -28)  std 0.767 -> 0.643 (-0.124)  pca 0.807 -> 0.692 (-0.115)  [OPEN]    [PARTIAL 37]
+  14   ?a father ?b => ?a parent ?b                                155 -> 51   (-104)  std 0.752 -> 0.248 (-0.505)  pca 0.775 -> 0.255 (-0.520)  [OPEN]    [PARTIAL 120]
+  15   ?a mother ?b => ?a parent ?b                                128 -> 41   ( -87)  std 0.731 -> 0.234 (-0.497)  pca 0.731 -> 0.234 (-0.497)  [OPEN]    [PARTIAL 94]
+  16   ?e gender ?b & ?e predecessor ?a => ?a gender ?b             36 -> 34   (  -2)  std 0.720 -> 0.576 (-0.144)  pca 0.783 -> 0.596 (-0.186)  [CLOSED]  [PARTIAL 28]
+  17   ?a mother ?e & ?e spouse ?b => ?a parent ?b                  36 -> 1    ( -35)  std 0.692 -> 0.019 (-0.673)  pca 0.692 -> 0.019 (-0.673)  [OPEN]    [PARTIAL 25]
+  18   ?e gender ?b & ?e successor ?a => ?a gender ?b               53 -> 46   (  -7)  std 0.671 -> 0.535 (-0.136)  pca 0.757 -> 0.582 (-0.175)  [CLOSED]  [PARTIAL 40]
+  19   ?a parent ?b & ?b successor ?a => ?a father ?b               11 -> 0    ( -11)  std 0.647 -> 0.000 (-0.647)  pca 0.733 -> 0.000 (-0.733)  [OPEN]    [PARTIAL 8]
+  20   ?a successor ?f & ?f hasSpouse ?b => ?a hasSpouse ?b         85 -> 88   (  +3)  std 0.590 -> 0.595 (+0.004)  pca 0.590 -> 0.595 (+0.004)  [CLOSED]  [PARTIAL 50]
+  21   ?a father ?e & ?e spouse ?b => ?a mother ?b                  19 -> 4    ( -15)  std 0.576 -> 0.121 (-0.455)  pca 0.704 -> 0.143 (-0.561)  [OPEN]    [PARTIAL 13]
+  22   ?e hasSpouse ?b & ?e successor ?a => ?a hasSpouse ?b         59 -> 61   (  +2)  std 0.573 -> 0.570 (-0.003)  pca 0.573 -> 0.570 (-0.003)  [CLOSED]  [PARTIAL 34]
+  23   ?e hasSpouse ?b & ?e predecessor ?a => ?a hasSpouse ?b       41 -> 52   ( +11)  std 0.569 -> 0.634 (+0.065)  pca 0.569 -> 0.634 (+0.065)  [CLOSED]  [PARTIAL 23]
+  24   ?a predecessor ?f & ?f hasSpouse ?b => ?a hasSpouse ?b       56 -> 70   ( +14)  std 0.554 -> 0.686 (+0.132)  pca 0.554 -> 0.686 (+0.132)  [CLOSED]  [PARTIAL 31]
+  25   ?a predecessor ?f & ?f gender ?b => ?a gender ?b             54 -> 42   ( -12)  std 0.551 -> 0.429 (-0.122)  pca 0.831 -> 0.609 (-0.222)  [OPEN]    [PARTIAL 45]
+  26   ?a mother ?f & ?b predecessor ?f => ?a father ?b             11 -> 0    ( -11)  std 0.550 -> 0.000 (-0.550)  pca 0.550 -> 0.000 (-0.550)  [OPEN]    [PARTIAL 6]
+  27   ?a father ?f & ?f gender ?b => ?a gender ?b                 111 -> 122  ( +11)  std 0.539 -> 0.592 (+0.053)  pca 0.539 -> 0.592 (+0.053)  [CLOSED]  [PARTIAL 60]
+  28   ?a parent ?b => ?a father ?b                                155 -> 51   (-104)  std 0.536 -> 0.176 (-0.360)  pca 0.548 -> 0.180 (-0.367)  [OPEN]    [PARTIAL 85]
+  29   ?e father ?a & ?e gender ?b => ?a gender ?b                  75 -> 74   (  -1)  std 0.517 -> 0.548 (+0.031)  pca 0.517 -> 0.548 (+0.031)  [CLOSED]  [PARTIAL 39]
+  30   ?e gender ?b & ?e parent ?a => ?a gender ?b                 118 -> 120  (  +2)  std 0.513 -> 0.548 (+0.035)  pca 0.513 -> 0.548 (+0.035)  [CLOSED]  [PARTIAL 61]
+  31   ?a parent ?f & ?f gender ?b => ?a gender ?b                 147 -> 138  (  -9)  std 0.509 -> 0.552 (+0.043)  pca 0.509 -> 0.552 (+0.043)  [CLOSED]  [PARTIAL 75]
+  32   ?a mother ?f & ?b predecessor ?f => ?a parent ?b             10 -> 1    (  -9)  std 0.500 -> 0.050 (-0.450)  pca 0.500 -> 0.050 (-0.450)  [OPEN]    [PARTIAL 5]
+  33   ?a mother ?f & ?b spouse ?f => ?a father ?b                  19 -> 4    ( -15)  std 0.500 -> 0.105 (-0.395)  pca 0.500 -> 0.105 (-0.395)  [OPEN]    [PARTIAL 10]
+  34   ?a successor ?f & ?f gender ?b => ?a gender ?b               66 -> 54   ( -12)  std 0.496 -> 0.400 (-0.096)  pca 0.767 -> 0.581 (-0.187)  [CLOSED]  [PARTIAL 51]
+  35   ?a child ?f & ?f gender ?b => ?a gender ?b                   94 -> 110  ( +16)  std 0.487 -> 0.591 (+0.104)  pca 0.487 -> 0.595 (+0.108)  [CLOSED]  [PARTIAL 46]
+  36   ?a parent ?f & ?f spouse ?b => ?a father ?b                  34 -> 1    ( -33)  std 0.486 -> 0.014 (-0.471)  pca 0.500 -> 0.014 (-0.486)  [OPEN]    [PARTIAL 17]
+  37   ?a parent ?e & ?e spouse ?b => ?a parent ?b                  34 -> 5    ( -29)  std 0.486 -> 0.072 (-0.413)  pca 0.486 -> 0.072 (-0.413)  [OPEN]    [PARTIAL 17]
+  38   ?e gender ?b & ?e mother ?a => ?a gender ?b                  59 -> 67   (  +8)  std 0.484 -> 0.554 (+0.070)  pca 0.484 -> 0.554 (+0.070)  [CLOSED]  [PARTIAL 29]
+  39   ?a child ?f & ?f hasSpouse ?b => ?a hasSpouse ?b            156 -> 161  (  +5)  std 0.477 -> 0.505 (+0.028)  pca 0.477 -> 0.505 (+0.028)  [CLOSED]  [PARTIAL 74]
+  40   ?a mother ?f & ?b spouse ?f => ?a parent ?b                  18 -> 6    ( -12)  std 0.474 -> 0.158 (-0.316)  pca 0.474 -> 0.158 (-0.316)  [OPEN]    [PARTIAL 9]
+  41   ?a mother ?f & ?f gender ?b => ?a gender ?b                  81 -> 105  ( +24)  std 0.463 -> 0.600 (+0.137)  pca 0.463 -> 0.600 (+0.137)  [CLOSED]  [PARTIAL 37]
+  42   ?a parent ?b => ?a mother ?b                                128 -> 41   ( -87)  std 0.443 -> 0.142 (-0.301)  pca 0.496 -> 0.159 (-0.337)  [OPEN]    [PARTIAL 64]
+  43   ?a predecessor ?b & ?b child ?a => ?a father ?b               6 -> 4    (  -2)  std 0.400 -> 0.800 (+0.400)  pca 0.857 -> 1.000 (+0.143)  [OPEN]    [PARTIAL 5]
+  44   ?a father ?e & ?e spouse ?b => ?a parent ?b                  13 -> 5    (  -8)  std 0.394 -> 0.152 (-0.242)  pca 0.394 -> 0.156 (-0.238)  [CLOSED]  [PARTIAL 5]
+  45   ?e child ?a & ?e hasSpouse ?b => ?a hasSpouse ?b            184 -> 275  ( +91)  std 0.380 -> 0.513 (+0.133)  pca 0.380 -> 0.513 (+0.133)  [CLOSED]  [PARTIAL 70]
+  46   ?a father ?f & ?b spouse ?f => ?a mother ?b                  48 -> 0    ( -48)  std 0.356 -> 0.000 (-0.356)  pca 0.511 -> 0.000 (-0.511)  [OPEN]    [PARTIAL 25]
+  47   ?b mother ?f & ?f spouse ?a => ?a child ?b                   18 -> 4    ( -14)  std 0.346 -> 0.077 (-0.269)  pca 0.462 -> 0.118 (-0.344)  [OPEN]    [PARTIAL 8]
+  48   ?b mother ?a => ?a child ?b                                  59 -> 27   ( -32)  std 0.337 -> 0.154 (-0.183)  pca 0.615 -> 0.281 (-0.333)  [OPEN]    [PARTIAL 36]
+  49   ?a father ?b & ?b successor ?a => ?a predecessor ?b           4 -> 2    (  -2)  std 0.333 -> 0.500 (+0.167)  pca 0.667 -> 1.000 (+0.333)  [OPEN]    [PARTIAL 3]
+  50   ?b father ?a & ?b predecessor ?a => ?a child ?b               6 -> 4    (  -2)  std 0.333 -> 0.400 (+0.067)  pca 0.600 -> 0.667 (+0.067)  [CLOSED]  [PARTIAL 4]
+  51   ?b mother ?a & ?b parent ?a => ?a child ?b                   41 -> 26   ( -15)  std 0.320 -> 0.634 (+0.314)  pca 0.631 -> 0.929 (+0.298)  [CLOSED]  [PARTIAL 26]
+  52   ?b parent ?a => ?a child ?b                                  87 -> 47   ( -40)  std 0.301 -> 0.163 (-0.138)  pca 0.600 -> 0.324 (-0.276)  [OPEN]    [PARTIAL 52]
+  53   ?b father ?a => ?a child ?b                                  60 -> 28   ( -32)  std 0.291 -> 0.136 (-0.155)  pca 0.566 -> 0.264 (-0.302)  [OPEN]    [PARTIAL 34]
+  54   ?e father ?b & ?e mother ?a => ?a spouse ?b                  21 -> 0    ( -21)  std 0.276 -> 0.000 (-0.276)  pca 0.955 -> 0.000 (-0.955)  [OPEN]    [PARTIAL 20]
+  55   ?b predecessor ?a => ?a successor ?b                         29 -> 4    ( -25)  std 0.269 -> 0.037 (-0.231)  pca 0.509 -> 0.070 (-0.439)  [OPEN]    [PARTIAL 15]
+  56   ?a parent ?f & ?b spouse ?f => ?a mother ?b                  36 -> 1    ( -35)  std 0.261 -> 0.007 (-0.254)  pca 0.367 -> 0.008 (-0.359)  [OPEN]    [PARTIAL 13]
+  57   ?e child ?b & ?e spouse ?a => ?a child ?b                    43 -> 13   ( -30)  std 0.261 -> 0.079 (-0.182)  pca 0.261 -> 0.079 (-0.182)  [CLOSED]  [PARTIAL 11]
+  58   ?b parent ?f & ?f spouse ?a => ?a child ?b                   18 -> 7    ( -11)  std 0.257 -> 0.101 (-0.156)  pca 0.391 -> 0.167 (-0.225)  [CLOSED]  [PARTIAL 7]
+  59   ?a parent ?f & ?f spouse ?b => ?a mother ?b                  18 -> 5    ( -13)  std 0.257 -> 0.072 (-0.185)  pca 0.290 -> 0.075 (-0.216)  [CLOSED]  [PARTIAL 5]
+  60   ?a father ?f & ?b spouse ?f => ?a parent ?b                  34 -> 1    ( -33)  std 0.252 -> 0.007 (-0.244)  pca 0.279 -> 0.008 (-0.271)  [OPEN]    [PARTIAL 9]
+  61   ?e spouse ?a & ?e successor ?b => ?a successor ?b             5 -> 4    (  -1)  std 0.250 -> 0.200 (-0.050)  pca 0.714 -> 0.667 (-0.048)  [CLOSED]  [PARTIAL 4]
+  62   ?a predecessor ?f & ?b mother ?f => ?a successor ?b           5 -> 2    (  -3)  std 0.250 -> 0.100 (-0.150)  pca 0.250 -> 0.182 (-0.068)  [CLOSED]  [PARTIAL 1]
+  63   ?a parent ?f & ?b spouse ?f => ?a parent ?b                  34 -> 5    ( -29)  std 0.246 -> 0.036 (-0.210)  pca 0.246 -> 0.036 (-0.210)  [OPEN]    [PARTIAL 8]
+  64   ?e predecessor ?b & ?e successor ?a => ?a predecessor ?b     13 -> 6    (  -7)  std 0.245 -> 0.109 (-0.136)  pca 0.419 -> 0.231 (-0.189)  [CLOSED]  [PARTIAL 5]
+  65   ?e predecessor ?a & ?e successor ?b => ?a successor ?b       13 -> 4    (  -9)  std 0.245 -> 0.073 (-0.173)  pca 0.342 -> 0.108 (-0.234)  [CLOSED]  [PARTIAL 4]
+  66   ?a parent ?b & ?b successor ?a => ?a predecessor ?b           4 -> 2    (  -2)  std 0.235 -> 0.400 (+0.165)  pca 0.571 -> 0.667 (+0.095)  [CLOSED]  [PARTIAL 2]
+  67   ?a child ?f & ?f father ?b => ?a spouse ?b                   18 -> 13   (  -5)  std 0.234 -> 0.110 (-0.124)  pca 0.692 -> 0.224 (-0.468)  [CLOSED]  [PARTIAL 12]
+  68   ?a mother ?e & ?e successor ?b => ?a parent ?b                3 -> 1    (  -2)  std 0.214 -> 0.071 (-0.143)  pca 0.214 -> 0.071 (-0.143)  [CLOSED]  [PARTIAL 1]
+  69   ?a mother ?e & ?e successor ?b => ?a father ?b                3 -> 1    (  -2)  std 0.214 -> 0.071 (-0.143)  pca 0.214 -> 0.071 (-0.143)  [CLOSED]  [PARTIAL 1]
+  70   ?a parent ?f & ?f predecessor ?b => ?a mother ?b             10 -> 1    (  -9)  std 0.213 -> 0.021 (-0.191)  pca 0.244 -> 0.023 (-0.221)  [OPEN]    [PARTIAL 2]
+  71   ?a spouse ?f & ?b father ?f => ?a child ?b                   28 -> 13   ( -15)  std 0.207 -> 0.096 (-0.111)  pca 0.318 -> 0.149 (-0.169)  [CLOSED]  [PARTIAL 9]
+  72   ?a father ?e & ?e predecessor ?b => ?a mother ?b             11 -> 0    ( -11)  std 0.204 -> 0.000 (-0.204)  pca 0.234 -> 0.000 (-0.234)  [OPEN]    [PARTIAL 3]
+  73   ?a mother ?f & ?b successor ?f => ?a father ?b                3 -> 1    (  -2)  std 0.200 -> 0.067 (-0.133)  pca 0.200 -> 0.067 (-0.133)  [CLOSED]  [PARTIAL 1]
+  74   ?e child ?a & ?e gender ?b => ?a gender ?b                  115 -> 123  (  +8)  std 0.199 -> 0.231 (+0.033)  pca 0.502 -> 0.612 (+0.110)  [CLOSED]  [PARTIAL 58]
+  75   ?b successor ?a => ?a predecessor ?b                         29 -> 4    ( -25)  std 0.191 -> 0.026 (-0.164)  pca 0.492 -> 0.068 (-0.424)  [OPEN]    [PARTIAL 14]
+  76   ?a spouse ?f & ?b parent ?f => ?a child ?b                   26 -> 17   (  -9)  std 0.188 -> 0.123 (-0.065)  pca 0.333 -> 0.189 (-0.144)  [CLOSED]  [PARTIAL 9]
+  77   ?a successor ?f & ?f predecessor ?b => ?a predecessor ?b     13 -> 6    (  -7)  std 0.186 -> 0.081 (-0.105)  pca 0.464 -> 0.240 (-0.224)  [CLOSED]  [PARTIAL 6]
+  78   ?a predecessor ?f & ?f successor ?b => ?a successor ?b       13 -> 4    (  -9)  std 0.183 -> 0.053 (-0.130)  pca 0.317 -> 0.093 (-0.224)  [CLOSED]  [PARTIAL 4]
+  79   ?b father ?f & ?f spouse ?a => ?a child ?b                    6 -> 2    (  -4)  std 0.182 -> 0.061 (-0.121)  pca 0.300 -> 0.118 (-0.182)  [CLOSED]  [PARTIAL 2]
+  80   ?b child ?a & ?b successor ?a => ?a father ?b                 3 -> 2    (  -1)  std 0.176 -> 0.400 (+0.224)  pca 0.600 -> 1.000 (+0.400)  [CLOSED]  [PARTIAL 2]
+  81   ?e child ?a & ?e spouse ?b => ?a father ?b                   28 -> 13   ( -15)  std 0.170 -> 0.079 (-0.091)  pca 0.683 -> 0.210 (-0.473)  [OPEN]    [PARTIAL 19]
+  82   ?a predecessor ?b => ?a father ?b                            18 -> 10   (  -8)  std 0.167 -> 0.093 (-0.074)  pca 0.581 -> 0.323 (-0.258)  [CLOSED]  [PARTIAL 10]
+  83   ?a spouse ?f & ?f child ?b => ?a child ?b                    43 -> 13   ( -30)  std 0.167 -> 0.050 (-0.116)  pca 0.167 -> 0.050 (-0.116)  [CLOSED]  [PARTIAL 7]
+  84   ?b child ?f & ?f mother ?a => ?a spouse ?b                   11 -> 4    (  -7)  std 0.162 -> 0.037 (-0.124)  pca 0.393 -> 0.103 (-0.290)  [CLOSED]  [PARTIAL 4]
+  85   ?a spouse ?f & ?b mother ?f => ?a child ?b                    6 -> 3    (  -3)  std 0.158 -> 0.079 (-0.079)  pca 0.333 -> 0.115 (-0.218)  [CLOSED]  [PARTIAL 2]
+  86   ?e child ?a & ?e spouse ?b => ?a parent ?b                   26 -> 17   (  -9)  std 0.158 -> 0.103 (-0.055)  pca 0.650 -> 0.279 (-0.371)  [CLOSED]  [PARTIAL 17]
+  87   ?b successor ?e & ?e mother ?a => ?a spouse ?b                7 -> 2    (  -5)  std 0.156 -> 0.044 (-0.111)  pca 0.269 -> 0.111 (-0.158)  [CLOSED]  [PARTIAL 2]
+  88   ?e mother ?a & ?e predecessor ?b => ?a spouse ?b              4 -> 4    (  +0)  std 0.154 -> 0.138 (-0.016)  pca 0.500 -> 0.333 (-0.167)  [CLOSED]  [PARTIAL 2]
+  89   ?e predecessor ?b & ?e successor ?a => ?a parent ?b           8 -> 4    (  -4)  std 0.151 -> 0.073 (-0.078)  pca 0.381 -> 0.200 (-0.181)  [CLOSED]  [PARTIAL 3]
+  90   ?b child ?a => ?a parent ?b                                  87 -> 47   ( -40)  std 0.150 -> 0.081 (-0.069)  pca 0.719 -> 0.388 (-0.331)  [OPEN]    [PARTIAL 63]
+  91   ?a mother ?f & ?b predecessor ?f => ?a predecessor ?b         3 -> 1    (  -2)  std 0.150 -> 0.050 (-0.100)  pca 0.429 -> 0.111 (-0.317)  [CLOSED]  [PARTIAL 1]
+  92   ?e spouse ?b & ?e successor ?a => ?a parent ?b                3 -> 1    (  -2)  std 0.150 -> 0.050 (-0.100)  pca 0.375 -> 0.125 (-0.250)  [CLOSED]  [PARTIAL 1]
+  93   ?e spouse ?b & ?e successor ?a => ?a father ?b                3 -> 1    (  -2)  std 0.150 -> 0.050 (-0.100)  pca 0.375 -> 0.125 (-0.250)  [CLOSED]  [PARTIAL 1]
+  94   ?a child ?f & ?f parent ?b => ?a spouse ?b                   19 -> 15   (  -4)  std 0.150 -> 0.093 (-0.057)  pca 0.452 -> 0.188 (-0.265)  [CLOSED]  [PARTIAL 9]
+  95   ?e father ?a & ?e predecessor ?b => ?a successor ?b           4 -> 1    (  -3)  std 0.143 -> 0.033 (-0.110)  pca 0.250 -> 0.125 (-0.125)  [CLOSED]  [PARTIAL 1]
+  96   ?b predecessor ?a => ?a child ?b                             15 -> 5    ( -10)  std 0.139 -> 0.046 (-0.093)  pca 0.349 -> 0.116 (-0.233)  [CLOSED]  [PARTIAL 5]
+  97   ?e mother ?a & ?e parent ?b => ?a spouse ?b                  21 -> 1    ( -20)  std 0.138 -> 0.004 (-0.134)  pca 0.477 -> 0.013 (-0.464)  [OPEN]    [PARTIAL 10]
+  98   ?b spouse ?f & ?f successor ?a => ?a mother ?b                7 -> 2    (  -5)  std 0.135 -> 0.038 (-0.096)  pca 0.350 -> 0.091 (-0.259)  [CLOSED]  [PARTIAL 2]
+  99   ?b mother ?f & ?f spouse ?a => ?a successor ?b                7 -> 2    (  -5)  std 0.135 -> 0.038 (-0.096)  pca 0.333 -> 0.111 (-0.222)  [CLOSED]  [PARTIAL 2]
+  100  ?b successor ?f & ?f father ?a => ?a child ?b                 6 -> 2    (  -4)  std 0.133 -> 0.044 (-0.089)  pca 0.375 -> 0.125 (-0.250)  [CLOSED]  [PARTIAL 2]
+  101  ?b parent ?f & ?f predecessor ?a => ?a child ?b               6 -> 1    (  -5)  std 0.128 -> 0.021 (-0.106)  pca 0.207 -> 0.045 (-0.161)  [CLOSED]  [PARTIAL 1]
+  102  ?e father ?b & ?e parent ?a => ?a spouse ?b                  21 -> 1    ( -20)  std 0.127 -> 0.004 (-0.124)  pca 0.583 -> 0.016 (-0.568)  [OPEN]    [PARTIAL 12]
+  103  ?a successor ?f & ?f parent ?b => ?a predecessor ?b           9 -> 4    (  -5)  std 0.123 -> 0.055 (-0.068)  pca 0.391 -> 0.160 (-0.231)  [CLOSED]  [PARTIAL 4]
+  104  ?a predecessor ?f & ?f predecessor ?b => ?a predecessor ?b    6 -> 1    (  -5)  std 0.120 -> 0.020 (-0.100)  pca 0.120 -> 0.020 (-0.100)  [CLOSED]  [PARTIAL 1]
+  105  ?e father ?a & ?e mother ?b => ?a spouse ?b                   9 -> 4    (  -5)  std 0.118 -> 0.023 (-0.095)  pca 0.750 -> 0.160 (-0.590)  [OPEN]    [PARTIAL 7]
+  106  ?e mother ?b & ?e successor ?a => ?a mother ?b                4 -> 2    (  -2)  std 0.118 -> 0.059 (-0.059)  pca 0.400 -> 0.143 (-0.257)  [CLOSED]  [PARTIAL 2]
+  107  ?e mother ?b & ?e successor ?a => ?a parent ?b                4 -> 1    (  -3)  std 0.118 -> 0.029 (-0.088)  pca 0.286 -> 0.071 (-0.214)  [CLOSED]  [PARTIAL 1]
+  108  ?a mother ?f & ?f spouse ?b => ?a predecessor ?b              6 -> 4    (  -2)  std 0.115 -> 0.077 (-0.038)  pca 0.600 -> 0.400 (-0.200)  [CLOSED]  [PARTIAL 4]
+  109  ?a child ?f & ?f predecessor ?b => ?a spouse ?b               6 -> 3    (  -3)  std 0.115 -> 0.055 (-0.061)  pca 0.429 -> 0.150 (-0.279)  [CLOSED]  [PARTIAL 3]
+  110  ?e mother ?b & ?e predecessor ?a => ?a predecessor ?b         3 -> 1    (  -2)  std 0.115 -> 0.034 (-0.081)  pca 0.300 -> 0.077 (-0.223)  [CLOSED]  [PARTIAL 1]
+  111  ?b spouse ?f & ?f successor ?a => ?a parent ?b                6 -> 1    (  -5)  std 0.115 -> 0.019 (-0.096)  pca 0.240 -> 0.045 (-0.195)  [CLOSED]  [PARTIAL 1]
+  112  ?b successor ?a => ?a parent ?b                              17 -> 5    ( -12)  std 0.112 -> 0.033 (-0.079)  pca 0.347 -> 0.102 (-0.245)  [OPEN]    [PARTIAL 6]
+  113  ?a successor ?b => ?a child ?b                               17 -> 5    ( -12)  std 0.112 -> 0.033 (-0.079)  pca 0.262 -> 0.077 (-0.185)  [CLOSED]  [PARTIAL 4]
+  114  ?a predecessor ?b => ?a parent ?b                            12 -> 6    (  -6)  std 0.111 -> 0.056 (-0.056)  pca 0.353 -> 0.176 (-0.176)  [CLOSED]  [PARTIAL 4]
+  115  ?a successor ?f & ?f mother ?b => ?a predecessor ?b           5 -> 2    (  -3)  std 0.111 -> 0.044 (-0.067)  pca 0.333 -> 0.125 (-0.208)  [CLOSED]  [PARTIAL 2]
+  116  ?a successor ?f & ?f father ?b => ?a predecessor ?b           5 -> 2    (  -3)  std 0.111 -> 0.044 (-0.067)  pca 0.333 -> 0.125 (-0.208)  [CLOSED]  [PARTIAL 2]
+  117  ?b father ?f & ?f predecessor ?a => ?a child ?b               6 -> 1    (  -5)  std 0.111 -> 0.019 (-0.093)  pca 0.158 -> 0.038 (-0.119)  [CLOSED]  [PARTIAL 1]
+  118  ?b successor ?f & ?f father ?a => ?a successor ?b             5 -> 1    (  -4)  std 0.111 -> 0.022 (-0.089)  pca 0.156 -> 0.059 (-0.097)  [CLOSED]  [PARTIAL 1]
+  119  ?a father ?e & ?e predecessor ?b => ?a parent ?b              6 -> 1    (  -5)  std 0.111 -> 0.019 (-0.093)  pca 0.115 -> 0.020 (-0.096)  [CLOSED]  [PARTIAL 1]
+  120  ?b child ?f & ?f parent ?a => ?a spouse ?b                   14 -> 7    (  -7)  std 0.110 -> 0.043 (-0.067)  pca 0.359 -> 0.156 (-0.203)  [CLOSED]  [PARTIAL 5]
+  121  ?a parent ?e & ?e predecessor ?b => ?a parent ?b              5 -> 1    (  -4)  std 0.106 -> 0.021 (-0.085)  pca 0.106 -> 0.021 (-0.085)  [CLOSED]  [PARTIAL 1]
+  122  ?b spouse ?a => ?a spouse ?b                                 30 -> 18   ( -12)  std 0.106 -> 0.063 (-0.042)  pca 0.429 -> 0.257 (-0.171)  [CLOSED]  [PARTIAL 13]
+  123  ?e father ?b & ?e successor ?a => ?a father ?b                4 -> 2    (  -2)  std 0.105 -> 0.053 (-0.053)  pca 0.364 -> 0.133 (-0.230)  [CLOSED]  [PARTIAL 1]
+  124  ?e father ?b & ?e successor ?a => ?a parent ?b                4 -> 1    (  -3)  std 0.105 -> 0.026 (-0.079)  pca 0.267 -> 0.067 (-0.200)  [CLOSED]  [PARTIAL 1]
+  125  ?b child ?a => ?a father ?b                                  60 -> 28   ( -32)  std 0.103 -> 0.048 (-0.055)  pca 0.480 -> 0.224 (-0.256)  [OPEN]    [PARTIAL 29]
+  126  ?b child ?f & ?f successor ?a => ?a father ?b                 6 -> 2    (  -4)  std 0.103 -> 0.034 (-0.069)  pca 0.300 -> 0.100 (-0.200)  [CLOSED]  [PARTIAL 2]
+  127  ?b child ?f & ?f successor ?a => ?a parent ?b                 6 -> 2    (  -4)  std 0.103 -> 0.034 (-0.069)  pca 0.261 -> 0.095 (-0.166)  [CLOSED]  [PARTIAL 2]
+  128  ?e parent ?b & ?e predecessor ?a => ?a predecessor ?b         5 -> 2    (  -3)  std 0.102 -> 0.038 (-0.064)  pca 0.312 -> 0.083 (-0.229)  [CLOSED]  [PARTIAL 2]
+  129  ?b child ?a => ?a mother ?b                                  59 -> 27   ( -32)  std 0.102 -> 0.047 (-0.055)  pca 0.518 -> 0.237 (-0.281)  [OPEN]    [PARTIAL 31]
+  130  ?a child ?f & ?b child ?f => ?a spouse ?b                    39 -> 13   ( -26)  std 0.101 -> 0.032 (-0.069)  pca 0.336 -> 0.104 (-0.232)  [CLOSED]  [PARTIAL 13]
+  131  ?a father ?b & ?b child ?a => ?a predecessor ?b               6 -> 4    (  -2)  std 0.100 -> 0.143 (+0.043)  pca 0.545 -> 0.500 (-0.045)  [CLOSED]  [PARTIAL 3]
+  132  ?a predecessor ?e & ?e predecessor ?b => ?a parent ?b         5 -> 2    (  -3)  std 0.100 -> 0.040 (-0.060)  pca 0.333 -> 0.100 (-0.233)  [CLOSED]  [PARTIAL 2]
+
+Removed cyclic rules (2):
+  1    ?e hasSpouse ?b & ?e spouse ?a => ?a hasSpouse ?b           142 -> 101  ( -41)  std 1.000 -> 0.465 (-0.535)  pca 1.000 -> 0.465 (-0.535)
+  2    ?a spouse ?f & ?f hasSpouse ?b => ?a hasSpouse ?b           277 -> 133  (-144)  std 1.000 -> 0.475 (-0.525)  pca 1.000 -> 0.475 (-0.525)
+11:56:35 | __main__ | INFO   | Execution finished after 9.5s.
+11:56:35 | skgg.core.triples | INFO   | Wrote 7393 triples to /tmp/tmpzpd_qjlc/graph.tsv, skipping 0 duplicate triples and 0 invalid lines.
+11:56:35 | __main__ | INFO   | Downloaded <http://skgg.org/frenchN_1/skgg/pca/pca=0>: 7393 triples to /tmp/tmpzpd_qjlc/graph.nt and /tmp/tmpzpd_qjlc/graph.tsv.

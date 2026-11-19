@@ -283,7 +283,7 @@ def dataset_family(dataset: str) -> tuple[str, str]:
     is its source's name with the copy set as suffix, e.g. `french_kbgen` is
     (`french`, `kbgen`), and a source dataset is its own family's `original`.
     A copy made another way has a tag after the suffix, which stays in the
-    variant: `french_ours_std1` is (`french`, `ours_std1`).
+    variant: `french_ours_pca1` is (`french`, `ours_pca1`).
     """
     for variant in COPY_SETS:
         if dataset.endswith(f"_{variant}"):

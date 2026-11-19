@@ -20,12 +20,22 @@ pdfs
 # Local data
 .data
 
-# logs
-logs
+# logs: only the logs of synthetic graph generation are tracked (our generator's
+# logs/ours*/, the output of the generation batches and of cli/main.py runs)
+logs/*
+!logs/ours*/
+!logs/rule-levels-*.out
+!logs/kbgen-*.out
+!logs/synthetic.*.log
 
 # Output of scripts/train_kge.py: exp_results is tracked, except the progress table, rewritten after every epoch
 exp_results/progress.csv
 exp_results/progress.csv.*.tmp
+# the same for the copies made with completion capped (docs/completion-cap.md)
+exp_results_capped/progress.csv
+exp_results_capped/progress.csv.*.tmp
+!exp_results_capped/*/logs/
+exp_checkpoints_capped
 !exp_results/*/logs/
 exp_checkpoints
 
@@ -38,12 +48,47 @@ mine_rules/*.jar
 
 # State of a running validation (kgc_benchmark/report_results.py), local to each machine
 exp_analysis/progress.csv
+exp_analysis_capped/progress.csv
+exp_analysis_capped/validation_state.json
+exp_analysis_capped/.validation.lock
+exp_analysis_capped/**/.*.tmp
 exp_analysis/validation_state.json
 exp_analysis/.validation.lock
 exp_analysis/**/.*.tmp
 
-# kbgen's tensors and models of the rule-level copies (runs/rule-levels/)
-runs/rule-levels/kbgen-work/
+# Figures and tables generated from the analysis data (report_results.py,
+# compare_results.py, results_table.py, characterize_datasets.py, rule_confidence.py,
+# rule_set_table.py): rebuilt from the tracked sources by running those scripts. The
+# sources stay tracked: each run's predictions.csv.gz, the CSVs per dataset (metrics,
+# ranking_agreement, relations, relation_comparison, training_losses), metrics.csv,
+# dataset_characteristics.csv, relation_characteristics.csv, rule_sets.csv and
+# rule_confidence/rules.csv and summary.csv.
+exp_analysis*/**/*.png
+exp_analysis*/**/*.tex
+exp_analysis*/**/*.md
+exp_analysis*/results_tables*/
+exp_analysis*/structural_tables/
+exp_analysis*/structural_comparison.csv
+exp_analysis*/rule_confidence/summary_*
+exp_analysis*/rule_confidence/plots/
+
+# kbgen's working files of the rule-level copies (runs/*/kbgen-work/, or the driver's
+# default runs/rule-levels/kbgen/work/): the tensors, models and synthetic graphs are
+# ignored; the logs, the rules kbgen was given and each run's records are tracked
+runs/*/kbgen-work/**
+runs/*/kbgen/work/**
+!runs/*/kbgen-work/**/
+!runs/*/kbgen/work/**/
+!runs/*/kbgen-work/**/*.log
+!runs/*/kbgen/work/**/*.log
+!runs/*/kbgen-work/**/*-AmieRules.txt
+!runs/*/kbgen/work/**/*-AmieRules.txt
+!runs/*/kbgen-work/**/stats.json
+!runs/*/kbgen/work/**/stats.json
+!runs/*/kbgen-work/**/timings.json
+!runs/*/kbgen/work/**/timings.json
+!runs/*/kbgen-work/**/*.counts.json
+!runs/*/kbgen/work/**/*.counts.json
 
 # Output of the hyperparameter search, removed on 2026-11-16 with scripts/tune_kge.py
 exp_hpo/

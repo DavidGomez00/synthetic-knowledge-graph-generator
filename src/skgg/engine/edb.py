@@ -1,13 +1,16 @@
-"""Builds the Extensional Database (EDB): a set of ground triples over extensional
+"""Builds the initial facts (F0): a set of ground triples over non-deducible
 predicates (those never inferred by a rule head) that satisfy both the source
-graph's predicate profiles and the rule bodies that will later drive IDB generation.
+graph's predicate profiles and the rule bodies that will later drive completion.
+The module keeps its earlier name, `edb.py` (from the extensional database of
+Datalog, which inspired the split; see "Initial facts (F0) and deduced facts (F*)"
+in `docs/concepts.md`).
 
-`generate_extensional_predicates` first places each directed extensional relation's
+`generate_non_deducible_predicates` first places each directed non-deducible relation's
 self-loops (`place_self_loops`), as many as the source has, and no later step makes
 another one. It then iterates three strategies per predicate, in order, until every
-extensional predicate's target frequency is reached ("closed"):
+non-deducible predicate's target frequency is reached ("closed"):
   1. `check_direct_matches`: deterministic matches forced by profile counts.
-  2. `check_triples_from_rule`: bindings satisfying a rule's extensional body,
+  2. `check_triples_from_rule`: bindings satisfying a rule's non-deducible body,
      constructed directly from the profiles (`generator.sample_groundings`) so a
      chosen triple never violates another predicate's remaining domain/range budget.
      A partial rule (`HornRule.is_complete` is False) is grounded with its head,
@@ -21,8 +24,8 @@ extensional predicate's target frequency is reached ("closed"):
 A relation whose symmetric rule is kept is written as undirected edges, both
 directions at once. Direct matches skip it, rule groundings insert both directions,
 and once every rule is grounded `generate_undirected_relations` samples the budget
-left. If another rule also derives the relation, the EDB leaves it empty and
-`sample_derived_undirected_relations` samples the budget left after completion.
+left. If another rule also derives the relation, initial-fact generation leaves it empty
+and `sample_derived_undirected_relations` samples the budget left after completion.
 """
 
 import heapq
@@ -47,8 +50,8 @@ from skgg.core.queries import (
 from skgg.core.rules import (
     Atom,
     HornRule,
-    get_extensional_dependencies,
-    get_intensional_preds,
+    get_deducible_preds,
+    get_non_deducible_dependencies,
     get_undirected_preds,
 )
 from skgg.core.utils import format_triple, short_term
@@ -74,7 +77,7 @@ ROWS_PER_GROUNDING = 20
 # ---------------------------------------------------------------------------
 def place_self_loops(
     client: SPARQLWrapper,
-    edb_uri: str,
+    initial_facts_uri: str,
     profiles: dict[str, PredicateProfile],
     term_mapping: dict[str, str],
     chunk_size: int,
@@ -95,8 +98,8 @@ def place_self_loops(
 
     Args:
         client: Wrapper for SPARQL queries.
-        edb_uri: The URI where the EDB triples will be inserted.
-        profiles: The directed extensional relations; mutated.
+        initial_facts_uri: The URI where the triples of F0 will be inserted.
+        profiles: The directed non-deducible relations; mutated.
         term_mapping: Mapping of terms to their string representations.
         chunk_size: Maximum number of triples to insert per SPARQL query.
         buffer: Shared buffer that accumulates triples across calls.
@@ -139,7 +142,9 @@ def place_self_loops(
                 yield format_triple(entity, predicate, entity, term_mapping)
 
     count = buffer.add(loops())
-    buffer.flush_if_full(client=client, graph_uri=edb_uri, chunk_size=chunk_size)
+    buffer.flush_if_full(
+        client=client, graph_uri=initial_facts_uri, chunk_size=chunk_size
+    )
 
     if placed:
         logger.info(
@@ -166,15 +171,15 @@ def place_self_loops(
 # ---------------------------------------------------------------------------
 def check_direct_matches(
     client: SPARQLWrapper,
-    edb_uri: str,
+    initial_facts_uri: str,
     profiles: dict[str, PredicateProfile],
     term_mapping: dict[str, str],
     chunk_size: int,
     buffer: TripleBuffer,
     checked: dict[str, int],
 ) -> int:
-    """Retrieves the triples that must be added to the EDB from a set of rules and
-    profiles and buffers them for insertion into the EDB (see `TripleBuffer`) —
+    """Retrieves the triples that must be added to F0 from a set of rules and
+    profiles and buffers them for insertion into F0 (see `TripleBuffer`) —
     deciding them never requires a DB read, so they don't need to land
     immediately.
 
@@ -183,10 +188,10 @@ def check_direct_matches(
     and every triple spent lowers its frequency, so a predicate still at that
     frequency is skipped. Pass the same dict to every call of a run.
 
-    Returns the number of triples buffered for the EDB."""
+    Returns the number of triples buffered for F0."""
 
     def direct_triples() -> Iterator[str]:
-        """Yields triples that must be added to the EDB."""
+        """Yields triples that must be added to F0."""
         while True:
             progress_made = False
 
@@ -222,7 +227,9 @@ def check_direct_matches(
                 break
 
     count = buffer.add(direct_triples())
-    buffer.flush_if_full(client=client, graph_uri=edb_uri, chunk_size=chunk_size)
+    buffer.flush_if_full(
+        client=client, graph_uri=initial_facts_uri, chunk_size=chunk_size
+    )
     return count
 
 
@@ -230,18 +237,24 @@ def check_direct_matches(
 # Step 2: Extract ext. predicates from rule bodies
 # ---------------------------------------------------------------------------
 def produced_groundings(
-    client: SPARQLWrapper, rule: HornRule, intensional_preds: set[str], edb_uri: str
+    client: SPARQLWrapper,
+    rule: HornRule,
+    deducible_preds: set[str],
+    initial_facts_uri: str,
 ) -> int:
-    """Returns how much of the rule's `grounding_target` the EDB already yields.
+    """Returns how much of the rule's `grounding_target` F0 already yields.
 
-    For a complete rule, the distinct heads its extensional body produces, which
+    For a complete rule, the distinct heads its non-deducible body produces, which
     completion derives later (`count_producible_heads`). For a partial rule, its
-    support in the EDB, since the EDB holds its heads too (`get_support`)."""
+    support in F0, since F0 holds its heads too (`get_support`)."""
     if rule.is_complete:
         return count_producible_heads(
-            client, rule, rule.get_extensional_body(intensional_preds), edb_uri
+            client,
+            rule,
+            rule.get_non_deducible_body(deducible_preds),
+            initial_facts_uri,
         )
-    return get_support(client, rule, edb_uri)
+    return get_support(client, rule, initial_facts_uri)
 
 
 def _vars(atoms: Collection[Atom]) -> set[str]:
@@ -263,10 +276,10 @@ def _join_rows(
     client: SPARQLWrapper,
     rule: HornRule,
     atoms: list[Atom],
-    edb_uri: str,
+    initial_facts_uri: str,
     limit: int,
 ) -> list[dict[str, str]] | None:
-    """Returns the existing EDB bindings of the body atoms of a partial rule that
+    """Returns the bindings already in F0 of the body atoms of a partial rule that
     are not in `atoms` (their predicate has no budget left), for the new triples to
     join with: up to `limit` rows over the variables they share with `atoms` and
     the head. None if every body atom is in `atoms`; an empty list if those atoms
@@ -278,41 +291,42 @@ def _join_rows(
         client,
         spent,
         _vars(spent) & (_vars(atoms) | rule.get_head_variables()),
-        edb_uri,
+        initial_facts_uri,
         limit,
     )
 
 
 def check_triples_from_rule(
     rule: HornRule,
-    intensional_preds: set[str],
+    deducible_preds: set[str],
     profiles: dict[str, PredicateProfile],
     client: SPARQLWrapper,
     term_mapping: dict[str, str],
-    edb_uri: str,
+    initial_facts_uri: str,
     chunk_size: int,
     undirected_preds: Collection[str] = (),
     skip_reflexivity: bool = False,
     head_triples: list[int] | None = None,
 ) -> int:
-    """Builds groundings of the rule's EDB atoms (`HornRule.get_edb_atoms`) up to its
-    `grounding_target` and inserts them into the EDB.
+    """Builds groundings of the rule's initial-fact atoms
+    (`HornRule.get_initial_fact_atoms`) up to its `grounding_target` and inserts them
+    into F0.
 
-    For a complete rule, these are the atoms of its extensional body whose
+    For a complete rule, these are the atoms of its non-deducible body whose
     predicates are still open; completion derives the head later. For a partial
     rule, they are its body and its head, so each grounding adds the head with its
     body. A partial rule whose head predicate has no budget left gets no such
     grounding. Its body atoms whose predicate has no budget left are not generated:
-    the new triples join existing EDB facts of those atoms instead
+    the new triples join existing facts of F0 of those atoms instead
     (`fixed_bindings`), and if there are none the rule gets nothing.
 
     Args:
         rule: The HornRule being evaluated.
-        intensional_preds: Set of intensional predicate strings.
+        deducible_preds: Set of deducible predicate strings.
         profiles: Global predicate profiles tracking domains and ranges.
         client: Wrapper for SPARQL queries.
         term_mapping: Mapping of terms to their string representations.
-        edb_uri: The URI of the target EDB.
+        initial_facts_uri: The URI of the initial facts.
         chunk_size: Maximum number of triples to insert per SPARQL query.
         undirected_preds: Predicates whose triples are inserted in both directions.
         skip_reflexivity: Use the grounding logic before the self-loop fix (see
@@ -324,8 +338,8 @@ def check_triples_from_rule(
         The number of successfully inserted triples.
     """
     spent_preds = _spent_preds(profiles)
-    edb_atoms = rule.get_edb_atoms(intensional_preds)
-    if unprofiled := {a.predicate for a in edb_atoms} - profiles.keys():
+    initial_fact_atoms = rule.get_initial_fact_atoms(deducible_preds)
+    if unprofiled := {a.predicate for a in initial_fact_atoms} - profiles.keys():
         logger.warning(
             "Checking triples from rule %s: No profile for %s (absent from the source "
             "graph or a predicate format mismatch); ignoring those atoms.",
@@ -336,7 +350,9 @@ def check_triples_from_rule(
     atoms = [
         a
         for a in (*rule.body, rule.head)
-        if a in edb_atoms and a.predicate in profiles and a.predicate not in spent_preds
+        if a in initial_fact_atoms
+        and a.predicate in profiles
+        and a.predicate not in spent_preds
     ]
     if not atoms:
         return 0
@@ -352,16 +368,20 @@ def check_triples_from_rule(
     # rule) may already yield some of the groundings this rule needs.
     elif (
         missing_heads := rule.grounding_target
-        - produced_groundings(client, rule, intensional_preds, edb_uri)
+        - produced_groundings(client, rule, deducible_preds, initial_facts_uri)
     ) > 0:
         fixed = None
         if not rule.is_complete:
             fixed = _join_rows(
-                client, rule, atoms, edb_uri, ROWS_PER_GROUNDING * missing_heads
+                client,
+                rule,
+                atoms,
+                initial_facts_uri,
+                ROWS_PER_GROUNDING * missing_heads,
             )
         if fixed is not None and not fixed:
             logger.debug(
-                "Partial rule %s: no EDB facts to join with; leaving its support to "
+                "Partial rule %s: no F0 facts to join with; leaving its support to "
                 "chance.",
                 rule.rule_id,
             )
@@ -369,7 +389,7 @@ def check_triples_from_rule(
             logger.debug("Generating predicates from rule %s: %s", rule.rule_id, atoms)
             triples = sample_groundings(
                 client=client,
-                target_uri=edb_uri,
+                target_uri=initial_facts_uri,
                 atoms=atoms,
                 head_vars=rule.get_head_variables(),
                 profiles=profiles,
@@ -384,7 +404,7 @@ def check_triples_from_rule(
             )
             inserted += insert_triples_sparql(
                 client=client,
-                graph_uri=edb_uri,
+                graph_uri=initial_facts_uri,
                 triple_stream=iter(triples),
                 chunk_size=chunk_size,
             )
@@ -417,7 +437,7 @@ def _weighted_sample(
 
 def insert_random_triples(
     client: SPARQLWrapper,
-    edb_uri: str,
+    initial_facts_uri: str,
     profile: PredicateProfile,
     predicate: str,
     term_mapping: dict[str, str],
@@ -444,7 +464,7 @@ def insert_random_triples(
 
     Args:
         client: Wrapper for SPARQL queries.
-        edb_uri: The URI where the EDB triples will be inserted.
+        initial_facts_uri: The URI where the triples of F0 will be inserted.
         profile: The predicate profile tracking available domains and ranges.
         predicate: The predicate string for the triples.
         term_mapping: Mapping of terms to their string representations.
@@ -562,7 +582,9 @@ def insert_random_triples(
             yield format_triple(subject, predicate, obj, term_mapping)
 
     count = buffer.add(random_matches())
-    buffer.flush_if_full(client=client, graph_uri=edb_uri, chunk_size=chunk_size)
+    buffer.flush_if_full(
+        client=client, graph_uri=initial_facts_uri, chunk_size=chunk_size
+    )
     return count
 
 
@@ -711,11 +733,11 @@ def generate_undirected_relations(
     client: SPARQLWrapper,
     predicates: Collection[str],
     profiles: dict[str, PredicateProfile],
-    edb_uri: str,
+    initial_facts_uri: str,
     term_mapping: dict[str, str],
     chunk_size: int,
 ) -> None:
-    """Samples, in the EDB, the budget that rule groundings left of each open
+    """Samples, in F0, the budget that rule groundings left of each open
     relation of `predicates`, which only its symmetric rule derives."""
     for predicate in sorted(predicates):
         profile = profiles[predicate]
@@ -727,7 +749,7 @@ def generate_undirected_relations(
             profile,
             profile.domain,
             profile.reflexivity,
-            edb_uri,
+            initial_facts_uri,
             term_mapping,
             chunk_size,
         )
@@ -748,13 +770,13 @@ def sample_derived_undirected_relations(
     at or past its source degree gets no new edge.
 
     The profiles of these relations are unspent: direct matches skip them and rule
-    groundings leave out intensional predicates.
+    groundings leave out deducible predicates.
 
     Returns:
         The number of triples inserted.
     """
     inserted = 0
-    for predicate in sorted(get_undirected_preds(rules) & get_intensional_preds(rules)):
+    for predicate in sorted(get_undirected_preds(rules) & get_deducible_preds(rules)):
         profile = profiles[predicate]
         if profile.closed:
             continue
@@ -779,50 +801,50 @@ def sample_derived_undirected_relations(
 
 
 # ---------------------------------------------------------------------------
-# Generate extensional predicates.
+# Generate non-deducible predicates.
 # ---------------------------------------------------------------------------
 def _format_relations(
     preds: set[str],
     profiles: dict[str, PredicateProfile],
     targets: dict[str, int],
-    intensional_preds: set[str],
+    deducible_preds: set[str],
 ) -> str:
     """Formats each predicate of `preds` as `name current/target (status)`, where
     current is how many triples were generated so far (its target minus its
-    remaining `PredicateProfile.frequency`). Intensional predicates are marked."""
+    remaining `PredicateProfile.frequency`). Deducible predicates are marked."""
 
     def relation(pred: str) -> str:
         profile = profiles[pred]
         status = "closed" if profile.closed else "open"
-        if pred in intensional_preds:
-            status += ", intensional"
+        if pred in deducible_preds:
+            status += ", deducible"
         current = targets[pred] - profile.frequency
         return f"{short_term(pred)} {current}/{targets[pred]} ({status})"
 
     return ", ".join(relation(p) for p in sorted(preds, key=short_term))
 
 
-def generate_extensional_predicates(
+def generate_non_deducible_predicates(
     client: SPARQLWrapper,
     rules: dict[str, HornRule],
     term_mapping: dict[str, str],
-    edb_uri: str,
+    initial_facts_uri: str,
     chunk_size: int,
     profiles: dict[str, PredicateProfile],
     skip_reflexivity: bool = False,
 ) -> None:
-    """Generates an EDB from a set of rules and predicate profiles.
+    """Generates a set of initial facts from a set of rules and predicate profiles.
 
-    With `skip_reflexivity`, the EDB is generated as before the self-loop fix
-    (`35a1b81`): no `place_self_loops`, and rule groundings and random triples may
-    make self-loops by chance, so a relation's self-loops don't match the source's.
-    Relations generated as undirected edges place theirs either way.
+    With `skip_reflexivity`, F0 is generated as before the self-loop fix (`35a1b81`):
+    no `place_self_loops`, and rule groundings and random triples may make self-loops
+    by chance, so a relation's self-loops don't match the source's. Relations
+    generated as undirected edges place theirs either way.
 
     Args:
         client: Wrapper for SPARQL queries.
         rules: Mapping of rule IDs to HornRule objects.
         term_mapping: Mapping of terms to their string representations.
-        edb_uri: The URI where the Extensional Database (EDB) will be generated.
+        initial_facts_uri: The URI where the initial facts (F0) will be generated.
         chunk_size: Maximum number of triples to insert per SPARQL query.
         profiles: The metrics for each predicate in the original graph.
         skip_reflexivity: Generate as before the self-loop fix (see above).
@@ -831,23 +853,23 @@ def generate_extensional_predicates(
     initialize_graph(
         client=client,
         source=None,
-        new_graph_uri=edb_uri,
+        new_graph_uri=initial_facts_uri,
         chunk_size=chunk_size,
     )
 
     # Buffers triples decided by direct-match/random assignment (no DB read
     # needed to produce them), so they're inserted in fewer, larger batches
     # instead of one round trip per call. Flushed before any step that needs
-    # to read `edb_uri`, and unconditionally before this function returns.
+    # to read `initial_facts_uri`, and unconditionally before this function returns.
     buffer = TripleBuffer()
 
     # Target frequency per predicate, copied before the steps below spend
     # `PredicateProfile.frequency` as a remaining budget.
     targets = {p: pr.frequency for p, pr in profiles.items()}
-    intensional_preds = get_intensional_preds(rules)
+    deducible_preds = get_deducible_preds(rules)
     symmetric_preds = get_undirected_preds(rules)
     # Relations that only their symmetric rule derives.
-    undirected_preds = symmetric_preds - intensional_preds
+    undirected_preds = symmetric_preds - deducible_preds
     # A direct match would write only one direction of a symmetric relation.
     directed_profiles = {
         p: pr for p, pr in profiles.items() if p not in symmetric_preds
@@ -861,75 +883,40 @@ def generate_extensional_predicates(
     else:
         place_self_loops(
             client=client,
-            edb_uri=edb_uri,
+            initial_facts_uri=initial_facts_uri,
             profiles={
-                p: pr
-                for p, pr in directed_profiles.items()
-                if p not in intensional_preds
+                p: pr for p, pr in directed_profiles.items() if p not in deducible_preds
             },
             term_mapping=term_mapping,
             chunk_size=chunk_size,
             buffer=buffer,
         )
-    before_warm_up = {p: pr.frequency for p, pr in profiles.items()}
-
-    # Warm-up: Direct matches for any predicate untill no new triples.
-    logger.info("Start warm-up.")
-
-    while True:
-        if count := check_direct_matches(
-            client=client,
-            edb_uri=edb_uri,
-            profiles=directed_profiles,
-            term_mapping=term_mapping,
-            chunk_size=chunk_size,
-            buffer=buffer,
-            checked=direct_checked,
-        ):
-            logger.info("[Warm-up] Added %d direct matches to EDB.", count)
-        else:
-            break
-
-    update_closed_preds(profiles=profiles)
-
-    # Direct matches cover every predicate, so intensional ones may get triples too.
-    if warm_preds := {
-        p for p, pr in profiles.items() if pr.frequency < before_warm_up[p]
-    }:
-        logger.info(
-            "[Warm-up] Relations with direct matches (%d, added/target): %s",
-            len(warm_preds),
-            _format_relations(warm_preds, profiles, targets, intensional_preds),
-        )
-    else:
-        logger.info("[Warm-up] No direct matches.")
-
     # Complete rules are grounded before any partial rule, so they get the budget
     # first; each group is ordered on its own (a complete rule never waits for a
     # partial one).
     complete_ids = {r_id for r_id, r in rules.items() if r.is_complete}
-    extensional_dependency = get_extensional_dependencies(
+    non_deducible_dependency = get_non_deducible_dependencies(
         {r_id: r for r_id, r in rules.items() if r_id in complete_ids}
-    ) | get_extensional_dependencies(
+    ) | get_non_deducible_dependencies(
         {r_id: r for r_id, r in rules.items() if r_id not in complete_ids}
     )
-    # Budget of intensional relations held back from the partial rules for what the
+    # Budget of deducible relations held back from the partial rules for what the
     # complete rules derive in completion (`_reserve_derived_budget`).
     reserved: dict[str, int] | None = None
-    extensional_profiles = {
-        pred: profiles[pred] for pred in (profiles.keys() - intensional_preds)
+    non_deducible_profiles = {
+        pred: profiles[pred] for pred in (profiles.keys() - deducible_preds)
     }
-    if not extensional_profiles:
-        logger.warning("Retrieved 0 extensional predicates, EDB will be empty.")
+    if not non_deducible_profiles:
+        logger.warning("Retrieved 0 non-deducible predicates, F0 will be empty.")
 
     checked_rules: set[str] = set()
     # Head triples placed by the groundings of partial rules.
     partial_heads = [0]
     step = 0
 
-    def _end_edb() -> bool:
-        """Updates closed predicates and logs progress. Returns True if all extensional
-        profiles are closed."""
+    def _end_initial_facts() -> bool:
+        """Updates closed predicates and logs progress. Returns True if all
+        non-deducible profiles are closed."""
 
         if update_closed_preds(profiles):
             logger.info(
@@ -939,16 +926,15 @@ def generate_extensional_predicates(
                 len(profiles),
             )
 
-        return all(pr.closed for pr in extensional_profiles.values())
+        return all(pr.closed for pr in non_deducible_profiles.values())
 
-    logger.info("Creating EDB")
-    open_ext_preds = {p for p, pr in extensional_profiles.items() if not pr.closed}
+    logger.info("Creating F0")
+    open_ext_preds = {p for p, pr in non_deducible_profiles.items() if not pr.closed}
     logger.info(
-        "Extensional relations to generate (%d/%d, current/target): %s",
+        "Non-deducible relations to generate (%d/%d, current/target): %s",
         len(open_ext_preds),
-        len(extensional_profiles),
-        _format_relations(open_ext_preds, profiles, targets, intensional_preds)
-        or "none",
+        len(non_deducible_profiles),
+        _format_relations(open_ext_preds, profiles, targets, deducible_preds) or "none",
     )
     logger.info(
         "Closed predicates [%d/%d].",
@@ -956,14 +942,14 @@ def generate_extensional_predicates(
         len(profiles),
     )
 
-    while not _end_edb():
+    while not _end_initial_facts():
         step += 1
         progress = False
 
         # Step 1: Check direct matches
         if direct_count := check_direct_matches(
             client=client,
-            edb_uri=edb_uri,
+            initial_facts_uri=initial_facts_uri,
             profiles=directed_profiles,
             term_mapping=term_mapping,
             chunk_size=chunk_size,
@@ -973,32 +959,36 @@ def generate_extensional_predicates(
             progress = True
             logger.debug("[Step %d] Added %d triples directly.", step, direct_count)
 
-            if _end_edb():
+            if _end_initial_facts():
                 break
 
         # Step 2: Check rule bodies
         if not progress and (len(checked_rules) < len(rules)):
-            # check_triples_from_rule queries edb_uri, so it needs every triple to
-            # already be visible in the DB, not just buffered.
-            buffer.flush(client=client, graph_uri=edb_uri, chunk_size=chunk_size)
+            # check_triples_from_rule queries initial_facts_uri, so it needs every
+            # triple to already be visible in the DB, not just buffered.
+            buffer.flush(
+                client=client, graph_uri=initial_facts_uri, chunk_size=chunk_size
+            )
 
             for r_id, r in rules.items():
                 if (
                     r_id in checked_rules
-                    or extensional_dependency[r_id] - checked_rules
+                    or non_deducible_dependency[r_id] - checked_rules
                     or (not r.is_complete and complete_ids - checked_rules)
                 ):
                     continue
                 if not r.is_complete and reserved is None:
                     reserved = _reserve_derived_budget(rules, profiles)
 
-                produced = produced_groundings(client, r, intensional_preds, edb_uri)
+                produced = produced_groundings(
+                    client, r, deducible_preds, initial_facts_uri
+                )
                 if produced >= r.grounding_target:
                     checked_rules.add(r_id)
                     r.closed = True
                     continue
 
-                if len(r.get_edb_atoms(intensional_preds)) <= 1:
+                if len(r.get_initial_fact_atoms(deducible_preds)) <= 1:
                     # We can just use random assignments
                     checked_rules.add(r_id)
                     continue
@@ -1008,11 +998,11 @@ def generate_extensional_predicates(
                 # groundings.
                 r_count = check_triples_from_rule(
                     rule=r,
-                    intensional_preds=intensional_preds,
+                    deducible_preds=deducible_preds,
                     profiles=profiles,
                     client=client,
                     term_mapping=term_mapping,
-                    edb_uri=edb_uri,
+                    initial_facts_uri=initial_facts_uri,
                     chunk_size=chunk_size,
                     undirected_preds=undirected_preds,
                     skip_reflexivity=skip_reflexivity,
@@ -1030,7 +1020,7 @@ def generate_extensional_predicates(
                     )
                     break
 
-        if _end_edb():
+        if _end_initial_facts():
             break
 
         # Step 3: Assign randomly
@@ -1040,12 +1030,14 @@ def generate_extensional_predicates(
             if len(checked_rules) >= len(rules) and any(
                 not profiles[p].closed for p in undirected_preds
             ):
-                buffer.flush(client=client, graph_uri=edb_uri, chunk_size=chunk_size)
+                buffer.flush(
+                    client=client, graph_uri=initial_facts_uri, chunk_size=chunk_size
+                )
                 generate_undirected_relations(
                     client=client,
                     predicates=undirected_preds,
                     profiles=profiles,
-                    edb_uri=edb_uri,
+                    initial_facts_uri=initial_facts_uri,
                     term_mapping=term_mapping,
                     chunk_size=chunk_size,
                 )
@@ -1053,7 +1045,7 @@ def generate_extensional_predicates(
 
             open_preds = [
                 p
-                for p, pr in extensional_profiles.items()
+                for p, pr in non_deducible_profiles.items()
                 if not pr.closed and p not in undirected_preds
             ]
             if not open_preds:
@@ -1063,7 +1055,7 @@ def generate_extensional_predicates(
 
             ran_count = insert_random_triples(
                 client=client,
-                edb_uri=edb_uri,
+                initial_facts_uri=initial_facts_uri,
                 profile=profile,
                 predicate=predicate,
                 term_mapping=term_mapping,
@@ -1076,12 +1068,12 @@ def generate_extensional_predicates(
                     "[Step %d] Added %d triples by random assignment.", step, ran_count
                 )
 
-            if _end_edb():
+            if _end_initial_facts():
                 break
 
     # Guarantee every buffered triple lands before this graph is considered
     # complete by callers (e.g. get_triple_count, complete_graph).
-    buffer.flush(client=client, graph_uri=edb_uri, chunk_size=chunk_size)
+    buffer.flush(client=client, graph_uri=initial_facts_uri, chunk_size=chunk_size)
     if any(not r.is_complete for r in rules.values()):
         logger.info(
             "[Partial] Head triples placed by the groundings of partial rules: %d.",
@@ -1097,14 +1089,15 @@ def generate_extensional_predicates(
 def _reserve_derived_budget(
     rules: dict[str, HornRule], profiles: dict[str, PredicateProfile]
 ) -> dict[str, int]:
-    """Holds back, from each intensional relation's remaining frequency, the triples
+    """Holds back, from each deducible relation's remaining frequency, the triples
     the complete rules deriving it will add in completion: the sum of their
     supports, at most what remains. Partial rules then add only the facts the
     complete rules leave, so that relation doesn't pass its frequency. Only the
     frequency is held back, not the counts of each entity.
 
     Returns:
-        The amount held back per relation, to give back once the EDB is done.
+        The amount held back per relation, to give back once initial-fact generation is
+        done.
     """
     derived: dict[str, float] = {}
     for rule in rules.values():

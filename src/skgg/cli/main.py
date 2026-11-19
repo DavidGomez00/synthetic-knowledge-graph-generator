@@ -1,10 +1,12 @@
-"""End-to-end experiment entry point: metrics → EDB → IDB → synthetic graph.
+"""End-to-end experiment entry point: metrics → initial facts (F0) → deduced facts
+(F*), the synthetic graph.
 
 See `run_synthetic_graph_experiment` and AGENTS.md's "Running an experiment"
 section for the full pipeline description.
 """
 
 import argparse
+import copy
 import logging
 import time
 from dataclasses import dataclass, field
@@ -17,6 +19,7 @@ from skgg.core.config import RunConfig
 from skgg.core.cycles import get_relation_graph, remove_minimal_cyclic_rules
 from skgg.core.queries import (
     copy_graph,
+    copy_predicates,
     get_body_size,
     get_pca_body_size,
     get_predicate_frequencies,
@@ -24,19 +27,20 @@ from skgg.core.queries import (
     get_triple_count,
 )
 from skgg.core.rules import (
-    DEFAULT_STD_THRESHOLD,
     Atom,
     HornRule,
+    get_deducible_preds,
     get_impacted_rules,
-    get_intensional_preds,
     parse_rule_set,
     rule_filter_label,
     rule_sort_key,
+    rule_thresholds,
     write_used_rules,
 )
 from skgg.core.utils import (
     build_term_mapping,
     create_sparql_client,
+    format_term,
     resolve_config_path,
     setup_logging,
     short_term,
@@ -44,7 +48,7 @@ from skgg.core.utils import (
 from skgg.core.visualization import plot_relation_graph
 from skgg.engine.completion import complete_graph
 from skgg.engine.edb import (
-    generate_extensional_predicates,
+    generate_non_deducible_predicates,
     get_undirected_rule_ids,
     sample_derived_undirected_relations,
 )
@@ -76,22 +80,26 @@ def _format_rule(rule: HornRule) -> str:
 class _ClosureProgress:
     """Logs the closure state between pipeline steps: how many predicates and
     rules are closed, which ones closed since the previous call, and each open
-    extensional and intensional predicate's current frequency against its
+    non-deducible and deducible predicate's current frequency against its
     target."""
 
     client: SPARQLWrapper
     profiles: dict[str, PredicateProfile]
     rules: dict[str, HornRule]
-    # Target frequency per predicate, copied on creation: EDB generation later
+    # Target frequency per predicate, copied on creation: initial-fact generation later
     # spends `PredicateProfile.frequency` as a remaining budget.
     targets: dict[str, int] = field(init=False)
-    intensional_preds: set[str] = field(init=False)
+    # The profiles as read from the source, copied on creation for the same reason;
+    # the capped completion ranks its candidates by their degrees.
+    source_profiles: dict[str, PredicateProfile] = field(init=False)
+    deducible_preds: set[str] = field(init=False)
     closed_preds: set[str] = field(default_factory=set)
     closed_rules: set[str] = field(default_factory=set)
 
     def __post_init__(self) -> None:
         self.targets = {p: pr.frequency for p, pr in self.profiles.items()}
-        self.intensional_preds = get_intensional_preds(self.rules)
+        self.source_profiles = copy.deepcopy(self.profiles)
+        self.deducible_preds = get_deducible_preds(self.rules)
 
     def log(self, stage: str, graph_uri: str) -> None:
         """Logs the closure state after `stage`, measuring open predicates'
@@ -119,11 +127,11 @@ class _ClosureProgress:
         if open_preds:
             # Profiles are keyed by the bracketed URI, frequencies by the bare one.
             freqs = get_predicate_frequencies(self.client, graph_uri)
-            intensional = [p for p in open_preds if p in self.intensional_preds]
-            extensional = [p for p in open_preds if p not in self.intensional_preds]
+            deducible = [p for p in open_preds if p in self.deducible_preds]
+            non_deducible = [p for p in open_preds if p not in self.deducible_preds]
             for kind, preds in (
-                ("extensional", extensional),
-                ("intensional", intensional),
+                ("non-deducible", non_deducible),
+                ("deducible", deducible),
             ):
                 if preds:
                     logger.info(
@@ -250,7 +258,10 @@ def _format_summary_block(
         "",
     ]
 
-    known_preds = sorted(og_freqs)
+    # Profiles are keyed by the bracketed URI, frequencies by the bare one. A relation
+    # of the base graph without a profile was copied from it (--copy-relations).
+    known_preds = sorted(p for p in og_freqs if f"<{p}>" in profiles)
+    copied_preds = sorted(p for p in og_freqs if f"<{p}>" not in profiles)
     extra_preds = sorted(set(syn_freqs) - set(og_freqs))
 
     name_width = max((len(short_term(p)) for p in known_preds), default=0)
@@ -261,13 +272,13 @@ def _format_summary_block(
         default=1,
     )
 
-    # A predicate is intensional iff a rule other than its symmetric one derives it.
-    intensional_preds = get_intensional_preds(rules)
+    # A predicate is deducible iff a rule other than its symmetric one derives it.
+    deducible_preds = get_deducible_preds(rules)
 
     lines.append(f"Predicates ({len(known_preds)}):")
     for pred in known_preds:
         og, syn = og_freqs[pred], syn_freqs.get(pred, 0)
-        kind = "INTENSIONAL" if f"<{pred}>" in intensional_preds else "EXTENSIONAL"
+        kind = "DEDUCIBLE" if f"<{pred}>" in deducible_preds else "NON-DEDUCIBLE"
         # Profiles are keyed by the bracketed URI, frequencies by the bare one.
         status = "CLOSED" if profiles[f"<{pred}>"].closed else "OPEN"
         lines.append(
@@ -276,6 +287,16 @@ def _format_summary_block(
             f"  ({syn - og:+{delta_width}d})"
             f"  {f'[{status}]':<8}  [{kind}]"
         )
+
+    if copied_preds:
+        lines += [
+            "",
+            f"Predicates copied from the original ({len(copied_preds)}):",
+            *(
+                f"  {short_term(pred)}  {og_freqs[pred]} -> {syn_freqs.get(pred, 0)}"
+                for pred in copied_preds
+            ),
+        ]
 
     if extra_preds:
         extra_width = max(len(short_term(p)) for p in extra_preds)
@@ -419,7 +440,7 @@ def log_summary(
 
 def run_synthetic_graph_experiment(
     config_file: Path,
-    skip_edb_generation: bool = False,
+    skip_initial_facts: bool = False,
     log_level: int | str | None = None,
     pca_threshold: float | None = None,
     fill: bool = False,
@@ -427,8 +448,25 @@ def run_synthetic_graph_experiment(
     base_uri: str | None = None,
     namespace: str | None = None,
     skip_reflexivity: bool = False,
+    copy_relations: list[str] | None = None,
+    cap_completion: bool = False,
 ) -> None:
     """Runs a Synthetic Graph generation experiment.
+
+    `cap_completion` caps completion at each relation's source frequency: no
+    complete rule adds a triple of a relation that has reached it. The rules that
+    derive one relation share what is left of its frequency, and the triples kept
+    are those whose subject and object are below their source degrees in that
+    relation, then random (`completion._capped_pass`). By default completion adds
+    every head triple the complete rules derive, which can pass the frequency
+    (`docs/family-growth.md`).
+
+    `copy_relations` names relations (bare terms such as `type`, or IRIs) that are
+    not generated: their profiles are dropped after the metrics are read, so the
+    F0, completion, the closure tracking and the summary never see them, and after
+    completion every triple of theirs is copied unchanged from the base graph into
+    the synthetic graph (`copy_predicates`). Used for the `type` triples, so each
+    entity keeps the source's class.
 
     `skip_reflexivity` generates as before the self-loop fix (`35a1b81`): no
     relation gets its self-loops placed first, and rule groundings and random
@@ -437,50 +475,51 @@ def run_synthetic_graph_experiment(
 
     `log_level`, if given, overrides `config.logging.level` for this run.
     `pca_threshold`, if given, overrides `config.rules.pca_threshold` for
-    this run's rule filtering only. If neither is set, the rules with std
-    confidence >= `DEFAULT_STD_THRESHOLD` (1) are kept instead.
+    this run's rule filtering only. If neither is set, the complete rules, PCA
+    confidence 1, are kept instead (`rule_thresholds`).
 
-    The kept rules with std confidence 1 are complete (`HornRule.is_complete`):
-    the EDB builds the groundings of their extensional body up to their support and
-    completion forward-chains them. The others are partial: the EDB builds
-    round(PCA confidence x support) groundings of their body together with their
-    head (`HornRule.grounding_target`), completion doesn't apply them, and their
-    head relation stays extensional, so random triples fill the rest of it.
-    Every complete rule is grounded before the partial rules, and the frequency
-    the complete rules derive is held back from the partial rules
+    The kept rules with PCA confidence 1 are complete (`HornRule.is_complete`):
+    Initial-fact generation builds the groundings of their non-deducible body up to
+    their support and completion forward-chains them. The others are partial:
+    initial-fact generation builds round(PCA confidence x support) groundings of their
+    body together with their head (`HornRule.grounding_target`), completion doesn't
+    apply them, and their head relation stays non-deducible, so random triples fill the
+    rest of it. Every complete rule is grounded before the partial rules, and the
+    frequency the complete rules derive is held back from the partial rules
     (`edb._reserve_derived_budget`).
 
     The run's graphs are named after its rule filter (`rule_filter_label`, e.g.
-    `pca=0.9`), so runs at different thresholds keep separate graphs: the EDB plus
-    what completion derives at `config.graph.synthetic_uri(...)`, and the EDB at
-    `config.graph.edb_uri(...)` below it. `synthetic_uri`, if given, replaces the
-    synthetic graph's URI, and the EDB and filled graphs move below it, so a test
-    run leaves the graphs of earlier runs alone. If `fill` is True, the synthetic
-    graph is copied to `config.graph.filled_uri(...)` and the relations still
-    open are filled there (`_fill_open_relations`); the summary then compares the
-    filled graph with the source instead of the synthetic one. `base_uri`, if
-    given, replaces `config.graph.base_uri` as the source graph that the metrics,
+    `pca=0.9`), so runs at different thresholds keep separate graphs: F0 plus
+    what completion derives at `config.graph.synthetic_uri(...)`, and the initial facts
+    at `config.graph.initial_facts_uri(...)` below it. `synthetic_uri`, if given,
+    replaces the synthetic graph's URI, and the initial facts and filled graphs move
+    below it, so a test run leaves the graphs of earlier runs alone. If `fill` is
+    True, the synthetic graph is copied to `config.graph.filled_uri(...)` and the
+    relations still open are filled there (`_fill_open_relations`); the summary then
+    compares the filled graph with the source instead of the synthetic one. `base_uri`,
+    if given, replaces `config.graph.base_uri` as the source graph that the metrics,
     the fill step and the summary read. `namespace`, if given, replaces
     `config.graph.namespace` as the namespace of the rules' bare terms, e.g. for
     a base graph whose IRIs aren't under the config's namespace; the graph URIs
     are still derived from `config.graph.namespace`.
 
-    If `skip_edb_generation` is True, EDB generation is skipped entirely and
-    the IDB step reuses whatever triples already sit at the EDB graph of this
+    If `skip_initial_facts` is True, initial-fact generation is skipped entirely and
+    completion reuses whatever triples already sit at the initial facts graph of this
     run (e.g. from a previous run) instead of regenerating them.
 
     After the confidence filter, the fewest complete rules that leave their
     relation graph with no cycle are removed (`remove_minimal_cyclic_rules`), so
-    completion can derive every intensional predicate from the EDB. A symmetric
+    completion can derive every deducible predicate from F0. A symmetric
     rule stays if its relation can be generated as undirected edges
     (`get_undirected_rule_ids`). Partial rules are all kept, since they place their
     own heads.
 
     Raises:
-        ValueError: If one of the run's graphs is the base graph, or a rule
-            predicate has no profile in the base graph.
-        RuntimeError: If `skip_edb_generation` is True and the EDB graph of this
-            run is empty.
+        ValueError: If one of the run's graphs is the base graph, a rule
+            predicate has no profile in the base graph, or a copied relation is
+            not in the base graph or is used by a kept rule.
+        RuntimeError: If `skip_initial_facts` is True and the initial facts graph
+            of this run is empty.
     """
 
     ## ------ Setup ------
@@ -503,16 +542,16 @@ def run_synthetic_graph_experiment(
     rule_filter = rule_filter_label(pca_threshold)
     if synthetic_uri is None:
         synthetic_uri = config.graph.synthetic_uri(rule_filter)
-    edb_uri = config.graph.edb_uri(synthetic_uri)
+    initial_facts_uri = config.graph.initial_facts_uri(synthetic_uri)
     filled_uri = config.graph.filled_uri(synthetic_uri)
     if base_uri is None:
         base_uri = config.graph.base_uri
-    if base_uri in (edb_uri, synthetic_uri, filled_uri):
+    if base_uri in (initial_facts_uri, synthetic_uri, filled_uri):
         raise ValueError(f"The run's graphs can't include the base graph <{base_uri}>.")
     logger.info(
-        "Rule filter %s: EDB at <%s>, synthetic graph at <%s>%s.",
+        "Rule filter %s: initial facts at <%s>, synthetic graph at <%s>%s.",
         rule_filter,
-        edb_uri,
+        initial_facts_uri,
         synthetic_uri,
         f", filled graph at <{filled_uri}>" if fill else "",
     )
@@ -524,18 +563,11 @@ def run_synthetic_graph_experiment(
         namespace = config.graph.namespace
     term_mapping = build_term_mapping(config.graph.term_namespaces, namespace)
 
-    if pca_threshold is not None:
-        rules = parse_rule_set(
-            rules_file=rules_file,
-            term_mapping=term_mapping,
-            pca_threshold=pca_threshold,
-        )
-    else:
-        rules = parse_rule_set(
-            rules_file=rules_file,
-            term_mapping=term_mapping,
-            std_threshold=DEFAULT_STD_THRESHOLD,
-        )
+    rules = parse_rule_set(
+        rules_file=rules_file,
+        term_mapping=term_mapping,
+        **rule_thresholds(pca_threshold),
+    )
     unprofiled = (
         set().union(*(r.get_predicates() for r in rules.values()))
         - graph_metrics.profiles.keys()
@@ -547,13 +579,33 @@ def run_synthetic_graph_experiment(
             "--namespace) matches the base graph's IRIs, or upload the base graph "
             "again."
         )
-    # Completion forward-chains the complete rules only. The EDB grounds each
-    # partial rule with its head, `grounding_target` times.
+    copied_preds = {format_term(r, term_mapping) for r in copy_relations or []}
+    if missing := copied_preds - graph_metrics.profiles.keys():
+        raise ValueError(
+            f"Relations to copy that the base graph <{base_uri}> lacks: "
+            f"{sorted(missing)}."
+        )
+    if used := copied_preds & set().union(
+        *(r.get_predicates() for r in rules.values())
+    ):
+        raise ValueError(
+            f"Relations to copy that kept rules use: {sorted(used)}. A copied "
+            "relation is not generated, so no rule can use it."
+        )
+    for predicate in copied_preds:
+        del graph_metrics.profiles[predicate]
+    if copied_preds:
+        logger.info(
+            "Relations copied from the base graph after completion, not generated: %s",
+            ", ".join(sorted(map(short_term, copied_preds))),
+        )
+    # Completion forward-chains the complete rules only. Initial-fact generation grounds
+    # each partial rule with its head, `grounding_target` times.
     complete_rules = {r_id: r for r_id, r in rules.items() if r.is_complete}
     partial_rules = {r_id: r for r_id, r in rules.items() if not r.is_complete}
     logger.info(
-        "%d rules: %d complete (std confidence 1, forward-chained), %d partial "
-        "(grounded round(PCA confidence x support) times in the EDB, after the "
+        "%d rules: %d complete (PCA confidence 1, forward-chained), %d partial "
+        "(grounded round(PCA confidence x support) times in F0, after the "
         "complete rules).",
         len(rules),
         len(complete_rules),
@@ -575,7 +627,8 @@ def run_synthetic_graph_experiment(
         Path("logs") / f"relation_graph_{config.graph.name}.png",
         title=f"{config.graph.name} — relation graph",
     )
-    # Before EDB generation, so a removed rule's head predicate is extensional.
+    # Before initial-fact generation, so a removed rule's head predicate is
+    # non-deducible.
     removed_rules = remove_minimal_cyclic_rules(
         complete_rules,
         exempt=get_undirected_rule_ids(complete_rules, graph_metrics.profiles),
@@ -583,13 +636,13 @@ def run_synthetic_graph_experiment(
     for r_id in removed_rules:
         del rules[r_id]
 
-    # A predicate is intensional iff a remaining rule other than its symmetric one
+    # A predicate is deducible iff a remaining rule other than its symmetric one
     # derives it.
-    intensional_preds = get_intensional_preds(rules)
+    deducible_preds = get_deducible_preds(rules)
     targets = {p: pr.frequency for p, pr in graph_metrics.profiles.items()}
     for kind, preds in (
-        ("Extensional", targets.keys() - intensional_preds),
-        ("Intensional", intensional_preds),
+        ("Non-deducible", targets.keys() - deducible_preds),
+        ("Deducible", deducible_preds),
     ):
         logger.info(
             "%s relations (%d, target frequency): %s",
@@ -602,60 +655,71 @@ def run_synthetic_graph_experiment(
             or "none",
         )
 
-    # Created before EDB generation, which spends the profiles' frequencies.
+    # Created before initial-fact generation, which spends the profiles' frequencies.
     progress = _ClosureProgress(client, graph_metrics.profiles, rules)
+    if cap_completion:
+        logger.info(
+            "Completion is capped: no rule adds a triple of a relation at its target "
+            "frequency."
+        )
+    caps = progress.targets if cap_completion else None
+    degree_targets = progress.source_profiles if cap_completion else None
 
     ## ------ Initialization -------
     chunk_size = config.db_config.chunk_size
 
-    ## ------ EDB Generation  ------
-    _log_phase(2, "Generating EDB")
+    ## ------ initial-fact generation  ------
+    _log_phase(2, "Generating initial facts (F0)")
     start_time = time.time()
 
-    if skip_edb_generation:
-        edb_triples = get_triple_count(client, edb_uri)
-        if edb_triples == 0:
+    if skip_initial_facts:
+        initial_fact_count = get_triple_count(client, initial_facts_uri)
+        if initial_fact_count == 0:
             raise RuntimeError(
-                f"No EDB at <{edb_uri}> to reuse: run once without --skip-edb at "
-                f"rule filter {rule_filter}, with the same --synthetic-uri if any."
+                f"No initial facts at <{initial_facts_uri}> to reuse: run once "
+                f"without --skip-edb at rule filter {rule_filter}, with the same "
+                "--synthetic-uri if any."
             )
         logger.info(
-            "Skipping EDB generation, reusing existing EDB at <%s> with %d triples",
-            edb_uri,
-            edb_triples,
+            "Skipping initial-fact generation, reusing existing initial facts at <%s> "
+            "with %d triples",
+            initial_facts_uri,
+            initial_fact_count,
         )
-        for predicate in get_closed_preds(client, edb_uri, graph_metrics.profiles):
+        for predicate in get_closed_preds(
+            client, initial_facts_uri, graph_metrics.profiles
+        ):
             graph_metrics.profiles[predicate].closed = True
 
-        for rule_id in get_closed_rules(client, edb_uri, rules):
+        for rule_id in get_closed_rules(client, initial_facts_uri, rules):
             rules[rule_id].closed = True
     else:
         write_used_rules(rules_file, rules.keys())
-        generate_extensional_predicates(
+        generate_non_deducible_predicates(
             client=client,
             term_mapping=term_mapping,
             rules=rules,
-            edb_uri=edb_uri,
+            initial_facts_uri=initial_facts_uri,
             chunk_size=chunk_size,
             profiles=graph_metrics.profiles,
             skip_reflexivity=skip_reflexivity,
         )
 
-        extensional_preds_time = time.time() - start_time
+        initial_facts_time = time.time() - start_time
 
         logger.info(
-            "EDB generated in %.1fs at <%s> with %d triples.",
-            extensional_preds_time,
-            edb_uri,
-            get_triple_count(client, edb_uri),
+            "F0 generated in %.1fs at <%s> with %d triples.",
+            initial_facts_time,
+            initial_facts_uri,
+            get_triple_count(client, initial_facts_uri),
         )
-        # The EDB holds the partial rules' heads, so their support is final there
+        # F0 holds the partial rules' heads, so their support is final there
         # unless completion adds to it.
-        for rule_id in get_closed_rules(client, edb_uri, partial_rules):
+        for rule_id in get_closed_rules(client, initial_facts_uri, partial_rules):
             rules[rule_id].closed = True
 
     _log_phase(3, "Completing graph")
-    progress.log("EDB", edb_uri)
+    progress.log("F0", initial_facts_uri)
     logger.info(
         "Applying the %d complete rules (%d open): %s",
         len(complete_rules),
@@ -670,11 +734,13 @@ def run_synthetic_graph_experiment(
         client=client,
         rules=complete_rules,
         term_mapping=term_mapping,
-        source=edb_uri,
+        source=initial_facts_uri,
         target_uri=synthetic_uri,
         chunk_size=chunk_size,
         profiles=graph_metrics.profiles,
         label="initial",
+        caps=caps,
+        degree_targets=degree_targets,
     )
     if sample_derived_undirected_relations(
         client=client,
@@ -694,11 +760,22 @@ def run_synthetic_graph_experiment(
             chunk_size=chunk_size,
             profiles=graph_metrics.profiles,
             label="symmetric",
+            caps=caps,
+            degree_targets=degree_targets,
         )
     # Derived heads can complete groundings of partial rules too.
     for rule_id in get_closed_rules(client, synthetic_uri, partial_rules):
         rules[rule_id].closed = True
     progress.log("initial", synthetic_uri)
+    if copied_preds:
+        for predicate, count in copy_predicates(
+            client, base_uri, synthetic_uri, copied_preds
+        ).items():
+            logger.info(
+                "[Copied] %s: %d triples from the base graph.",
+                short_term(predicate),
+                count,
+            )
 
     _log_phase(4, "Filling open relations")
     final_uri = synthetic_uri
@@ -751,7 +828,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--skip-edb",
         action="store_true",
-        help="Skip EDB generation and reuse the EDB graph of this run, e.g. "
+        help="Skip initial-fact generation and reuse the initial facts graph of this "
+        "run, e.g. "
         "http://FrenchRoyalty.org/skgg/pca=0.9/edb.",
     )
     parser.add_argument(
@@ -766,17 +844,17 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Keep the rules with at least this PCA confidence, overriding the "
         "config file's rules.pca_threshold for this run only. Without either, the "
-        "rules with std confidence 1 are kept. A kept rule with std confidence "
-        "below 1 is partial: the EDB builds round(PCA confidence x support) of its "
-        "groundings with their head, and completion doesn't apply it. The rule "
-        "filter names the run's graphs, e.g. http://FrenchRoyalty.org/skgg/pca=0.9 "
-        "or .../skgg/std=1.",
+        "complete rules (PCA confidence 1) are kept. A kept rule with PCA "
+        "confidence below 1 is partial: initial-fact generation builds round(PCA "
+        "confidence x support) of its groundings with their head, and completion "
+        "doesn't apply it. The rule filter names the run's graphs, e.g. "
+        "http://FrenchRoyalty.org/skgg/pca=0.9, or .../skgg/pca=1 without it.",
     )
     parser.add_argument(
         "--synthetic-uri",
         default=None,
         help="Write the synthetic graph to this URI instead of the one named after "
-        "the rule filter, with the EDB at <uri>/edb and the filled graph at "
+        "the rule filter, with the initial facts at <uri>/edb and the filled graph at "
         "<uri>/filled, e.g. http://FrenchRoyalty.org/skgg/test. --skip-edb then "
         "reuses <uri>/edb.",
     )
@@ -801,6 +879,23 @@ def _parse_args() -> argparse.Namespace:
         "self-loops by chance. By default each relation gets exactly the source's "
         "self-loops.",
     )
+    parser.add_argument(
+        "--copy-relations",
+        nargs="+",
+        default=None,
+        metavar="RELATION",
+        help="Relations that are not generated but copied unchanged from the base "
+        "graph into the synthetic graph after completion, e.g. type: each entity "
+        "keeps the source's class. They have no frequency target, and no kept rule "
+        "may use them.",
+    )
+    parser.add_argument(
+        "--cap-completion",
+        action="store_true",
+        help="Cap completion at each relation's source frequency: no complete rule "
+        "adds a triple of a relation that has reached it. By default completion "
+        "adds every head triple the complete rules derive.",
+    )
     return parser.parse_args()
 
 
@@ -808,7 +903,7 @@ if __name__ == "__main__":
     args = _parse_args()
     run_synthetic_graph_experiment(
         resolve_config_path(args.config_file),
-        skip_edb_generation=args.skip_edb,
+        skip_initial_facts=args.skip_edb,
         log_level=args.log_level,
         pca_threshold=args.pca_conf,
         fill=args.fill,
@@ -816,4 +911,6 @@ if __name__ == "__main__":
         base_uri=args.base_uri,
         namespace=args.namespace,
         skip_reflexivity=args.skip_reflexivity,
+        copy_relations=args.copy_relations,
+        cap_completion=args.cap_completion,
     )

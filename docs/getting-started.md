@@ -66,16 +66,16 @@ from skgg.cli.main import run_synthetic_graph_experiment
 run_synthetic_graph_experiment(Path("configurations/french_royalty.json"))
 ```
 
-This computes `GraphMetrics` from the base graph, generates the EDB into `http://FrenchRoyalty.org/skgg/std=1/edb`, then grows the IDB into `http://FrenchRoyalty.org/skgg/std=1`, the finished synthetic graph. The last segment names the run's rule filter: `std=1` keeps the rules with std confidence 1, and `--pca-conf 0.9` below writes `.../skgg/pca=0.9/edb` and `.../skgg/pca=0.9` instead, so runs at different thresholds keep separate graphs ([Graph layout](architecture.md#graph-layout) lists them all). Progress is logged to the console (level set by each config's `logging.level`) and a copy is written under `logs/` (gitignored).
+This computes `GraphMetrics` from the base graph, generates F0 into `http://FrenchRoyalty.org/skgg/std=1/edb`, then completes it into the deduced facts at `http://FrenchRoyalty.org/skgg/std=1`, the finished synthetic graph. The last segment names the run's rule filter: `std=1` keeps the rules with std confidence 1, and `--pca-conf 0.9` below writes `.../skgg/pca=0.9/edb` and `.../skgg/pca=0.9` instead, so runs at different thresholds keep separate graphs ([Graph layout](architecture.md#graph-layout) lists them all). Progress is logged to the console (level set by each config's `logging.level`) and a copy is written under `logs/` (gitignored).
 
 The CLI also accepts:
-- `--skip-edb` — skip EDB generation and reuse whatever triples already sit in the EDB graph of the run's rule filter (e.g. from a previous run). The run fails if that graph is empty.
+- `--skip-edb` — skip initial-fact generation and reuse whatever triples already sit in the initial facts graph of the run's rule filter (e.g. from a previous run). The run fails if that graph is empty.
 - `--log-level DEBUG` (or `INFO`/`WARNING`/...) — override the config's `logging.level` for this run only, without editing the JSON file.
-- `--pca-conf 0.9` — keep only the rules with PCA confidence >= 0.9 for this run, overriding the config's `rules.pca_threshold`. Without either, the rules with std confidence 1 are kept. Excluded rules are left out of every pipeline step. A kept rule with std confidence below 1 is a [partial rule](concepts.md#complete-and-partial-rules): the EDB builds round(PCA confidence × support) of its groundings with their head, after the rules with std confidence 1, and completion doesn't apply it. The threshold also names the run's graphs (`.../skgg/pca=0.9`).
-- `--synthetic-uri http://FrenchRoyalty.org/skgg/test` — write the synthetic graph to this URI instead, the EDB to `.../skgg/test/edb` and the filled graph to `.../skgg/test/filled`, so a test run doesn't overwrite the graphs of an earlier run at the same threshold. `--skip-edb` then reuses `.../skgg/test/edb`.
+- `--pca-conf 0.9` — keep only the rules with PCA confidence >= 0.9 for this run, overriding the config's `rules.pca_threshold`. Without either, the rules with std confidence 1 are kept. Excluded rules are left out of every pipeline step. A kept rule with std confidence below 1 is a [partial rule](concepts.md#complete-and-partial-rules): initial-fact generation builds round(PCA confidence × support) of its groundings with their head, after the rules with std confidence 1, and completion doesn't apply it. The threshold also names the run's graphs (`.../skgg/pca=0.9`).
+- `--synthetic-uri http://FrenchRoyalty.org/skgg/test` — write the synthetic graph to this URI instead, F0 to `.../skgg/test/edb` and the filled graph to `.../skgg/test/filled`, so a test run doesn't overwrite the graphs of an earlier run at the same threshold. `--skip-edb` then reuses `.../skgg/test/edb`.
 - `--base-uri http://FrenchRoyalty.org/complete` — read the source graph from this URI instead of `http://FrenchRoyalty.org/base`. The metrics, the fill step and the summary read it; the run's own graphs keep their URIs.
 - `--namespace http://FrenchRoyalty.org/` — put the rules' bare terms under this namespace instead of the config's `graph.namespace`, for a `--base-uri` graph whose IRIs are under another namespace. The graph URIs are still derived from `graph.namespace`.
-- `--skip-reflexivity` — generate the EDB as before the self-loop fix: no relation gets its source's self-loops placed first, and rule groundings and random triples may make self-loops by chance. By default each relation gets exactly the source's self-loops.
+- `--skip-reflexivity` — generate F0 as before the self-loop fix: no relation gets its source's self-loops placed first, and rule groundings and random triples may make self-loops by chance. By default each relation gets exactly the source's self-loops.
 
 ```bash
 python -m skgg.cli.main -f french_royalty.json --skip-edb --log-level DEBUG
@@ -88,7 +88,7 @@ python -m skgg.cli.main -f french_royalty.json --skip-edb --log-level DEBUG
 | Benchmark datasets: the splits, `<dataset>.unified.tsv` and its rules (`<dataset>.csv`) | `exp_datasets/<dataset>/`; `french_royalty.json` reads `exp_datasets/french/` |
 | Downloaded synthetic graphs (`<dataset>.skgg.<filter>.tsv`, `.filled.tsv`) | `data.input_dir` of the config by default, or the path given to `cli/graph.py download -o` |
 | Experiment configs | `configurations/*.json` |
-| Named graphs (base/EDB/synthetic/filled) | in the running Virtuoso/GraphDB instance, under URIs derived from the config's `graph.namespace` and the run's rule filter (see [Graph layout](architecture.md#graph-layout)). `cli/main.py` writes no graph to disk |
+| Named graphs (base/F0/synthetic/filled) | in the running Virtuoso/GraphDB instance, under URIs derived from the config's `graph.namespace` and the run's rule filter (see [Graph layout](architecture.md#graph-layout)). `cli/main.py` writes no graph to disk |
 | Run logs | `logs/` (gitignored) |
 
 ## Troubleshooting

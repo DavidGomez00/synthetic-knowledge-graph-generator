@@ -46,7 +46,7 @@ COPY_SETS = ("ours", "kbgen", "pygraft")
 # train_kge.py, they are in the set of their generator, and `kbgen-levels` and
 # `ours-levels` keep only them.
 LEVEL_SETS = ("ours-levels", "kbgen-levels")
-LEVEL_COPY = re.compile(r"_(ours|kbgen|pygraft)_(r\d+|std1)$")
+LEVEL_COPY = re.compile(r"_(ours|kbgen|pygraft)_(r\d+|std1|pca1)$")
 
 
 def in_set(name: str, set_name: str) -> bool:

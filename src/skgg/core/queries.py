@@ -144,7 +144,7 @@ def from_binding_row(term: str, binding_row: SparqlBinding) -> tuple[str, str]:
 def build_rule_query(rule: RuleSignature, graph_uri: str) -> str:
     """Creates a query for the rule signature."""
 
-    # Get the variables from the atomns with extensional predicates
+    # Get the variables from the atomns with non-deducible predicates
     variables = rule.get_body_variables()
     proj = " ".join(sorted(list(variables)))
 
@@ -584,6 +584,37 @@ def copy_graph(
     )
 
 
+def copy_predicates(
+    client: SPARQLWrapper,
+    source_graph_uri: str,
+    target_graph_uri: str,
+    predicates: Iterable[str],
+) -> dict[str, int]:
+    """Adds every triple of some predicates from one graph to another, unchanged.
+
+    Args:
+        client: The SPARQL wrapper client used to execute queries.
+        source_graph_uri: The URI of the named graph to copy from.
+        target_graph_uri: The URI of the named graph to copy to.
+        predicates: The predicates, formatted as in the queries (`<IRI>`).
+
+    Returns:
+        Each predicate's number of triples in the source graph, all of which are
+        in the target graph afterwards.
+    """
+    predicates = sorted(set(predicates))
+    if not predicates:
+        return {}
+    query = f"""
+    INSERT {{ GRAPH <{target_graph_uri}> {{ ?s ?p ?o }} }}
+    WHERE {{
+      VALUES ?p {{ {" ".join(predicates)} }}
+      GRAPH <{source_graph_uri}> {{ ?s ?p ?o }}
+    }}"""
+    _execute_update_query(client, query)
+    return {p: get_frequency(client, p, source_graph_uri) for p in predicates}
+
+
 def initialize_graph(
     client: SPARQLWrapper,
     source: str | None,
@@ -998,10 +1029,10 @@ def count_producible_heads(
 
     This counts the distinct head-variable bindings that satisfy `atoms` in
     `graph_uri`, without requiring the head atom to be present (see `get_support`
-    for the support of the rule itself). While the EDB is being built, the head
-    predicate is intensional and absent from it, so this is the amount of the rule's
-    support that the triples already in the EDB will yield once the head is derived.
-    `atoms` is normally the rule's extensional body. Only head variables that occur
+    for the support of the rule itself). While F0 is being built, the head
+    predicate is deducible and absent from it, so this is the amount of the rule's
+    support that the triples already in F0 will yield once the head is derived.
+    `atoms` is normally the rule's non-deducible body. Only head variables that occur
     in `atoms` are projected.
     """
     atoms = list(atoms)
@@ -1109,7 +1140,7 @@ def get_triple_count(client: SPARQLWrapper, graph_uri: str) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Helpers for IDB/EDB generation.
+# Helpers for generating the initial and deduced facts.
 # ---------------------------------------------------------------------------
 def get_existing_triples(
     client: SPARQLWrapper,

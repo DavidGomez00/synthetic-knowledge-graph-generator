@@ -41,6 +41,28 @@ that both generators see the same rules. Every level is then made, r100 included
 (as `D_kbgen_r100`), the used file must have the row's `rules_ours` rules, and a row
 whose `ours_same_as` is set is skipped, as the generator skips it. --force redoes the level
 steps only, never `work/D/`. The summary goes to `<results dir>/rule-levels/`.
+The generator's `_used.csv` files are read from `<root>` whatever `--level-root` is,
+or from `--used-rules-dir` (`<dir>/D_ours_L_used.csv`) for rules selected without
+making the generator's copy.
+
+kbgen synthesizes as many entities as the subjects of the graph it loads (its
+`n_entities`). The option --entities source, which passed synthesize.py `-ne N` with
+the source's unique entities, and the copies it made (exp_datasets_kbgen_entities/,
+recorded in runs/rule-levels-entities/) were removed on 2026-11-19; commit 2c7dfd5d
+keeps them. `summary.csv` keeps the columns `entities_mode` and `desired_entities`,
+empty for the runs made since.
+
+The copy keeps every triple of kbgen's output. A relation in predicate position gets
+the source's relation name back, `rdf:type` is written `type` as in the source's
+.tsv files, and every other term keeps kbgen's name: `Entity_3 type Type_0` for the
+classes kbgen synthesizes from the source's `type` triples, `Type_0 type
+http://www.w3.org/2002/07/owl#Class` and `relation_2 type
+http://www.w3.org/2002/07/owl#ObjectProperty` for its schema. --drop-type-triples
+drops every `rdf:type` line instead, as the copies made before 2026-11-19 did.
+
+Every copy keeps the logs and records of the run that made it, next to it:
+`<copy>.log`, `<copy>.base.log`, `<copy>.stats.json` and `<copy>.rules.txt`
+(archive_logs). --archive-only copies them for the runs of --work-dir already made.
 
     ~/.pyenv/versions/NeSy/bin/python synthesize_exp_datasets.py --levels r0 r25 r50 r75 --jobs 4
 
@@ -62,6 +84,7 @@ import logging
 import os
 import pickle
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -156,9 +179,11 @@ def find_datasets(root: Path, work_root: Path, names: list[str] | None) -> list[
 
 
 def ours_level_datasets(levels_file: Path, datasets: list[Dataset], levels: list[str], root: Path,
-                        work_root: Path, level_root: Path | None) -> list[Dataset]:
+                        work_root: Path, level_root: Path | None,
+                        used_rules_dir: Path | None = None) -> list[Dataset]:
     """The level copies to make with --rules-from-ours: each dataset at each level of
-    `levels`, with the rules this project's generator used at that level."""
+    `levels`, with the rules this project's generator used at that level, read from
+    `<used_rules_dir>/D_ours_L_used.csv` if `used_rules_dir` is set."""
     with levels_file.open(encoding="utf-8", newline="") as f:
         rows = {(r["dataset"], r["level"]): r for r in csv.DictReader(f, delimiter="\t")}
     todo = []
@@ -174,7 +199,8 @@ def ours_level_datasets(levels_file: Path, datasets: list[Dataset], levels: list
                 logger.info("[%s] skipped: the generator uses the rules of %s", tag, row["ours_same_as"])
                 continue
             copy = f"{ds.name}_ours_{level}"
-            used = (level_root or root) / copy / f"{copy}_used.csv"
+            # The generator's copies stay next to their dataset, whatever the level root.
+            used = (used_rules_dir or root / copy) / f"{copy}_used.csv"
             if row["rules_kept"] == "0":
                 ids, used = set(), None
             elif not used.is_file():
@@ -234,12 +260,24 @@ def level_datasets(levels_file: Path, datasets: list[Dataset], levels: list[str]
     return todo
 
 
+def order_by_earlier_times(todo: list[Dataset], summary: Path) -> list[Dataset]:
+    """`todo` with the levels that took longest to synthesize in `summary` first, and
+    those it lacks before them, so that with --jobs the long levels start together."""
+    with summary.open(encoding="utf-8", newline="") as f:
+        seconds = {r["dataset"]: float(r["seconds_synthesize"] or 0) for r in csv.DictReader(f)}
+    return sorted(todo, key=lambda ds: -seconds.get(ds.tag, float("inf")))
+
+
 # ---------------------------------------------------------------------------
 # Pipeline steps
 # ---------------------------------------------------------------------------
 class Runner:
-    def __init__(self, ds: Dataset, fc, python: str, size: float, force: bool):
+    def __init__(self, ds: Dataset, fc, python: str, size: float, force: bool,
+                 drop_type_triples: bool = False):
         self.ds, self.fc, self.python, self.size, self.force = ds, fc, python, size, force
+        # Drop every rdf:type line of kbgen's output, as the copies made before
+        # 2026-11-19 did; by default every triple is kept.
+        self.drop_type_triples = drop_type_triples
         self.term_mapping = fc.build_term_mapping(NAMESPACE)
         ds.base_work.mkdir(parents=True, exist_ok=True)
         ds.work.mkdir(parents=True, exist_ok=True)
@@ -276,6 +314,9 @@ class Runner:
             log.flush()
             subprocess.run(cmd, cwd=cwd or self.ds.work, stdout=log, stderr=subprocess.STDOUT, check=True,
                            env={**os.environ, "PYTHONUNBUFFERED": "1", "MPLBACKEND": "Agg"})
+
+    def synthesize_args(self) -> list[str]:
+        return [self.ds.models["M3"].name, self.ds.synth_nt.name, "-s", str(self.size)]
 
     def link_base(self) -> None:
         """Links work/D's tensor and M2 into the level's folder under the level's names,
@@ -332,20 +373,32 @@ class Runner:
         with self.ds.models["M3"].open("rb") as f:
             model = pickle.load(f)
         names = self.relation_names(model)
-        schema = written = 0
+        facts = typed = dropped = 0
         self.ds.output.parent.mkdir(parents=True, exist_ok=True)
         with self.ds.synth_tsv.open(encoding="utf-8") as src, self.ds.output.open("w", encoding="utf-8") as out:
             for line in src:
                 s, p, o = line.rstrip("\n").split("\t")
-                if p == RDF_TYPE:
-                    schema += 1
+                if p == RDF_TYPE and self.drop_type_triples:
+                    dropped += 1
                     continue
-                row = (s.removeprefix(SYNTH_PREFIX), names[p], o.removeprefix(SYNTH_PREFIX))
-                if any("http" in t or "/" in t for t in (row[0], row[2])):
+                subject, obj = s.removeprefix(SYNTH_PREFIX), o.removeprefix(SYNTH_PREFIX)
+                if p in names:
+                    row = (subject, names[p], obj)
+                    facts += 1
+                else:
+                    # kbgen's entity types and schema: rdf:type as the source writes it,
+                    # any other predicate and the owl/rdfs objects as full IRIs.
+                    row = (subject, "type" if p == RDF_TYPE else p, obj)
+                    typed += 1
+                # Every subject is a term kbgen synthesized, and so is every object
+                # of a fact between entities.
+                if any("http" in t or "/" in t for t in (row[0], *(row[2:] if p in names else ()))):
                     raise RuntimeError(f"unmapped term in synthetic triple: {line.strip()}")
                 out.write("\t".join(row) + "\n")
-                written += 1
-        self.note(f"output: {written} facts written, {schema} schema triples dropped")
+        if self.drop_type_triples:
+            self.note(f"output: {facts} facts written, {dropped} rdf:type triples dropped")
+        else:
+            self.note(f"output: {facts} facts and {typed} type and schema triples written")
 
     def run_base(self) -> None:
         """The steps that don't depend on the rules, in work/D."""
@@ -370,9 +423,10 @@ class Runner:
         self.step("learn_M3", [ds.models["M3"]],
                   lambda: self.kbgen("learn_model.py", ds.npz.name, "-m", "M3", "-r", ds.amie.name))
         self.step("synthesize", [ds.synth_nt, ds.synth_tsv],
-                  lambda: self.kbgen("synthesize.py", ds.models["M3"].name, ds.synth_nt.name, "-s", str(self.size)))
+                  lambda: self.kbgen("synthesize.py", *self.synthesize_args()))
         self.step("write_output", [ds.output], self.write_output)
         self.step("stats", [ds.stats], self.write_stats)
+        archive_logs(ds.work, ds.base_work, json.loads(ds.stats.read_text()))
 
     # -----------------------------------------------------------------------
     def write_stats(self) -> None:
@@ -458,6 +512,45 @@ class Runner:
 
 
 # ---------------------------------------------------------------------------
+# Logs kept with each copy
+# ---------------------------------------------------------------------------
+def archive_logs(work: Path, base_work: Path, stats: dict) -> bool:
+    """Copies the logs and records of the run that made a copy next to it, so the copy
+    keeps them wherever --work-dir is: `<copy>.log` (the level's pipeline.log: kbgen's
+    commands and output), `<copy>.base.log` (the dataset's pipeline.log: tensor, M1 and
+    M2, when the copy is a level), `<copy>.stats.json` (stats.json, with the rule IDs
+    given, the model's counters and the seconds of each step) and `<copy>.rules.txt`
+    (the rules as kbgen read them). Skips a copy that no longer exists."""
+    output = Path(stats["output"]) if "output" in stats else None
+    if output is None or not output.is_file():
+        logger.warning("[%s] no copy at %s, logs not archived", stats.get("dataset"), output)
+        return False
+    stem = output.with_suffix("")
+    files = {work / "pipeline.log": stem.with_suffix(".log"),
+             work / "stats.json": stem.with_suffix(".stats.json")}
+    if base_work != work:
+        files[base_work / "pipeline.log"] = stem.with_suffix(".base.log")
+    rules = sorted(work.glob("*-AmieRules.txt"))
+    if rules:
+        files[rules[0]] = stem.with_suffix(".rules.txt")
+    for source, target in files.items():
+        if source.is_file():
+            shutil.copyfile(source, target)
+    return True
+
+
+def archive_all(work_root: Path, levels: bool) -> None:
+    """archive_logs for every run with a stats.json under `work_root`."""
+    folders = sorted((work_root / "rule-levels" if levels else work_root).glob("*/stats.json"))
+    done = 0
+    for path in folders:
+        stats = json.loads(path.read_text())
+        base = work_root / stats["dataset"].rsplit("-", 1)[0] if levels else path.parent
+        done += archive_logs(path.parent, base, stats)
+    logger.info("Archived the logs of %d of %d copies", done, len(folders))
+
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 STEP_KEYS = ["tsv_to_nt", "csv_to_amie", "load_tensor", "learn_M1", "learn_M2", "learn_M3", "synthesize",
@@ -471,7 +564,13 @@ def write_summary(work_root: Path, results_dir: Path, root: Path, levels: bool =
         work_root, results_dir = work_root / "rule-levels", results_dir / "rule-levels"
     stats, folders = [], []
     for path in sorted(work_root.glob("*/stats.json")):
-        stats.append(json.loads(path.read_text()))
+        s = json.loads(path.read_text())
+        # A copy removed after its run (e.g. a level whose rules equal another's) is
+        # left out; its records stay in the work folder.
+        if levels and "output" in s and not Path(s["output"]).is_file():
+            logger.warning("[%s] copy %s no longer exists, left out of the summary", s["dataset"], s["output"])
+            continue
+        stats.append(s)
         folders.append(path.parent)
     if not stats:
         logger.warning("No stats.json under %s", work_root)
@@ -480,7 +579,8 @@ def write_summary(work_root: Path, results_dir: Path, root: Path, levels: bool =
     level_columns = ["level", "pca_threshold", "std_threshold", "rules_from", "given_rules",
                      "given_rule_ids"] if levels else []
     columns = ["dataset", *level_columns, "input_triples", "kept_triples", "synthetic_triples", "dropped_share",
-               "synthetic_vs_kept", "input_entities", "kept_entities", "model_entities", "synthetic_entities",
+               "synthetic_vs_kept", "input_entities", "kept_entities", "model_entities", "entities_mode", "desired_entities",
+               "synthetic_entities",
                "input_relations", "kept_relations", "synthetic_relations", "csv_rules", "parsed_rules",
                "rule_facts", "tvd_kept_vs_synthetic", "relations_lost_in_load", "relations_lost_in_synthesis",
                "total_seconds", *[f"seconds_{k}" for k in STEP_KEYS], "finished"]
@@ -560,6 +660,8 @@ def main() -> int:
     p.add_argument("--size", type=float, default=1.0, help="synthesize.py -s (fraction of the original facts)")
     p.add_argument("--force", action="store_true", help="redo every step (with --levels, every level step)")
     p.add_argument("--summary-only", action="store_true", help="only rebuild the summary CSVs")
+    p.add_argument("--archive-only", action="store_true",
+                   help="only copy each run's logs and records next to its copy")
     p.add_argument("--levels", nargs="+", default=None,
                    help="make the copies at these rule levels of --rule-levels, e.g. r0 r25 r50 r75 "
                         "(default: the copies with all rules, <root>/D_kbgen)")
@@ -568,6 +670,15 @@ def main() -> int:
     p.add_argument("--rules-from-ours", action="store_true",
                    help="with --levels, give kbgen at each level the rules of this project's generator, "
                         "D_ours_L/D_ours_L_used.csv")
+    p.add_argument("--drop-type-triples", action="store_true",
+                   help="drop every rdf:type line of kbgen's output (entity types and schema), as the "
+                        "copies made before 2026-11-19 did; by default every triple is kept")
+    p.add_argument("--order-from", type=Path, default=None,
+                   help="with --levels, start the levels that took longest in this earlier "
+                        "summary.csv (seconds_synthesize) first; levels it lacks go first")
+    p.add_argument("--used-rules-dir", type=Path, default=None,
+                   help="with --rules-from-ours, read D_ours_L_used.csv from this folder "
+                        "(default: <root>/D_ours_L/)")
     p.add_argument("--level-root", type=Path, default=None,
                    help="folder of the level copies D_kbgen_L (default: <root>)")
     args = p.parse_args()
@@ -576,6 +687,9 @@ def main() -> int:
     sys.path.insert(0, str(KBGEN_DIR))
     levels = args.levels is not None
 
+    if args.archive_only:
+        archive_all(args.work_dir, levels)
+        return 0
     if args.summary_only:
         write_summary(args.work_dir, args.results_dir, args.root, levels)
         return 0
@@ -588,7 +702,8 @@ def main() -> int:
 
     def process(ds: Dataset, base_only: bool = False) -> None:
         try:
-            runner = Runner(ds, fc, args.python, args.size, args.force and not base_only)
+            runner = Runner(ds, fc, args.python, args.size, args.force and not base_only,
+                            args.drop_type_triples)
             runner.run_base() if base_only else runner.run()
             logger.info("[%s] finished%s", ds.tag, " the steps shared by its levels" if base_only else "")
         except Exception:
@@ -600,9 +715,15 @@ def main() -> int:
             # Every level of a dataset reads work/D, so it is made first, once.
             list(pool.map(lambda ds: process(ds, base_only=True), datasets))
             ready = [ds for ds in datasets if ds.tag not in failed]
-            pick = ours_level_datasets if args.rules_from_ours else level_datasets
-            todo = pick(args.rule_levels or args.root / "rule_levels.tsv", ready, args.levels,
-                        args.root, args.work_dir, args.level_root)
+            levels_file = args.rule_levels or args.root / "rule_levels.tsv"
+            if args.rules_from_ours:
+                todo = ours_level_datasets(levels_file, ready, args.levels, args.root, args.work_dir,
+                                           args.level_root, args.used_rules_dir)
+            else:
+                todo = level_datasets(levels_file, ready, args.levels, args.root, args.work_dir,
+                                      args.level_root)
+            if args.order_from:
+                todo = order_by_earlier_times(todo, args.order_from)
             logger.info("Levels: %s", ", ".join(ds.tag for ds in todo))
             list(pool.map(process, todo))
         else:
