@@ -5,6 +5,7 @@ section for the full pipeline description.
 """
 
 import argparse
+import copy
 import logging
 import time
 from dataclasses import dataclass, field
@@ -87,12 +88,16 @@ class _ClosureProgress:
     # Target frequency per predicate, copied on creation: EDB generation later
     # spends `PredicateProfile.frequency` as a remaining budget.
     targets: dict[str, int] = field(init=False)
+    # The profiles as read from the source, copied on creation for the same reason;
+    # the capped completion ranks its candidates by their degrees.
+    source_profiles: dict[str, PredicateProfile] = field(init=False)
     intensional_preds: set[str] = field(init=False)
     closed_preds: set[str] = field(default_factory=set)
     closed_rules: set[str] = field(default_factory=set)
 
     def __post_init__(self) -> None:
         self.targets = {p: pr.frequency for p, pr in self.profiles.items()}
+        self.source_profiles = copy.deepcopy(self.profiles)
         self.intensional_preds = get_intensional_preds(self.rules)
 
     def log(self, stage: str, graph_uri: str) -> None:
@@ -443,8 +448,17 @@ def run_synthetic_graph_experiment(
     namespace: str | None = None,
     skip_reflexivity: bool = False,
     copy_relations: list[str] | None = None,
+    cap_completion: bool = False,
 ) -> None:
     """Runs a Synthetic Graph generation experiment.
+
+    `cap_completion` caps completion at each relation's source frequency: no
+    complete rule adds a triple of a relation that has reached it. The rules that
+    derive one relation share what is left of its frequency, and the triples kept
+    are those whose subject and object are below their source degrees in that
+    relation, then random (`completion._capped_pass`). By default completion adds
+    every head triple the complete rules derive, which can pass the frequency
+    (`docs/family-growth.md`).
 
     `copy_relations` names relations (bare terms such as `type`, or IRIs) that are
     not generated: their profiles are dropped after the metrics are read, so the
@@ -642,6 +656,13 @@ def run_synthetic_graph_experiment(
 
     # Created before EDB generation, which spends the profiles' frequencies.
     progress = _ClosureProgress(client, graph_metrics.profiles, rules)
+    if cap_completion:
+        logger.info(
+            "Completion is capped: no rule adds a triple of a relation at its target "
+            "frequency."
+        )
+    caps = progress.targets if cap_completion else None
+    degree_targets = progress.source_profiles if cap_completion else None
 
     ## ------ Initialization -------
     chunk_size = config.db_config.chunk_size
@@ -713,6 +734,8 @@ def run_synthetic_graph_experiment(
         chunk_size=chunk_size,
         profiles=graph_metrics.profiles,
         label="initial",
+        caps=caps,
+        degree_targets=degree_targets,
     )
     if sample_derived_undirected_relations(
         client=client,
@@ -732,6 +755,8 @@ def run_synthetic_graph_experiment(
             chunk_size=chunk_size,
             profiles=graph_metrics.profiles,
             label="symmetric",
+            caps=caps,
+            degree_targets=degree_targets,
         )
     # Derived heads can complete groundings of partial rules too.
     for rule_id in get_closed_rules(client, synthetic_uri, partial_rules):
@@ -858,6 +883,13 @@ def _parse_args() -> argparse.Namespace:
         "keeps the source's class. They have no frequency target, and no kept rule "
         "may use them.",
     )
+    parser.add_argument(
+        "--cap-completion",
+        action="store_true",
+        help="Cap completion at each relation's source frequency: no complete rule "
+        "adds a triple of a relation that has reached it. By default completion "
+        "adds every head triple the complete rules derive.",
+    )
     return parser.parse_args()
 
 
@@ -874,4 +906,5 @@ if __name__ == "__main__":
         namespace=args.namespace,
         skip_reflexivity=args.skip_reflexivity,
         copy_relations=args.copy_relations,
+        cap_completion=args.cap_completion,
     )

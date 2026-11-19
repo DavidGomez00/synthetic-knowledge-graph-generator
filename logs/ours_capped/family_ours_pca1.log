@@ -1,0 +1,190 @@
+14:22:12 | __main__ | INFO   | Inserted /home/david/GitHub/synthetic-knowledge-graph-generator/exp_datasets/family/family.unified.tsv into <http://skgg.org/family/base> with 28358 triples.
+14:22:13 | __main__ | INFO   | Confifuration correctly initialized.
+14:22:13 | __main__ | INFO   | [1/5] Extracting metrics and rules
+14:22:13 | __main__ | INFO   | Rule filter pca=1: EDB at <http://skgg.org/family/skgg/pca=1/edb>, synthetic graph at <http://skgg.org/family/skgg/pca=1>.
+14:22:14 | skgg.core.rules | INFO   | Kept 48/370 rules with PCA confidence >= 1.000 (classification == POSITIVE); dropped 322 (NEGATIVE or UNKNOWN).
+14:22:14 | __main__ | INFO   | 48 rules: 48 complete (PCA confidence 1, forward-chained), 0 partial (grounded round(PCA confidence x support) times in the EDB, after the complete rules).
+14:22:14 | skgg.core.visualization | INFO   | Saved relation graph visualization (12 predicates, 11 in a cycle) to <logs/relation_graph_family.png>
+14:22:14 | skgg.core.cycles | INFO   | Cycle of husband, wife: keeping 1 of 2 cyclic rules with the order husband < wife.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 1: wife after husband in the order.
+14:22:14 | skgg.core.cycles | INFO   | Cycle of nephew, niece: keeping 1 of 3 cyclic rules with the order niece < nephew.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 24: nephew after niece in the order.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 36: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Cycle of uncle: keeping 0 of 4 cyclic rules with the order uncle.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 27: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 28: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 30: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 31: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Cycle of daughter, son: keeping 1 of 3 cyclic rules with the order daughter < son.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 5: son after daughter in the order.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 15: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Cycle of mother: keeping 0 of 4 cyclic rules with the order mother.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 6: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 7: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 9: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 45: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Cycle of aunt: keeping 0 of 4 cyclic rules with the order aunt.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 16: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 17: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 18: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 19: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Cycle of father: keeping 0 of 4 cyclic rules with the order father.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 8: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 10: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 11: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 43: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Cycle of brother: keeping 0 of 1 cyclic rules with the order brother.
+14:22:14 | skgg.core.cycles | INFO   | Removed rule 50: recursive.
+14:22:14 | skgg.core.cycles | INFO   | Predicates made extensional by cyclic rule removal: brother, daughter, father, mother
+14:22:14 | skgg.core.cycles | INFO   | aunt stays intensional: derived by rules 21.
+14:22:14 | skgg.core.cycles | INFO   | husband stays intensional: derived by rules 3, 202, 210.
+14:22:14 | skgg.core.cycles | INFO   | nephew stays intensional: derived by rules 33, 34, 35, 37, 47, 54.
+14:22:14 | skgg.core.cycles | INFO   | niece stays intensional: derived by rules 20, 22, 23, 39, 41.
+14:22:14 | skgg.core.cycles | INFO   | son stays intensional: derived by rules 12, 13, 14.
+14:22:14 | skgg.core.cycles | INFO   | uncle stays intensional: derived by rules 25, 26, 29, 32.
+14:22:14 | skgg.core.cycles | INFO   | Removed 22 cyclic rules; 26 rules left.
+14:22:14 | __main__ | INFO   | Extensional relations (5, target frequency): brother 3076, daughter 1589, father 2010, mother 1714, sister 2659
+14:22:14 | __main__ | INFO   | Intensional relations (7, target frequency): aunt 2990, husband 1138, nephew 3633, niece 2815, son 2110, uncle 3486, wife 1138
+14:22:14 | __main__ | INFO   | Completion is capped: no rule adds a triple of a relation at its target frequency.
+14:22:14 | __main__ | INFO   | [2/5] Generating EDB
+14:22:14 | skgg.core.rules | INFO   | Saved 26 used rules to `/tmp/tmp1i5e9_75/family_used.csv`.
+14:22:14 | skgg.engine.edb | INFO   | Creating EDB
+14:22:14 | skgg.engine.edb | INFO   | Extensional relations to generate (5/5, current/target): brother 0/3076 (open), daughter 0/1589 (open), father 0/2010 (open), mother 0/1714 (open), sister 0/2659 (open)
+14:22:14 | skgg.engine.edb | INFO   | Closed predicates [0/12].
+14:22:15 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?b <http://skgg.org/family/mother> ?f', '?a <http://skgg.org/family/brother> ?f']; skipping the rule.
+14:22:15 | skgg.engine.generator | WARNING | Built 725 of 772 needed groundings for ['?b <http://skgg.org/family/mother> ?f', '?a <http://skgg.org/family/brother> ?f'].
+14:22:15 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?b <http://skgg.org/family/father> ?f', '?a <http://skgg.org/family/brother> ?f']; skipping the rule.
+14:22:15 | skgg.engine.generator | WARNING | Built 355 of 547 needed groundings for ['?b <http://skgg.org/family/father> ?f', '?a <http://skgg.org/family/brother> ?f'].
+14:22:16 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?f <http://skgg.org/family/sister> ?b', '?a <http://skgg.org/family/daughter> ?f']; skipping the rule.
+14:22:16 | skgg.engine.generator | WARNING | Built 178 of 1026 needed groundings for ['?f <http://skgg.org/family/sister> ?b', '?a <http://skgg.org/family/daughter> ?f'].
+14:22:16 | skgg.engine.generator | WARNING | No candidate values left for ['?e'] in ['?a <http://skgg.org/family/brother> ?e', '?e <http://skgg.org/family/daughter> ?b']; skipping the rule.
+14:22:16 | skgg.engine.generator | WARNING | Built 426 of 798 needed groundings for ['?a <http://skgg.org/family/brother> ?e', '?e <http://skgg.org/family/daughter> ?b'].
+14:22:17 | skgg.engine.generator | WARNING | No candidate values left for ['?e'] in ['?a <http://skgg.org/family/brother> ?e', '?e <http://skgg.org/family/mother> ?b']; skipping the rule.
+14:22:17 | skgg.engine.generator | WARNING | Built 35 of 585 needed groundings for ['?a <http://skgg.org/family/brother> ?e', '?e <http://skgg.org/family/mother> ?b'].
+14:22:17 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?b <http://skgg.org/family/sister> ?f', '?a <http://skgg.org/family/daughter> ?f']; skipping the rule.
+14:22:17 | skgg.engine.generator | WARNING | Built 115 of 1264 needed groundings for ['?b <http://skgg.org/family/sister> ?f', '?a <http://skgg.org/family/daughter> ?f'].
+14:22:17 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?f <http://skgg.org/family/father> ?b', '?a <http://skgg.org/family/sister> ?f']; skipping the rule.
+14:22:17 | skgg.engine.generator | WARNING | Built 126 of 1456 needed groundings for ['?f <http://skgg.org/family/father> ?b', '?a <http://skgg.org/family/sister> ?f'].
+14:22:18 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?b <http://skgg.org/family/daughter> ?f', '?a <http://skgg.org/family/brother> ?f']; skipping the rule.
+14:22:18 | skgg.engine.generator | WARNING | Built 36 of 797 needed groundings for ['?b <http://skgg.org/family/daughter> ?f', '?a <http://skgg.org/family/brother> ?f'].
+14:22:18 | skgg.engine.generator | WARNING | No candidate values left for ['?f'] in ['?b <http://skgg.org/family/brother> ?f', '?a <http://skgg.org/family/daughter> ?f']; skipping the rule.
+14:22:18 | skgg.engine.generator | WARNING | Built 0 of 678 needed groundings for ['?b <http://skgg.org/family/brother> ?f', '?a <http://skgg.org/family/daughter> ?f'].
+14:22:18 | skgg.engine.generator | WARNING | No candidate values left for ['?e'] in ['?a <http://skgg.org/family/daughter> ?e', '?e <http://skgg.org/family/brother> ?b']; skipping the rule.
+14:22:18 | skgg.engine.generator | WARNING | Built 14 of 943 needed groundings for ['?a <http://skgg.org/family/daughter> ?e', '?e <http://skgg.org/family/brother> ?b'].
+14:22:18 | skgg.engine.generator | WARNING | No candidate values left for ['?e'] in ['?a <http://skgg.org/family/brother> ?e', '?e <http://skgg.org/family/father> ?b']; skipping the rule.
+14:22:18 | skgg.engine.generator | WARNING | Built 62 of 1381 needed groundings for ['?a <http://skgg.org/family/brother> ?e', '?e <http://skgg.org/family/father> ?b'].
+14:22:19 | skgg.engine.edb | INFO   | [Step 1086] Closed predicates [1/12].
+14:22:19 | skgg.engine.edb | INFO   | [Step 1365] Closed predicates [2/12].
+14:22:19 | skgg.engine.edb | INFO   | [Step 1577] Closed predicates [3/12].
+14:22:19 | skgg.engine.edb | INFO   | [Step 1978] Closed predicates [4/12].
+14:22:19 | skgg.engine.edb | INFO   | [Step 2026] Closed predicates [5/12].
+14:22:19 | __main__ | INFO   | EDB generated in 4.8s at <http://skgg.org/family/skgg/pca=1/edb> with 11043 triples.
+14:22:19 | __main__ | INFO   | [3/5] Completing graph
+14:22:19 | __main__ | INFO   | [EDB] Closed predicates: 5/12, closed rules: 4/26.
+14:22:19 | __main__ | INFO   | [EDB] Newly closed predicates: brother, daughter, father, mother, sister
+14:22:19 | __main__ | INFO   | [EDB] Newly closed rules: 201, 202, 209, 3
+14:22:19 | __main__ | INFO   | [EDB] Open intensional predicates (current/target): aunt 0/2990, husband 0/1138, nephew 0/3633, niece 0/2815, son 0/2110, uncle 0/3486, wife 0/1138
+14:22:19 | __main__ | INFO   | Applying the 26 complete rules (22 open): 2 (open), 3 (closed), 4 (open), 12 (open), 13 (open), 14 (open), 20 (open), 21 (open), 22 (open), 23 (open), 25 (open), 26 (open), 29 (open), 32 (open), 33 (open), 34 (open), 35 (open), 37 (open), 39 (open), 41 (open), 47 (open), 54 (open), 201 (closed), 202 (closed), 209 (closed), 210 (open)
+14:22:21 | skgg.core.queries | WARNING | Retrieved None for the domain of predicate <http://skgg.org/family/aunt>.
+14:22:21 | skgg.core.queries | WARNING | Retrieved None for the domain of predicate <http://skgg.org/family/aunt>.
+14:22:21 | skgg.core.queries | WARNING | Retrieved None for the domain of predicate <http://skgg.org/family/husband>.
+14:22:21 | skgg.core.queries | WARNING | Retrieved None for the domain of predicate <http://skgg.org/family/husband>.
+14:22:21 | skgg.core.queries | WARNING | Retrieved None for the domain of predicate <http://skgg.org/family/niece>.
+14:22:21 | skgg.core.queries | WARNING | Retrieved None for the domain of predicate <http://skgg.org/family/niece>.
+14:22:21 | skgg.core.queries | WARNING | Retrieved None for the domain of predicate <http://skgg.org/family/son>.
+14:22:21 | skgg.core.queries | WARNING | Retrieved None for the domain of predicate <http://skgg.org/family/son>.
+14:22:22 | skgg.core.queries | WARNING | Retrieved None for the domain of predicate <http://skgg.org/family/uncle>.
+14:22:22 | skgg.core.queries | WARNING | Retrieved None for the domain of predicate <http://skgg.org/family/uncle>.
+14:22:22 | skgg.core.queries | WARNING | Retrieved None for the domain of predicate <http://skgg.org/family/wife>.
+14:22:22 | skgg.core.queries | WARNING | Retrieved None for the domain of predicate <http://skgg.org/family/wife>.
+14:22:22 | skgg.engine.completion | INFO   | [initial] Pass 1: +12649 triples (rule 3 +751, rule 4 +766, rule 12 +845, rule 13 +883, rule 14 +444, rule 21 +1962, rule 22 +757, rule 23 +536, rule 25 +1052, rule 29 +958, rule 32 +1495, rule 39 +899, rule 41 +646, rule 209 +381, rule 210 +396).
+14:22:26 | skgg.core.queries | WARNING | Retrieved None for the domain of predicate <http://skgg.org/family/nephew>.
+14:22:26 | skgg.core.queries | WARNING | Retrieved None for the domain of predicate <http://skgg.org/family/nephew>.
+14:22:26 | skgg.engine.completion | INFO   | [initial] Pass 2: +3633 triples (rule 33 +1523, rule 34 +673, rule 35 +1543, rule 37 +759, rule 47 +615, rule 54 +559).
+14:22:30 | skgg.engine.completion | INFO   | [initial] Pass 3: no triples added.
+14:22:30 | skgg.engine.completion | INFO   | [initial] +16282 triples in 3 passes (stale state): rule 3 +751, rule 4 +766, rule 12 +845, rule 13 +883, rule 14 +444, rule 21 +1962, rule 22 +757, rule 23 +536, rule 25 +1052, rule 29 +958, rule 32 +1495, rule 33 +1523, rule 34 +673, rule 35 +1543, rule 37 +759, rule 39 +899, rule 41 +646, rule 47 +615, rule 54 +559, rule 209 +381, rule 210 +396.
+14:22:30 | skgg.engine.completion | INFO   | [initial] Cap aunt: 1962/2990, 1 derivable head triples left out.
+14:22:30 | skgg.engine.completion | INFO   | [initial] Cap husband: 1138/1138, 4229 derivable head triples left out.
+14:22:30 | skgg.engine.completion | INFO   | [initial] Cap nephew: 3633/3633, 13549 derivable head triples left out.
+14:22:30 | skgg.engine.completion | INFO   | [initial] Cap niece: 2815/2815, 5261 derivable head triples left out.
+14:22:30 | skgg.engine.completion | INFO   | [initial] Cap son: 2110/2110, 6696 derivable head triples left out.
+14:22:30 | skgg.engine.completion | INFO   | [initial] Cap uncle: 3486/3486, 3568 derivable head triples left out.
+14:22:30 | skgg.engine.completion | INFO   | [initial] Cap wife: 1138/1138, 4229 derivable head triples left out.
+14:22:30 | __main__ | INFO   | [initial] Closed predicates: 11/12, closed rules: 7/26.
+14:22:30 | __main__ | INFO   | [initial] Newly closed predicates: husband, nephew, niece, son, uncle, wife
+14:22:30 | __main__ | INFO   | [initial] Newly closed rules: 12, 13, 4
+14:22:30 | __main__ | INFO   | [initial] Open intensional predicates (current/target): aunt 1962/2990
+14:22:30 | __main__ | INFO   | [4/5] Filling open relations
+14:22:30 | __main__ | INFO   | Skipping the fill step (pass --fill to run it); synthetic graph at <http://skgg.org/family/skgg/pca=1>.
+14:22:30 | __main__ | INFO   | [5/5] Summary
+14:22:34 | __main__ | INFO   | Experiment summary, <http://skgg.org/family/base> -> <http://skgg.org/family/skgg/pca=1>:
+Triples: 28358 -> 27325 (-1033, -3.6%)
+
+Predicates (12):
+  aunt      2990 -> 1962  (-1028)  [OPEN]    [INTENSIONAL]
+  brother   3076 -> 3073  (   -3)  [CLOSED]  [EXTENSIONAL]
+  daughter  1589 -> 1589  (   +0)  [CLOSED]  [EXTENSIONAL]
+  father    2010 -> 2010  (   +0)  [CLOSED]  [EXTENSIONAL]
+  husband   1138 -> 1138  (   +0)  [CLOSED]  [INTENSIONAL]
+  mother    1714 -> 1714  (   +0)  [CLOSED]  [EXTENSIONAL]
+  nephew    3633 -> 3633  (   +0)  [CLOSED]  [INTENSIONAL]
+  niece     2815 -> 2815  (   +0)  [CLOSED]  [INTENSIONAL]
+  sister    2659 -> 2657  (   -2)  [CLOSED]  [EXTENSIONAL]
+  son       2110 -> 2110  (   +0)  [CLOSED]  [INTENSIONAL]
+  uncle     3486 -> 3486  (   +0)  [CLOSED]  [INTENSIONAL]
+  wife      1138 -> 1138  (   +0)  [CLOSED]  [INTENSIONAL]
+
+Rules (26), support, std and PCA confidence, original -> synthetic:
+  2    ?b husband ?a => ?a wife ?b                     1138 -> 672   ( -466)  std 1.000 -> 0.591 (-0.409)  pca 1.000 -> 0.646 (-0.354)  [OPEN]    [COMPLETE]
+  3    ?a father ?f & ?b mother ?f => ?a husband ?b     691 -> 751   (  +60)  std 1.000 -> 0.441 (-0.559)  pca 1.000 -> 0.443 (-0.557)  [CLOSED]  [COMPLETE]
+  4    ?a mother ?f & ?b father ?f => ?a wife ?b        691 -> 766   (  +75)  std 1.000 -> 0.450 (-0.550)  pca 1.000 -> 0.451 (-0.549)  [CLOSED]  [COMPLETE]
+  12   ?a brother ?f & ?b mother ?f => ?a son ?b        772 -> 845   (  +73)  std 1.000 -> 0.281 (-0.719)  pca 1.000 -> 0.306 (-0.694)  [CLOSED]  [COMPLETE]
+  13   ?a brother ?f & ?b father ?f => ?a son ?b        809 -> 883   (  +74)  std 1.000 -> 0.289 (-0.711)  pca 1.000 -> 0.319 (-0.681)  [CLOSED]  [COMPLETE]
+  14   ?a brother ?e & ?e daughter ?b => ?a son ?b     1174 -> 444   ( -730)  std 1.000 -> 0.158 (-0.842)  pca 1.000 -> 0.198 (-0.802)  [OPEN]    [COMPLETE]
+  20   ?a sister ?f & ?b aunt ?f => ?a niece ?b        1226 -> 12    (-1214)  std 1.000 -> 0.005 (-0.995)  pca 1.000 -> 0.005 (-0.995)  [OPEN]    [COMPLETE]
+  21   ?a sister ?f & ?f father ?b => ?a aunt ?b       1976 -> 1962  (  -14)  std 1.000 -> 0.999 (-0.001)  pca 1.000 -> 0.999 (-0.001)  [OPEN]    [COMPLETE]
+  22   ?a daughter ?f & ?b brother ?f => ?a niece ?b   1498 -> 757   ( -741)  std 1.000 -> 0.506 (-0.494)  pca 1.000 -> 0.529 (-0.471)  [OPEN]    [COMPLETE]
+  23   ?a daughter ?f & ?f sister ?b => ?a niece ?b    1026 -> 536   ( -490)  std 1.000 -> 0.523 (-0.477)  pca 1.000 -> 0.551 (-0.449)  [OPEN]    [COMPLETE]
+  25   ?a brother ?f & ?b daughter ?f => ?a uncle ?b   1498 -> 1052  ( -446)  std 1.000 -> 0.703 (-0.297)  pca 1.000 -> 0.709 (-0.291)  [OPEN]    [COMPLETE]
+  26   ?a brother ?f & ?b son ?f => ?a uncle ?b        1973 -> 10    (-1963)  std 1.000 -> 0.005 (-0.995)  pca 1.000 -> 0.008 (-0.992)  [OPEN]    [COMPLETE]
+  29   ?a brother ?e & ?e mother ?b => ?a uncle ?b     1318 -> 958   ( -360)  std 1.000 -> 0.727 (-0.273)  pca 1.000 -> 0.739 (-0.261)  [OPEN]    [COMPLETE]
+  32   ?a brother ?e & ?e father ?b => ?a uncle ?b     2167 -> 1495  ( -672)  std 1.000 -> 0.690 (-0.310)  pca 1.000 -> 0.720 (-0.280)  [OPEN]    [COMPLETE]
+  33   ?a brother ?f & ?b uncle ?f => ?a nephew ?b     1772 -> 1523  ( -249)  std 1.000 -> 0.236 (-0.764)  pca 1.000 -> 0.254 (-0.746)  [OPEN]    [COMPLETE]
+  34   ?a brother ?f & ?b aunt ?f => ?a nephew ?b      1485 -> 673   ( -812)  std 1.000 -> 0.214 (-0.786)  pca 1.000 -> 0.233 (-0.767)  [OPEN]    [COMPLETE]
+  35   ?a brother ?f & ?f niece ?b => ?a nephew ?b     2618 -> 1543  (-1075)  std 1.000 -> 0.266 (-0.734)  pca 1.000 -> 0.285 (-0.715)  [OPEN]    [COMPLETE]
+  37   ?a son ?f & ?b brother ?f => ?a nephew ?b       1973 -> 759   (-1214)  std 1.000 -> 0.360 (-0.640)  pca 1.000 -> 0.398 (-0.602)  [OPEN]    [COMPLETE]
+  39   ?a daughter ?e & ?e brother ?b => ?a niece ?b   1789 -> 899   ( -890)  std 0.999 -> 0.503 (-0.497)  pca 1.000 -> 0.534 (-0.466)  [OPEN]    [COMPLETE]
+  41   ?a daughter ?f & ?b sister ?f => ?a niece ?b    1317 -> 646   ( -671)  std 0.998 -> 0.492 (-0.506)  pca 1.000 -> 0.512 (-0.488)  [OPEN]    [COMPLETE]
+  47   ?a son ?f & ?b sister ?f => ?a nephew ?b        1660 -> 615   (-1045)  std 0.998 -> 0.345 (-0.653)  pca 1.000 -> 0.381 (-0.619)  [OPEN]    [COMPLETE]
+  54   ?a son ?f & ?f brother ?b => ?a nephew ?b       2335 -> 559   (-1776)  std 0.994 -> 0.225 (-0.769)  pca 1.000 -> 0.264 (-0.736)  [OPEN]    [COMPLETE]
+  201  ?b father ?f & ?f son ?a => ?a wife ?b           533 -> 3     ( -530)  std 0.451 -> 0.001 (-0.450)  pca 1.000 -> 0.002 (-0.998)  [CLOSED]  [COMPLETE]
+  202  ?a father ?f & ?f son ?b => ?a husband ?b        533 -> 1     ( -532)  std 0.451 -> 0.000 (-0.450)  pca 1.000 -> 0.001 (-0.999)  [CLOSED]  [COMPLETE]
+  209  ?b father ?f & ?f daughter ?a => ?a wife ?b      413 -> 381   (  -32)  std 0.444 -> 0.241 (-0.203)  pca 1.000 -> 0.379 (-0.621)  [CLOSED]  [COMPLETE]
+  210  ?a father ?f & ?f daughter ?b => ?a husband ?b   413 -> 396   (  -17)  std 0.444 -> 0.250 (-0.193)  pca 1.000 -> 0.375 (-0.625)  [OPEN]    [COMPLETE]
+
+Removed cyclic rules (22):
+  1    ?b wife ?a => ?a husband ?b                     1138 -> 672   ( -466)  std 1.000 -> 0.591 (-0.409)  pca 1.000 -> 0.633 (-0.367)
+  5    ?a sister ?e & ?e son ?b => ?a daughter ?b      1077 -> 11    (-1066)  std 1.000 -> 0.002 (-0.998)  pca 1.000 -> 0.004 (-0.996)
+  6    ?a mother ?e & ?e sister ?b => ?a mother ?b     1063 -> 7     (-1056)  std 1.000 -> 0.003 (-0.997)  pca 1.000 -> 0.003 (-0.997)
+  7    ?a mother ?f & ?b brother ?f => ?a mother ?b     772 -> 7     ( -765)  std 1.000 -> 0.002 (-0.998)  pca 1.000 -> 0.002 (-0.998)
+  8    ?a father ?f & ?b brother ?f => ?a father ?b     809 -> 4     ( -805)  std 1.000 -> 0.001 (-0.999)  pca 1.000 -> 0.001 (-0.999)
+  9    ?a mother ?e & ?e brother ?b => ?a mother ?b    1203 -> 7     (-1196)  std 1.000 -> 0.002 (-0.998)  pca 1.000 -> 0.002 (-0.998)
+  10   ?a father ?e & ?e sister ?b => ?a father ?b     1085 -> 4     (-1081)  std 1.000 -> 0.002 (-0.998)  pca 1.000 -> 0.002 (-0.998)
+  11   ?a father ?e & ?e brother ?b => ?a father ?b    1244 -> 4     (-1240)  std 1.000 -> 0.001 (-0.999)  pca 1.000 -> 0.001 (-0.999)
+  15   ?a brother ?f & ?f son ?b => ?a son ?b          1356 -> 13    (-1343)  std 1.000 -> 0.003 (-0.997)  pca 1.000 -> 0.003 (-0.997)
+  16   ?a aunt ?f & ?b brother ?f => ?a aunt ?b        1485 -> 11    (-1474)  std 1.000 -> 0.003 (-0.997)  pca 1.000 -> 0.009 (-0.991)
+  17   ?a aunt ?f & ?b sister ?f => ?a aunt ?b         1226 -> 6     (-1220)  std 1.000 -> 0.002 (-0.998)  pca 1.000 -> 0.006 (-0.994)
+  18   ?a aunt ?f & ?f sister ?b => ?a aunt ?b         2247 -> 6     (-2241)  std 1.000 -> 0.002 (-0.998)  pca 1.000 -> 0.006 (-0.994)
+  19   ?a aunt ?e & ?e brother ?b => ?a aunt ?b        2468 -> 11    (-2457)  std 1.000 -> 0.004 (-0.996)  pca 1.000 -> 0.009 (-0.991)
+  24   ?a sister ?e & ?e nephew ?b => ?a niece ?b      2419 -> 54    (-2365)  std 1.000 -> 0.006 (-0.994)  pca 1.000 -> 0.007 (-0.993)
+  27   ?a uncle ?f & ?b sister ?f => ?a uncle ?b       1386 -> 38    (-1348)  std 1.000 -> 0.007 (-0.993)  pca 1.000 -> 0.008 (-0.992)
+  28   ?a uncle ?f & ?b brother ?f => ?a uncle ?b      1772 -> 33    (-1739)  std 1.000 -> 0.005 (-0.995)  pca 1.000 -> 0.009 (-0.991)
+  30   ?a uncle ?f & ?f sister ?b => ?a uncle ?b       2585 -> 39    (-2546)  std 1.000 -> 0.005 (-0.995)  pca 1.000 -> 0.007 (-0.993)
+  31   ?a uncle ?f & ?f brother ?b => ?a uncle ?b      2851 -> 33    (-2818)  std 1.000 -> 0.007 (-0.993)  pca 1.000 -> 0.010 (-0.990)
+  36   ?a brother ?e & ?e nephew ?b => ?a nephew ?b    2880 -> 73    (-2807)  std 1.000 -> 0.008 (-0.992)  pca 1.000 -> 0.008 (-0.992)
+  43   ?a father ?f & ?b sister ?f => ?a father ?b      612 -> 4     ( -608)  std 0.998 -> 0.002 (-0.997)  pca 1.000 -> 0.002 (-0.998)
+  45   ?a mother ?f & ?b sister ?f => ?a mother ?b      595 -> 7     ( -588)  std 0.998 -> 0.003 (-0.996)  pca 1.000 -> 0.003 (-0.997)
+  50   ?a brother ?f & ?b sister ?f => ?a brother ?b   1346 -> 41    (-1305)  std 0.997 -> 0.006 (-0.992)  pca 1.000 -> 0.006 (-0.994)
+14:22:34 | __main__ | INFO   | Execution finished after 20.2s.
+14:22:35 | skgg.core.triples | INFO   | Wrote 27325 triples to /tmp/tmp1i5e9_75/graph.tsv, skipping 0 duplicate triples and 0 invalid lines.
+14:22:35 | __main__ | INFO   | Downloaded <http://skgg.org/family/skgg/pca=1>: 27325 triples to /tmp/tmp1i5e9_75/graph.nt and /tmp/tmp1i5e9_75/graph.tsv.

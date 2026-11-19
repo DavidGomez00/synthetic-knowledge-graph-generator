@@ -156,9 +156,9 @@ kbgen ([`runs/rule-levels/kbgen/kb_models/model_m3.py`](../runs/rule-levels/kbge
 
 ## Possible fixes
 
-None of these is applied. From the least to the most work:
+Only the first is applied, as an option. From the least to the most work:
 
-1. Cap completion at each relation's frequency, as kbgen caps its rules: `apply_rule` would check and spend each head triple against the head relation's remaining profile ("`generator.py`" in `BACKLOG.md`). The copies would keep their size, but complete rules would lose std confidence 1, and the structure would still be lost.
+1. Cap completion at each relation's frequency, as kbgen caps its rules. This is `--cap-completion` (`cli/main.py`, `cli/generate_datasets.py`), made on 19 November 2026; [`completion-cap.md`](completion-cap.md) gives the method and its effect. The capped `family` copies keep the source's size (27,325 to 28,354 triples) and come close to its degrees, but the 26 complete rules lose PCA confidence 1 (mean 0.35 to 0.39) and the structure is still lost (26 of 5,733 sibling facts share a parent at `r100`).
 2. Keep the random step (Mechanism 3) from making body groundings of complete rules that reach new head pairs. This removes the groundings the random triples add, but doesn't rebuild the source's convergence.
 3. Ground each complete rule with the source's number of groundings per head pair, so that rule 12's 3,022 groundings reach 772 pairs: `a`'s siblings get `a`'s mother. Rules 3, 4, 12 and 13 depend on the same parent structure, so the generator would have to build it once, consistently, for all of them.
 4. Apply the structure rules: rules 7 to 11, 43, 45 and 50 say that siblings share their parents. Exempting them from cycle removal, or grounding them before the compositions, would build the convergence that the compositions need, as kbgen's incremental firing partly does.

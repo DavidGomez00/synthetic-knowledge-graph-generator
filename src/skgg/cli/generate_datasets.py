@@ -44,6 +44,15 @@ the std setting, which the generator had until 2026-11-19 (level `std1`, no
 `--copy-relations` passes the same option to `cli/main.py`: the relations it names
 (e.g. `type`, for the datasets of `exp_datasets_type/`) are not generated, and every
 triple of theirs is copied from the source into the copy.
+
+`--cap-completion` passes the same flag to `cli/main.py`, so completion stops each
+relation at its source frequency. Its repositories end in `_cap`, so a capped batch
+can run next to another one; give it its own `--output-root` and `--log-dir` to
+leave the uncapped copies alone, e.g.
+
+    python -m skgg.cli.generate_datasets --cap-completion --datasets family french \
+        --levels r25 r50 r75 r100 pca1 --output-root exp_datasets_capped \
+        --rule-levels exp_datasets/rule_levels.tsv --log-dir logs/ours_capped
 """
 
 import argparse
@@ -266,12 +275,14 @@ def generate_dataset(
     level: RuleLevel | None = None,
     output_root: Path | None = None,
     copy_relations: list[str] | None = None,
+    cap_completion: bool = False,
 ) -> None:
     """Runs upload, pipeline and download for one dataset, each as its own process,
     so a dataset's memory is freed and its failure stays its own.
 
     `copy_relations` is passed to `cli/main.py --copy-relations`: those relations
-    are copied from the source instead of generated.
+    are copied from the source instead of generated. `cap_completion` passes
+    `--cap-completion`, and the repository's name then ends in `_cap`.
 
     With a `level`, the pipeline keeps the rules of that level (see the module
     docstring), and the rules it used are saved next to the copy. The copy goes
@@ -296,6 +307,8 @@ def generate_dataset(
     repository = f"{REPOSITORY_PREFIX}{folder.name}"
     if level is not None:
         repository += f"_{level.name}"
+    if cap_completion:
+        repository += "_cap"
 
     store.create_repository(repository)
     try:
@@ -335,6 +348,7 @@ def generate_dataset(
                         if copy_relations
                         else []
                     ),
+                    *(["--cap-completion"] if cap_completion else []),
                 ],
                 [
                     "skgg.cli.graph",
@@ -377,6 +391,7 @@ def generate_all(
     times_file: Path | None = None,
     output_root: Path | None = None,
     copy_relations: list[str] | None = None,
+    cap_completion: bool = False,
 ) -> list[str]:
     """Generates the datasets under `root`, or with `levels`, their copies at those
     rule levels of `levels_file` (default `<output_root>/rule_levels.tsv`). With
@@ -443,6 +458,7 @@ def generate_all(
                 level,
                 output_root,
                 copy_relations,
+                cap_completion,
             )
         except (subprocess.CalledProcessError, requests.RequestException) as error:
             logger.error(
@@ -633,6 +649,12 @@ def _parse_args() -> argparse.Namespace:
         help="Pass --copy-relations to cli/main.py: these relations (e.g. type) are "
         "copied unchanged from the source instead of generated.",
     )
+    parser.add_argument(
+        "--cap-completion",
+        action="store_true",
+        help="Pass --cap-completion to cli/main.py: completion stops each relation "
+        "at its source frequency. Use with its own --output-root and --log-dir.",
+    )
     return parser.parse_args()
 
 
@@ -652,5 +674,6 @@ if __name__ == "__main__":
         args.times,
         args.output_root,
         args.copy_relations,
+        args.cap_completion,
     )
     sys.exit(1 if failures else 0)
