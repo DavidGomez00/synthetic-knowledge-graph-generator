@@ -115,9 +115,22 @@ def eta(old: dict, new: dict, times: list, jobs_list: list[int]) -> None:
           f"(min {min(ratios):.2f}, max {max(ratios):.2f}, {len(ratios)} levels)\n")
     todo: dict[str, list[float]] = {}
     for (d, level), o in old.items():
-        if (d, level) in new:
+        if (d, level) in new or level == "std1" and (d, "pca1") in new:
             continue
         todo.setdefault(d, []).append(float(o["seconds_synthesize"]) * ratio)
+    if not todo:
+        print("Every level is made. Synthesis time per dataset, levels made in both runs:\n")
+        print("| Dataset | Levels | Before | Now |")
+        print("|---|---:|---:|---:|")
+        per: dict[str, list[tuple[float, float]]] = {}
+        for d, _, t_old, t_new in times:
+            per.setdefault(d, []).append((t_old, t_new))
+        for d in sorted(per, key=lambda d: -sum(t for _, t in per[d])):
+            print(f"| {d} | {len(per[d])} | {hours(sum(t for t, _ in per[d]))} "
+                  f"| {hours(sum(t for _, t in per[d]))} |")
+        print(f"\nTotal: {hours(sum(t for _, _, t, _ in times))} before, "
+              f"{hours(sum(t for _, _, _, t in times))} now.")
+        return
     print("| Dataset | Levels | Synthesis, all levels | Longest level |")
     print("|---|---:|---:|---:|")
     for d in sorted(todo, key=lambda d: -sum(todo[d])):

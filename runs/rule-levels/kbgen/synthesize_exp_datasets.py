@@ -560,7 +560,13 @@ def write_summary(work_root: Path, results_dir: Path, root: Path, levels: bool =
         work_root, results_dir = work_root / "rule-levels", results_dir / "rule-levels"
     stats, folders = [], []
     for path in sorted(work_root.glob("*/stats.json")):
-        stats.append(json.loads(path.read_text()))
+        s = json.loads(path.read_text())
+        # A copy removed after its run (e.g. a level whose rules equal another's) is
+        # left out; its records stay in the work folder.
+        if levels and "output" in s and not Path(s["output"]).is_file():
+            logger.warning("[%s] copy %s no longer exists, left out of the summary", s["dataset"], s["output"])
+            continue
+        stats.append(s)
         folders.append(path.parent)
     if not stats:
         logger.warning("No stats.json under %s", work_root)
