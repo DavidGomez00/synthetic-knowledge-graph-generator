@@ -3,8 +3,8 @@ rules that leave it with no cycle.
 
 A rule set with a cycle in its relation graph (`p -> p`, `A -> B -> A`, ...) can
 leave predicates that completion never derives, so `cli/main.py` removes cyclic
-rules with `remove_minimal_cyclic_rules` before EDB generation. Symmetric rules whose
-relation is generated as undirected edges are exempt. See section 5 of
+rules with `remove_minimal_cyclic_rules` before initial-fact generation. Symmetric rules
+whose relation is generated as undirected edges are exempt. See section 5 of
 `docs/algorithm.md` for the method.
 """
 
@@ -160,10 +160,10 @@ def remove_minimal_cyclic_rules(
     other. A component with more than `MAX_EXACT_COMPONENT_SIZE` predicates loses
     every rule with an edge inside it.
 
-    The head predicate of a removed rule becomes extensional, and EDB generation
-    produces it, unless a remaining rule still derives it. Run it on the rule set a
-    run actually uses (after `parse_rule_set`'s confidence filter), before EDB
-    generation.
+    The head predicate of a removed rule becomes non-deducible, and initial-fact
+    generation produces it, unless a remaining rule still derives it. Run it on the rule
+    set a run actually uses (after `parse_rule_set`'s confidence filter), before
+    initial-fact generation.
 
     Returns:
         The removed rules, identified by rule_id.
@@ -224,7 +224,7 @@ def remove_minimal_cyclic_rules(
 
 def _pop_rules(rules: dict[str, HornRule], rule_ids: set[str]) -> dict[str, HornRule]:
     """Deletes `rule_ids` from `rules` and logs which head predicates become
-    extensional, which stay intensional and through which rules.
+    non-deducible, which stay deducible and through which rules.
 
     Returns:
         The removed rules, identified by rule_id.
@@ -238,15 +238,15 @@ def _pop_rules(rules: dict[str, HornRule], rule_ids: set[str]) -> dict[str, Horn
         if not rule.is_symmetric():
             producers[rule.head.predicate].append(rule.rule_id)
     removed_heads = {rule.head.predicate for rule in removed.values()}
-    extensional = sorted(short_term(p) for p in removed_heads if p not in producers)
-    if extensional:
+    non_deducible = sorted(short_term(p) for p in removed_heads if p not in producers)
+    if non_deducible:
         logger.info(
-            "Predicates made extensional by cyclic rule removal: %s",
-            ", ".join(extensional),
+            "Predicates made non-deducible by cyclic rule removal: %s",
+            ", ".join(non_deducible),
         )
     for pred in sorted(removed_heads & producers.keys(), key=short_term):
         logger.info(
-            "%s stays intensional: derived by rules %s.",
+            "%s stays deducible: derived by rules %s.",
             short_term(pred),
             ", ".join(sorted(producers[pred], key=rule_sort_key)),
         )

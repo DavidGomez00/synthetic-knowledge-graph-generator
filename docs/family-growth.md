@@ -2,7 +2,7 @@
 
 This generator's copies of `family` are 3.0 to 4.9 times the size of the source, while the copies of the other 23 benchmark datasets keep their source's size. This page explains why, with the measurements of 17 November 2026. It is a limitation of the method, not a bug in the code, and nothing here has been fixed yet (see [Possible fixes](#possible-fixes)).
 
-In short: the generator keeps each relation's frequency and degrees and each rule's support, but draws the extensional relations independently of each other, so the copy loses how they line up in the source (a child's father and mother are a couple, siblings share their parents). Completion forward-chains the complete rules without a cap. A complete rule whose body reaches the same head pair through several groundings in the source then reaches a new pair with nearly every grounding in the copy, and the relations it inflates feed other complete rules. Only `family` has complete rules that do this and survive cycle removal.
+In short: the generator keeps each relation's frequency and degrees and each rule's support, but draws the non-deducible relations independently of each other, so the copy loses how they line up in the source (a child's father and mother are a couple, siblings share their parents). Completion forward-chains the complete rules without a cap. A complete rule whose body reaches the same head pair through several groundings in the source then reaches a new pair with nearly every grounding in the copy, and the relations it inflates feed other complete rules. Only `family` has complete rules that do this and survive cycle removal.
 
 ## The size of the copies
 
@@ -16,7 +16,7 @@ In short: the generator keeps each relation's frequency and degrees and each rul
 | `r75` | 96,780 | 3.41 | 134,916 | 4.76 | 28,262 |
 | `r100` | 101,956 | 3.60 | 137,589 | 4.85 | 28,262 |
 
-The extensional relations keep their source frequency; the relations that complete rules derive do not:
+The non-deducible relations keep their source frequency; the relations that complete rules derive do not:
 
 | Relation | Source | Ours `std1` | Ours `pca1` | Ours `r100` | Ours PCA `r100` | kbgen `r100` |
 |---|---|---|---|---|---|---|
@@ -38,7 +38,7 @@ The extensional relations keep their source frequency; the relations that comple
 
 ## What the generator keeps
 
-Section 3 of [`algorithm.md`](algorithm.md) builds the EDB to match each extensional relation's frequency and degree maps (`PredicateProfile`), and grounds each complete rule's extensional body until the rule can reach its support. Random triples (Mechanism 3) then fill each relation to its frequency, drawing subjects and objects from that relation's own degree map. Nothing ties one relation's random triples to another's, except the groundings that a rule builds. Completion (section 4) then adds every head that the complete rules derive, with no frequency cap.
+Section 3 of [`algorithm.md`](algorithm.md) builds F0 to match each non-deducible relation's frequency and degree maps (`PredicateProfile`), and grounds each complete rule's non-deducible body until the rule can reach its support. Random triples (Mechanism 3) then fill each relation to its frequency, drawing subjects and objects from that relation's own degree map. Nothing ties one relation's random triples to another's, except the groundings that a rule builds. Completion (section 4) then adds every head that the complete rules derive, with no frequency cap.
 
 So the copy has the source's number of fathers per child and children per father, but which father goes with which mother, and which siblings share a parent, is left to chance.
 
@@ -107,7 +107,7 @@ The copies add 58,085 (std `std1`) to 109,231 (PCA `r100`) triples, so nearly al
 
 A copy grows this way only if all of these hold:
 
-1. A rule is complete (std confidence 1, or PCA confidence 1 in the PCA setting). The heads of partial rules are placed by the EDB within each relation's frequency budget, so partial rules can't overshoot.
+1. A rule is complete (std confidence 1, or PCA confidence 1 in the PCA setting). The heads of partial rules are placed by initial-fact generation within each relation's frequency budget, so partial rules can't overshoot.
 2. It survives cycle removal (`core/cycles.remove_minimal_cyclic_rules`, section 5.2 of [`algorithm.md`](algorithm.md)), which always removes recursive rules (a body atom with the head's relation).
 3. Its body reaches a head pair through more than one grounding in the source.
 4. The relations it inflates feed other complete rules, which multiplies the growth (not required, but it is what takes `family` from 2 to 3.6 times).

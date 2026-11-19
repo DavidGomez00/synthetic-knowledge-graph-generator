@@ -1,4 +1,4 @@
-"""Generates synthetic Knowledge Graphs using extensional data and Horn rules.
+"""Generates synthetic Knowledge Graphs using non-deducible data and Horn rules.
 
 This module provides the core pipeline for triple generation, applying a set of graph
 metrics and logical rules to produce a complete, synthetic N-Triples dataset.
@@ -316,7 +316,7 @@ def sample_grounding_groups(
 
     Args:
         client: An instantiated and configured SPARQLWrapper client.
-        edb_uri: URI of the EDB, used to skip triples that already exist.
+        initial_facts_uri: URI of F0, used to skip triples that already exist.
         atoms: Body atoms to ground; their predicates must be keys of `profiles`.
         head_vars: Head variables of the rule (those absent from `atoms` are ignored).
         profiles: Remaining budget per predicate; mutated for accepted groundings.

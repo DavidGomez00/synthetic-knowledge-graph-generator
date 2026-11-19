@@ -1,10 +1,10 @@
 # Capping completion at the source frequency
 
-Completion forward-chains the complete rules over the EDB and, by default, inserts every head triple they derive, with no frequency cap. On `family` this makes the copies 4.3 to 4.9 times the source, because the copy keeps each complete rule's body groundings but spreads them over new head pairs ([`family-growth.md`](family-growth.md)). `--cap-completion` stops each relation at its source frequency. This page describes the cap and what it changes on `family` and `french`, measured on 19 November 2026 in the PCA setting (a rule is complete when its PCA confidence is 1, the only setting since that day). The KGE training on the capped copies is still to run (see [Still to run](#still-to-run)).
+Completion forward-chains the complete rules over F0 and, by default, inserts every head triple they derive, with no frequency cap. On `family` this makes the copies 4.3 to 4.9 times the source, because the copy keeps each complete rule's body groundings but spreads them over new head pairs ([`family-growth.md`](family-growth.md)). `--cap-completion` stops each relation at its source frequency. This page describes the cap and what it changes on `family` and `french`, measured on 19 November 2026 in the PCA setting (a rule is complete when its PCA confidence is 1, the only setting since that day). The KGE training on the capped copies is still to run (see [Still to run](#still-to-run)).
 
 ## The cap
 
-`cli/main.py --cap-completion` (and `cli/generate_datasets.py --cap-completion`, which passes it on) calls `engine/completion.complete_graph` with `caps`, each relation's source frequency (`_ClosureProgress.targets`, copied before the EDB spends the profiles), and `degree_targets`, a copy of the source profiles. Without the flag, completion is unchanged.
+`cli/main.py --cap-completion` (and `cli/generate_datasets.py --cap-completion`, which passes it on) calls `engine/completion.complete_graph` with `caps`, each relation's source frequency (`_ClosureProgress.targets`, copied before initial-fact generation spends the profiles), and `degree_targets`, a copy of the source profiles. Without the flag, completion is unchanged.
 
 With `caps`, each pass is a capped pass (`completion._capped_pass`):
 

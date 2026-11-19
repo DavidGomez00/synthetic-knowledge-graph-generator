@@ -1,7 +1,7 @@
 """Measures how much of the family structure of `family` a graph keeps.
 
 The generator keeps each relation's frequency and degrees, but draws the
-extensional relations independently, so a copy of `family` loses how they line
+non-deducible relations independently, so a copy of `family` loses how they line
 up: a child's father and mother form a couple, and siblings share their parents.
 For each `.tsv` file given, this script prints:
 
